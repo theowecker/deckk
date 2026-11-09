@@ -1,1 +1,1 @@
-{"parentUuid":null,"isSidechain":false,"type":"user","message":{"role":"user","content":"fix the flaky login test please"},"cwd":"/Users/me/app","gitBranch":"main","sessionId":"22222222-aaaa-bbbb-cccc-000000000002"}
+{"parentUuid":null,"isSidechain":false,"type":"user","message":{"role":"user","content":"fix the flaky login test please"},"cwd":"/Users/me/app","entrypoint":"sdk-cli","gitBranch":"main","sessionId":"22222222-aaaa-bbbb-cccc-000000000002"}

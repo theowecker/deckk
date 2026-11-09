@@ -23,6 +23,7 @@ type Live struct {
 	StartedAt  int64  `json:"startedAt"`
 	StatusAt   int64  `json:"statusUpdatedAt"`
 	ProcStart  string `json:"procStart"`
+	Entrypoint string `json:"entrypoint"`
 	TTY        string `json:"-"`
 }
 
@@ -30,6 +31,9 @@ func (l Live) applyTo(s *Session) {
 	s.PID = l.PID
 	s.TTY = l.TTY
 	s.Status = l.Status
+	if l.Entrypoint != "" {
+		s.Background = isBackground(l.Entrypoint)
+	}
 	if l.StartedAt > 0 {
 		s.StartedAt = time.UnixMilli(l.StartedAt)
 	}

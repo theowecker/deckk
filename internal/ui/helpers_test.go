@@ -58,6 +58,7 @@ func newTestModel(t *testing.T) (Model, *fakeHost) {
 // prepare stands in for state left by an earlier run of deckk.
 func newTestModelWith(t *testing.T, prepare func(*store.Store)) (Model, *fakeHost) {
 	t.Helper()
+	t.Setenv("TMUX", "")
 	st, err := store.Open(filepath.Join(t.TempDir(), "state.json"))
 	if err != nil {
 		t.Fatal(err)

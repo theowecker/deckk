@@ -211,7 +211,7 @@ func TestNewButtonOpensThePickerEvenWhileFiltering(t *testing.T) {
 	m, _ := newTestModel(t)
 	m, _ = press(m, "/")
 	tm, _ := m.Update(tea.KeyMsg{Type: tea.KeyF12})
-	if tm.(Model).picker == nil || tm.(Model).filtering {
+	if tm.(Model).picker == nil {
 		t.Fatal("F12 from the + new button should open the picker")
 	}
 }
@@ -443,9 +443,74 @@ func TestLongListsCollapseUntilAskedOrFiltered(t *testing.T) {
 	}
 	m, _ = press(m, "+")
 
-	m.filter.SetValue("Old 2")
+	m, _ = press(m, "/")
+	for _, r := range "Old 2" {
+		m, _ = press(m, string(r))
+	}
+	if len(m.groups) != 1 || len(m.groups[0].Sessions) != 7 || m.groups[0].Hidden != 0 {
+		t.Fatalf("find should search every session, got %+v", m.groups)
+	}
+}
+
+func TestBackgroundSessionsGetTheirOwnView(t *testing.T) {
+	m, _ := newTestModel(t)
+	m.sessions = append(m.sessions,
+		claude.Session{ID: "bg1", Title: "Analyze the PR data from stdin", Cwd: "/x", Background: true, UpdatedAt: time.Now()},
+		claude.Session{ID: "bg2", Title: "Summarize the diff", Cwd: "/x", Background: true, UpdatedAt: time.Now(), PID: 9, Status: "busy"},
+	)
 	m.rearrange()
-	if g := m.groups[len(m.groups)-1]; g.Hidden != 0 {
-		t.Fatal("filtering should search everything")
+	for _, s := range m.flat {
+		if s.Background {
+			t.Fatalf("%s should not be on the Sessions view", s.ID)
+		}
+	}
+
+	m, _ = press(m, "tab")
+	if m.view != backgroundView || len(m.flat) != 2 {
+		t.Fatalf("view %v shows %d", m.view, len(m.flat))
+	}
+
+	m, _ = press(m, "tab")
+	if m.view != findView {
+		t.Fatalf("tab should reach Find, got %v", m.view)
+	}
+	for _, r := range "pr data" {
+		m, _ = press(m, string(r))
+	}
+	if len(m.flat) != 1 || m.flat[0].ID != "bg1" {
+		t.Fatalf("find should include background sessions, got %d", len(m.flat))
+	}
+	m, _ = press(m, "esc")
+	m, _ = press(m, "esc")
+	if m.view != sessionsView {
+		t.Fatalf("esc twice should clear then leave Find, got %v", m.view)
+	}
+}
+
+func TestClickingAViewTabSwitchesToIt(t *testing.T) {
+	m, _ := newTestModel(t)
+	x := -1
+	for i := range m.width {
+		if v, ok := m.viewTabAt(i, 0); ok && v == findView {
+			x = i
+			break
+		}
+	}
+	if x < 0 {
+		t.Fatal("Find tab not found")
+	}
+	m, _ = click(m, x, 0)
+	if m.view != findView {
+		t.Fatalf("view %v", m.view)
+	}
+}
+
+func TestBackgroundSessionsNeverCountAsClosed(t *testing.T) {
+	m, host := newTestModel(t)
+	sessions := append(slices.Clone(m.sessions), claude.Session{ID: "bg", Background: true, PID: 7, TTY: "", Status: "busy", Cwd: "/x"})
+	m = reload(m, sessions, host.windows)
+	m = reload(m, sessions[:len(sessions)-1], host.windows)
+	if _, ok := m.store.Closed["bg"]; ok {
+		t.Fatal("a headless run finishing should not land in RECENTLY CLOSED")
 	}
 }

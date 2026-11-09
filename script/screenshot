@@ -13,7 +13,8 @@ freeze "$tmp/deckk.ansi" -o "$tmp/shot.svg" --window --background "#232338" \
 
 read -r width height < <(sed -nE 's/.*<svg width="([0-9.]+)" height="([0-9.]+)".*/\1 \2/p' "$tmp/shot.svg" | awk '{printf "%d %d\n", $1+0.99, $2+0.99}')
 echo "<html><body style=\"margin:0\"><img src=\"shot.svg\" width=\"$width\" height=\"$height\"></body></html>" > "$tmp/shot.html"
-"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --disable-gpu --mute-audio \
+# Headless Chrome sometimes never exits after writing the image.
+perl -e 'alarm 60; exec @ARGV' "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --disable-gpu --mute-audio \
   --hide-scrollbars --default-background-color=00000000 --force-device-scale-factor=2 \
   --user-data-dir="$tmp/chrome" --window-size="$width,$height" --screenshot="$PWD/docs/screenshot.png" "file://$tmp/shot.html" >/dev/null 2>&1
 echo "wrote docs/screenshot.png"

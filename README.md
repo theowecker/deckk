@@ -39,6 +39,8 @@ place.
 | `m` / `M` | bring one session, or all of them, back into deckk |
 | `R` | reopen everything that should be open |
 | `p` / `r` | pin or rename a session |
+| `/` | find any session, ever |
+| `tab` | switch between Sessions, Background and Find |
 | `v` | group by status or by project |
 | `s` | settings |
 | `?` | all keys |
@@ -59,6 +61,8 @@ Option while dragging to get iTerm2's own selection instead.
   and any pull request it opened.
 - **Sessions in other tabs.** Claude sessions started outside deckk show up
   too, and `m` moves them in.
+- **Background runs.** Headless sessions from `claude -p`, plugins and
+  scripts get their own Background view, so they don't crowd your own.
 - **Restarts.** Sessions in deckk keep running if you quit iTerm2. After a
   reboot, the dashboard lists what was open, plus anything closed in the last
   day, and `R` reopens all of it.

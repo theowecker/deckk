@@ -1,0 +1,175 @@
+package ui
+
+import (
+	"cmp"
+	"fmt"
+	"slices"
+	"strings"
+	"time"
+
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+
+	"github.com/theowecker/deckk/internal/claude"
+	"github.com/theowecker/deckk/internal/deck"
+)
+
+type view int
+
+const (
+	sessionsView view = iota
+	backgroundView
+	findView
+)
+
+const findLimit = 100
+
+func (v view) next() view { return (v + 1) % 3 }
+func (v view) prev() view { return (v + 2) % 3 }
+
+func (m Model) inView(sessions []claude.Session) []claude.Session {
+	background := m.view == backgroundView
+	return slices.DeleteFunc(slices.Clone(sessions), func(s claude.Session) bool { return s.Background != background })
+}
+
+func (m Model) switchView(v view) (tea.Model, tea.Cmd) {
+	if v == m.view {
+		return m, nil
+	}
+	m.view, m.cursor, m.offset, m.selectedID = v, 0, 0, ""
+	var cmd tea.Cmd
+	if v == findView {
+		cmd = tea.Batch(m.filter.Focus(), m.findEverything())
+	} else {
+		m.filter.Blur()
+	}
+	m.rearrange()
+	return m, cmd
+}
+
+type foundMsg []claude.Session
+
+// Find looks past the dashboard's time window, so it loads every transcript
+// once on the way in; the transcript cache makes later visits cheap.
+func (m Model) findEverything() tea.Cmd {
+	return func() tea.Msg {
+		sessions, err := claude.Load(m.home, time.Time{})
+		if err != nil {
+			return flashMsg{err: err}
+		}
+		m.store.ApplyNames(sessions)
+		return foundMsg(sessions)
+	}
+}
+
+func (m Model) findResults() []deck.Group {
+	pool := m.everything
+	if pool == nil {
+		pool = m.sessions
+	}
+	query := m.filter.Value()
+	var found []claude.Session
+	for _, s := range pool {
+		if deck.Matches(s, query) {
+			found = append(found, s)
+		}
+	}
+	slices.SortFunc(found, func(a, b claude.Session) int {
+		return cmp.Or(b.UpdatedAt.Compare(a.UpdatedAt), strings.Compare(a.ID, b.ID))
+	})
+	g := deck.Group{Section: deck.Recent, Title: "RESULTS", Sessions: found}
+	if query == "" {
+		g.Title = "LATEST"
+	}
+	if len(found) > findLimit {
+		g.Sessions, g.Hidden = found[:findLimit], len(found)-findLimit
+	}
+	if len(found) == 0 {
+		return nil
+	}
+	return []deck.Group{g}
+}
+
+func (m Model) updateFind(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	m.flash = ""
+	switch msg.String() {
+	case "esc":
+		if m.filter.Value() != "" {
+			m.filter.SetValue("")
+			m.rearrange()
+			return m, nil
+		}
+		return m.switchView(sessionsView)
+	case "tab":
+		return m.switchView(m.view.next())
+	case "shift+tab":
+		return m.switchView(m.view.prev())
+	case "up", "ctrl+p":
+		m.move(-1)
+		return m, nil
+	case "down", "ctrl+n":
+		m.move(1)
+		return m, nil
+	case "enter":
+		if s, ok := m.selected(); ok {
+			return m, m.open(s)
+		}
+		return m, nil
+	case "ctrl+c":
+		return m, m.detach()
+	}
+	var cmd tea.Cmd
+	m.filter, cmd = m.filter.Update(msg)
+	m.cursor = 0
+	m.rearrange()
+	return m, cmd
+}
+
+type viewTab struct {
+	view  view
+	label string
+}
+
+func (m Model) viewTabs() []viewTab {
+	background := 0
+	for _, s := range m.sessions {
+		if s.Background {
+			background++
+		}
+	}
+	label := "Background"
+	if background > 0 {
+		label = fmt.Sprintf("Background %d", background)
+	}
+	return []viewTab{{sessionsView, "Sessions"}, {backgroundView, label}, {findView, "Find"}}
+}
+
+const viewTabGap = "    "
+
+func (m Model) viewTabsLine() string {
+	var parts []string
+	for _, t := range m.viewTabs() {
+		if t.view == m.view {
+			parts = append(parts, accent.Bold(true).Underline(true).Render(t.label))
+		} else {
+			parts = append(parts, dim.Render(t.label))
+		}
+	}
+	return pad() + strings.Join(parts, viewTabGap)
+}
+
+// Must mirror viewTabsLine.
+func (m Model) viewTabAt(x, y int) (view, bool) {
+	if y != 0 {
+		return 0, false
+	}
+	start := gutter
+	for _, t := range m.viewTabs() {
+		end := start + lipgloss.Width(t.label)
+		if x >= start && x < end {
+			return t.view, true
+		}
+		start = end + len(viewTabGap)
+	}
+	return 0, false
+}

@@ -27,6 +27,7 @@ type Transcript struct {
 	PRURL       string
 	Dir         string
 	Cwd         string
+	Entrypoint  string
 	Branch      string
 }
 
@@ -35,6 +36,7 @@ func (t Transcript) Session() Session {
 		ID:         t.ID,
 		Dir:        cmp.Or(t.Dir, t.Cwd),
 		Cwd:        t.Cwd,
+		Background: isBackground(t.Entrypoint),
 		Title:      firstNonEmpty(t.CustomTitle, t.AITitle, t.AgentName, truncate(t.FirstPrompt, 60)),
 		LastPrompt: t.LastPrompt,
 		LastReply:  t.LastReply,
@@ -200,6 +202,7 @@ type entry struct {
 	LastPrompt  string          `json:"lastPrompt"`
 	Cwd         string          `json:"cwd"`
 	GitBranch   string          `json:"gitBranch"`
+	Entrypoint  string          `json:"entrypoint"`
 	IsMeta      bool            `json:"isMeta"`
 	IsSidechain bool            `json:"isSidechain"`
 	Message     json.RawMessage `json:"message"`
@@ -262,6 +265,7 @@ func apply(t *Transcript, e entry, forward bool) {
 		}
 	}
 	if !e.IsSidechain {
+		setOnce(&t.Entrypoint, e.Entrypoint)
 		setOnce(&t.Cwd, e.Cwd)
 		setOnce(&t.Branch, e.GitBranch)
 	}
@@ -316,6 +320,13 @@ func cleanPrompt(s string) string {
 		return ""
 	}
 	return strings.Join(strings.Fields(s), " ")
+}
+
+// Interactive sessions say "cli". Headless runs from claude -p, plugins and
+// the SDKs say something else, such as "sdk-cli". Resuming one by hand writes
+// "cli" again, and the latest entry wins.
+func isBackground(entrypoint string) bool {
+	return entrypoint != "" && entrypoint != "cli"
 }
 
 func firstNonEmpty(values ...string) string {

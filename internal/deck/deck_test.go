@@ -82,6 +82,16 @@ func TestCollapseKeepsRunningSessions(t *testing.T) {
 	}
 }
 
+func TestRestoreSkipsBackgroundSessions(t *testing.T) {
+	list := sessions()
+	list[0].Background = true
+	withOpen := marks
+	withOpen.Open = map[string]bool{"old": true}
+	if got := ToRestore(list, withOpen); len(got) != 1 || got[0].ID != "pin" {
+		t.Fatalf("got %+v", got)
+	}
+}
+
 func TestArrangeFiltersOnEveryWord(t *testing.T) {
 	assertSlice(t, ids(Arrange(sessions(), marks, "app search", false)), []string{"RECENT:new"})
 	assertSlice(t, ids(Arrange(sessions(), marks, "IDEA", false)), []string{"RECENT:new", "RECENT:old"})

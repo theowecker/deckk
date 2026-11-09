@@ -42,6 +42,10 @@ set -g allow-passthrough on
 set -g set-clipboard on
 set -g history-limit 50000
 set -g mouse on
+# deckk never needs the prefix, and Claude uses Ctrl+B itself.
+set -g prefix None
+set -g prefix2 None
+unbind C-b
 set -g copy-command "pbcopy"
 set -s user-keys[0] "\e[deckk-copy~"
 bind -n User0 { if -F "#{pane_in_mode}" ` + copied + ` }

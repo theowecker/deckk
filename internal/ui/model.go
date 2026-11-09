@@ -45,26 +45,26 @@ type Model struct {
 	flat     []claude.Session
 	loaded   bool
 
-	cursor       int
-	selectedID   string
-	offset       int
-	showArchived bool
-	showAll      bool
-	byProject    bool
-	filter       textinput.Model
-	filtering    bool
-	picker       *picker
-	settings     bool
-	setting      int
-	renaming     *textinput.Model
-	renameID     string
-	help         bool
-	confirm      string
-	seen         map[string]bool
-	wasRunning   map[string]bool
-	trackedOnce  bool
-	closing      map[string]bool
-	lastSeen     map[string]time.Time
+	cursor      int
+	selectedID  string
+	offset      int
+	view        view
+	showAll     bool
+	everything  []claude.Session
+	byProject   bool
+	filter      textinput.Model
+	picker      *picker
+	settings    bool
+	setting     int
+	renaming    *textinput.Model
+	renameID    string
+	help        bool
+	confirm     string
+	seen        map[string]bool
+	wasRunning  map[string]bool
+	trackedOnce bool
+	closing     map[string]bool
+	lastSeen    map[string]time.Time
 
 	lastClick  time.Time
 	lastClickY int
@@ -82,7 +82,7 @@ type Model struct {
 func New(home string, since time.Time, st *store.Store, cfg *config.Config, host Host) Model {
 	ti := textinput.New()
 	ti.Prompt = "/ "
-	ti.Placeholder = "filter by title, project, branch or prompt"
+	ti.Placeholder = "title, project, branch, prompt or reply"
 	ti.PromptStyle = accent
 	ti.Cursor.Style = accent
 	return Model{
@@ -192,8 +192,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.KeyMsg:
 		if msg.Type == tea.KeyF12 {
-			m.help, m.filtering = false, false
-			m.filter.Blur()
+			m.help = false
 			return m.openPicker()
 		}
 		switch {
@@ -206,10 +205,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.updateSettings(msg)
 		case m.renaming != nil:
 			return m.updateRename(msg)
-		case m.filtering:
-			return m.updateFilter(msg)
+		case m.view == findView:
+			return m.updateFind(msg)
 		}
 		return m.updateList(msg)
+
+	case foundMsg:
+		m.everything = msg
+		m.rearrange()
+		return m, nil
 
 	case tea.MouseMsg:
 		return m.updateMouse(msg)
@@ -298,7 +302,7 @@ func (m *Model) trackClosed() {
 	var closed, reopened []string
 	running := map[string]bool{}
 	for _, s := range m.sessions {
-		if s.Running() {
+		if s.Running() && !s.Background {
 			running[s.ID] = true
 			reopened = append(reopened, s.ID)
 		}
@@ -364,12 +368,16 @@ func (m *Model) trackWorkspace() {
 }
 
 func (m *Model) rearrange() {
-	arrange := deck.Arrange
-	if m.byProject {
-		arrange = deck.ArrangeByProject
+	if m.view == findView {
+		m.groups = m.findResults()
+	} else {
+		arrange := deck.Arrange
+		if m.byProject {
+			arrange = deck.ArrangeByProject
+		}
+		m.groups = arrange(m.inView(m.sessions), m.marks(), "", false)
 	}
-	m.groups = arrange(m.sessions, m.marks(), m.filter.Value(), m.showArchived)
-	if !m.showAll && m.filter.Value() == "" {
+	if !m.showAll && m.view != findView {
 		for i := range m.groups {
 			if limit, ok := m.collapseLimit(m.groups[i]); ok {
 				m.groups[i].Collapse(limit)

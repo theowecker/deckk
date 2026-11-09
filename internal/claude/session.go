@@ -17,6 +17,7 @@ type Session struct {
 	LastReply  string
 	Branch     string
 	UpdatedAt  time.Time
+	Background bool
 
 	PID       int
 	TTY       string

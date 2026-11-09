@@ -199,7 +199,7 @@ func compareBool(a, b bool) int {
 }
 
 func Matches(s claude.Session, query string) bool {
-	haystack := strings.ToLower(strings.Join([]string{s.Title, s.Project(), s.Branch, s.LastPrompt}, " "))
+	haystack := strings.ToLower(strings.Join([]string{s.Title, s.Project(), s.Branch, s.LastPrompt, s.LastReply, s.PR}, " "))
 	for word := range strings.FieldsSeq(strings.ToLower(query)) {
 		if !strings.Contains(haystack, word) {
 			return false
@@ -212,7 +212,7 @@ func ToRestore(sessions []claude.Session, marks Marks) []claude.Session {
 	var out []claude.Session
 	for _, s := range sessions {
 		wanted := marks.Pinned[s.ID] || marks.Open[s.ID] || marks.recentlyClosed(s)
-		if wanted && !s.Running() && !marks.Archived[s.ID] {
+		if wanted && !s.Running() && !marks.Archived[s.ID] && !s.Background {
 			out = append(out, s)
 		}
 	}

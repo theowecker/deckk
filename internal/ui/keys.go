@@ -4,28 +4,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-func (m Model) updateFilter(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch msg.String() {
-	case "esc":
-		m.filtering = false
-		m.filter.Blur()
-		m.filter.SetValue("")
-		m.rearrange()
-		return m, nil
-	case "enter":
-		m.filtering = false
-		m.filter.Blur()
-		return m, nil
-	case "up", "down", "ctrl+p", "ctrl+n":
-		return m.updateList(msg)
-	}
-	var cmd tea.Cmd
-	m.filter, cmd = m.filter.Update(msg)
-	m.cursor = 0
-	m.rearrange()
-	return m, cmd
-}
-
 func (m Model) updateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	m.flash = ""
 	key := msg.String()
@@ -42,17 +20,12 @@ func (m Model) updateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.move(-len(m.flat))
 	case "G", "end":
 		m.move(len(m.flat))
-	case "/":
-		m.filtering = true
-		return m, m.filter.Focus()
-	case "esc":
-		if m.filter.Value() != "" {
-			m.filter.SetValue("")
-			m.rearrange()
-		}
+	case "/", "f":
+		return m.switchView(findView)
 	case "tab":
-		m.showArchived = !m.showArchived
-		m.rearrange()
+		return m.switchView(m.view.next())
+	case "shift+tab":
+		return m.switchView(m.view.prev())
 	case "+", "=":
 		m.showAll = !m.showAll
 		m.rearrange()

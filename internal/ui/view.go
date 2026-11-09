@@ -80,12 +80,15 @@ func (m Model) header() string {
 	deckLines := miniDeck(m.frame, busy)
 	deckWidth := lipgloss.Width(deckLines[0])
 	if m.width < lipgloss.Width(left)+deckWidth+gutter*2 {
-		return "\n" + left + "\n"
+		return m.viewTabsLine() + "\n" + left + "\n"
 	}
 	lines := make([]string, 3)
 	for i, d := range deckLines {
 		l := ""
-		if i == 1 {
+		switch i {
+		case 0:
+			l = m.viewTabsLine()
+		case 1:
 			l = left
 		}
 		gap := m.width - lipgloss.Width(l) - deckWidth - gutter
@@ -104,12 +107,12 @@ func (m Model) headerLeft() string {
 	if m.settings {
 		return pad() + brand.Render("Settings")
 	}
-	if m.filtering || m.filter.Value() != "" {
+	if m.view == findView {
 		return pad() + m.filter.View()
 	}
 
 	var yourTurn, fresh, busy, resumable int
-	for _, s := range m.sessions {
+	for _, s := range m.inView(m.sessions) {
 		if m.unread(s) {
 			fresh++
 		}
@@ -151,8 +154,8 @@ func (m Model) hints() []hint {
 		return []hint{{"enter", "save"}, {"esc", "cancel"}}
 	case m.settings:
 		return []hint{{"enter", "change"}, {"esc", "done"}}
-	case m.filtering:
-		return []hint{{"enter", "done"}, {"esc", "clear"}}
+	case m.view == findView:
+		return []hint{{"enter", "open"}, {"↑↓", "move"}, {"esc", "back"}, {"tab", "next view"}}
 	}
 	var hints []hint
 	if s, ok := m.selected(); ok {
@@ -179,7 +182,7 @@ func (m Model) hints() []hint {
 		view = "by status"
 	}
 	// Least important last, since a narrow window cuts the end off.
-	return append(hints, hint{"n", "new"}, hint{"?", "all keys"}, hint{"q", "quit"}, hint{"s", "settings"}, hint{"/", "filter"}, hint{"v", view})
+	return append(hints, hint{"n", "new"}, hint{"?", "all keys"}, hint{"q", "quit"}, hint{"s", "settings"}, hint{"/", "find"}, hint{"v", view})
 }
 
 const hintSeparator = "   "
@@ -271,11 +274,14 @@ func (m Model) body() ([]string, []int) {
 		return []string{pad() + dim.Render("Reading sessions…")}, []int{-1}
 	}
 	if len(m.flat) == 0 {
-		msg := "No Claude sessions yet. Start one with claude in any project."
-		if m.filter.Value() != "" {
-			msg = "Nothing matches that filter."
+		msg := "No Claude sessions yet. Press n to start one in a folder."
+		switch m.view {
+		case backgroundView:
+			msg = "No background sessions. Headless runs from claude -p, plugins and scripts show up here."
+		case findView:
+			msg = "No session matches that."
 		}
-		return []string{pad() + dim.Render(msg)}, []int{-1}
+		return []string{pad() + dim.Render(msg)}, []int{noOwner}
 	}
 
 	var lines []string
@@ -284,7 +290,7 @@ func (m Model) body() ([]string, []int) {
 		lines = append(lines, line)
 		owners = append(owners, owner)
 	}
-	if m.filter.Value() == "" {
+	if m.view == sessionsView {
 		if n := len(deck.ToRestore(m.sessions, m.marks())); n > 0 {
 			add(pad()+accent.Render("↻ ")+text.Render(plural(n, "session")+" to bring back")+
 				"   "+text.Render("R")+" "+ghost.Render("reopen all"), restoreOwner)
@@ -327,7 +333,7 @@ func (m Model) body() ([]string, []int) {
 			add(pad()+"  "+dim.Render(fmt.Sprintf("+ %d more", g.Hidden))+"   "+text.Render("+")+" "+ghost.Render("show all"), moreOwner)
 		}
 	}
-	if m.showAll && m.filter.Value() == "" {
+	if m.showAll && m.view != findView {
 		add("", noOwner)
 		add(pad()+"  "+text.Render("+")+" "+ghost.Render("show fewer"), moreOwner)
 	}
@@ -480,9 +486,10 @@ func helpBody(frame int) ([]string, []int) {
 			{"R", "reopen everything: last workspace, pins and anything closed today"},
 			{"p", "pin a session so it is always part of your workspace"},
 			{"r", "rename a session. Leave it empty to go back to Claude's title"},
-			{"a   tab", "archive a session, or show archived ones"},
+			{"a", "archive a session. Find still lists it"},
+			{"tab", "switch between Sessions, Background and Find"},
 			{"+", "show every session, or only the latest few"},
-			{"/", "filter by title, project, branch or prompt"},
+			{"/   f", "find any session, ever, by title, project, prompt or reply"},
 			{"v", "group sessions by status or by project"},
 			{"s", "settings for the Claude sessions deckk starts"},
 			{"q", "quit. Sessions keep running and deckk brings you back"},

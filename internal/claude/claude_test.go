@@ -25,6 +25,9 @@ func TestReadTranscriptPrefersNewestMarkers(t *testing.T) {
 	assertEqual(t, "dir", tr.Dir, "/Users/me/app")
 	assertEqual(t, "first prompt", tr.FirstPrompt, "")
 	assertEqual(t, "title", tr.Session().Title, "dark mode")
+	if tr.Session().Background {
+		t.Error("an interactive session is not background")
+	}
 }
 
 func TestReadTranscriptFallsBackToFirstPrompt(t *testing.T) {
@@ -34,6 +37,9 @@ func TestReadTranscriptFallsBackToFirstPrompt(t *testing.T) {
 	}
 	assertEqual(t, "first prompt", tr.FirstPrompt, "fix the flaky login test please")
 	assertEqual(t, "title", tr.Session().Title, "fix the flaky login test please")
+	if !tr.Session().Background {
+		t.Error("a session started by claude -p belongs in the background")
+	}
 }
 
 func TestReadTranscriptOnlyReadsTheTail(t *testing.T) {

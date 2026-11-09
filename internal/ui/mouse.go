@@ -28,6 +28,9 @@ func (m Model) updateMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 	case tea.MouseButtonWheelDown:
 		m.moveActive(1)
 	case tea.MouseButtonLeft:
+		if v, ok := m.viewTabAt(msg.X, msg.Y); ok {
+			return m.switchView(v)
+		}
 		if msg.Y == m.footerY() {
 			if key, ok := m.hintAt(msg.X); ok {
 				return m.dispatch(keyMsg(key))
@@ -76,8 +79,8 @@ func (m Model) dispatch(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.updateSettings(msg)
 	case m.renaming != nil:
 		return m.updateRename(msg)
-	case m.filtering:
-		return m.updateFilter(msg)
+	case m.view == findView:
+		return m.updateFind(msg)
 	}
 	return m.updateList(msg)
 }
