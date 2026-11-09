@@ -53,6 +53,9 @@ func (m Model) updateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "tab":
 		m.showArchived = !m.showArchived
 		m.rearrange()
+	case "+", "=":
+		m.showAll = !m.showAll
+		m.rearrange()
 	case "v":
 		m.byProject = !m.byProject
 		m.offset = 0

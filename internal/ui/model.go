@@ -49,6 +49,7 @@ type Model struct {
 	selectedID   string
 	offset       int
 	showArchived bool
+	showAll      bool
 	byProject    bool
 	filter       textinput.Model
 	filtering    bool
@@ -368,6 +369,13 @@ func (m *Model) rearrange() {
 		arrange = deck.ArrangeByProject
 	}
 	m.groups = arrange(m.sessions, m.marks(), m.filter.Value(), m.showArchived)
+	if !m.showAll && m.filter.Value() == "" {
+		for i := range m.groups {
+			if limit, ok := m.collapseLimit(m.groups[i]); ok {
+				m.groups[i].Collapse(limit)
+			}
+		}
+	}
 	m.flat = m.flat[:0]
 	for _, g := range m.groups {
 		m.flat = append(m.flat, g.Sessions...)
@@ -379,6 +387,16 @@ func (m *Model) rearrange() {
 		}
 	}
 	m.move(0)
+}
+
+func (m Model) collapseLimit(g deck.Group) (int, bool) {
+	switch {
+	case m.byProject:
+		return 5, true
+	case g.Section == deck.Recent || g.Section == deck.Closed || g.Section == deck.Archived:
+		return 10, true
+	}
+	return 0, false
 }
 
 func (m *Model) move(delta int) {

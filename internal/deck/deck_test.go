@@ -69,6 +69,19 @@ func TestArrangeByProjectPutsBusyProjectsFirst(t *testing.T) {
 	}
 }
 
+func TestCollapseKeepsRunningSessions(t *testing.T) {
+	g := Group{Sessions: sessions()}
+	g.Collapse(1)
+	var got []string
+	for _, s := range g.Sessions {
+		got = append(got, s.ID)
+	}
+	assertSlice(t, got, []string{"old", "live", "busy"})
+	if g.Hidden != 3 {
+		t.Fatalf("hidden %d", g.Hidden)
+	}
+}
+
 func TestArrangeFiltersOnEveryWord(t *testing.T) {
 	assertSlice(t, ids(Arrange(sessions(), marks, "app search", false)), []string{"RECENT:new"})
 	assertSlice(t, ids(Arrange(sessions(), marks, "IDEA", false)), []string{"RECENT:new", "RECENT:old"})

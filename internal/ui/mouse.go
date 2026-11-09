@@ -56,6 +56,8 @@ func (m Model) updateMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 			return m, m.popAll()
 		case moveInOwner:
 			return m, m.adoptAll()
+		case moreOwner:
+			return m.updateList(keyMsg("+"))
 		}
 		m.lastClick, m.lastClickY = now, msg.Y
 		m.moveActive(index - m.activeCursor())

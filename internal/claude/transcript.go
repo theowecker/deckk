@@ -55,26 +55,41 @@ func ScanTranscripts(dir string, since time.Time, keep map[string]Live) ([]Trans
 		return nil, err
 	}
 
+	results := make([]*Transcript, len(paths))
+	var wg sync.WaitGroup
+	limit := make(chan struct{}, 8)
+	for i, p := range paths {
+		wg.Go(func() {
+			limit <- struct{}{}
+			defer func() { <-limit }()
+			results[i] = scanOne(p, since, keep)
+		})
+	}
+	wg.Wait()
+
 	var transcripts []Transcript
-	for _, p := range paths {
-		info, err := os.Stat(p)
-		if err != nil {
-			continue
+	for _, t := range results {
+		if t != nil {
+			transcripts = append(transcripts, *t)
 		}
-		id := strings.TrimSuffix(filepath.Base(p), ".jsonl")
-		if _, live := keep[id]; !live && info.ModTime().Before(since) {
-			continue
-		}
-		t, err := cache.read(p, info)
-		if err != nil {
-			continue
-		}
-		if t.LastPrompt == "" && t.FirstPrompt == "" {
-			continue
-		}
-		transcripts = append(transcripts, t)
 	}
 	return transcripts, nil
+}
+
+func scanOne(path string, since time.Time, keep map[string]Live) *Transcript {
+	info, err := os.Stat(path)
+	if err != nil {
+		return nil
+	}
+	id := strings.TrimSuffix(filepath.Base(path), ".jsonl")
+	if _, live := keep[id]; !live && info.ModTime().Before(since) {
+		return nil
+	}
+	t, err := cache.read(path, info)
+	if err != nil || t.LastPrompt == "" && t.FirstPrompt == "" {
+		return nil
+	}
+	return &t
 }
 
 var cache = transcriptCache{entries: map[string]cached{}}

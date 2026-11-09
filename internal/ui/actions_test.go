@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -421,5 +422,30 @@ func TestSettingsShapeTheClaudeCommand(t *testing.T) {
 	run(cmd)
 	if len(host.opened) != 1 || !strings.Contains(host.opened[0], `--settings '{"viewMode":"focus"}'`) {
 		t.Fatalf("opened %v", host.opened)
+	}
+}
+
+func TestLongListsCollapseUntilAskedOrFiltered(t *testing.T) {
+	m, _ := newTestModel(t)
+	now := time.Now()
+	for i := range 25 {
+		m.sessions = append(m.sessions, claude.Session{ID: fmt.Sprintf("old%02d", i), Title: fmt.Sprintf("Old %d", i), Cwd: "/x", UpdatedAt: now.Add(-time.Duration(i+3) * time.Hour)})
+	}
+	m.rearrange()
+	recent := m.groups[len(m.groups)-1]
+	if len(recent.Sessions) != 10 || recent.Hidden != 18 {
+		t.Fatalf("recent shows %d, hides %d", len(recent.Sessions), recent.Hidden)
+	}
+
+	m, _ = press(m, "+")
+	if g := m.groups[len(m.groups)-1]; g.Hidden != 0 || len(g.Sessions) != 28 {
+		t.Fatalf("+ should show everything, got %d hidden", g.Hidden)
+	}
+	m, _ = press(m, "+")
+
+	m.filter.SetValue("Old 2")
+	m.rearrange()
+	if g := m.groups[len(m.groups)-1]; g.Hidden != 0 {
+		t.Fatal("filtering should search everything")
 	}
 }

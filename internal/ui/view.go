@@ -252,6 +252,7 @@ const (
 	restoreOwner = -2
 	popAllOwner  = -3
 	moveInOwner  = -4
+	moreOwner    = -5
 )
 
 // body also returns what each line belongs to, so scrolling, clicks and
@@ -301,7 +302,7 @@ func (m Model) body() ([]string, []int) {
 		if gi > 0 {
 			add("", -1)
 		}
-		title := pad() + ghost.Render(fmt.Sprintf("%s  %d", g.Title, len(g.Sessions)))
+		title := pad() + ghost.Render(fmt.Sprintf("%s  %d", g.Title, len(g.Sessions)+g.Hidden))
 		switch {
 		case m.byProject:
 			add(title, noOwner)
@@ -322,6 +323,13 @@ func (m Model) body() ([]string, []int) {
 			}
 			index++
 		}
+		if g.Hidden > 0 {
+			add(pad()+"  "+dim.Render(fmt.Sprintf("+ %d more", g.Hidden))+"   "+text.Render("+")+" "+ghost.Render("show all"), moreOwner)
+		}
+	}
+	if m.showAll && m.filter.Value() == "" {
+		add("", noOwner)
+		add(pad()+"  "+text.Render("+")+" "+ghost.Render("show fewer"), moreOwner)
 	}
 	return lines, owners
 }
@@ -473,6 +481,7 @@ func helpBody(frame int) ([]string, []int) {
 			{"p", "pin a session so it is always part of your workspace"},
 			{"r", "rename a session. Leave it empty to go back to Claude's title"},
 			{"a   tab", "archive a session, or show archived ones"},
+			{"+", "show every session, or only the latest few"},
 			{"/", "filter by title, project, branch or prompt"},
 			{"v", "group sessions by status or by project"},
 			{"s", "settings for the Claude sessions deckk starts"},

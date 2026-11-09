@@ -54,6 +54,23 @@ type Group struct {
 	Section  Section
 	Title    string
 	Sessions []claude.Session
+	Hidden   int
+}
+
+// Collapse keeps a group to its running sessions plus the first limit others.
+func (g *Group) Collapse(limit int) {
+	var kept []claude.Session
+	shown := 0
+	for _, s := range g.Sessions {
+		if s.Running() || shown < limit {
+			kept = append(kept, s)
+			if !s.Running() {
+				shown++
+			}
+		}
+	}
+	g.Hidden = len(g.Sessions) - len(kept)
+	g.Sessions = kept
 }
 
 type Marks struct {
