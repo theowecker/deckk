@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Regenerates docs/screenshot.png from demo data.
+# Needs freeze (brew install charmbracelet/tap/freeze) and Google Chrome.
+# freeze's own PNG output ignores the font, so Chrome rasterizes its SVG.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+
+DECKK_SCREENSHOT="$tmp/deckk.ansi" go test ./internal/ui -run TestScreenshot -count=1 >/dev/null
+freeze "$tmp/deckk.ansi" -o "$tmp/shot.svg" --window --background "#232338" \
+  --padding 24,32 --margin 0 --border.radius 10 --font.size 14 --line-height 1.3 >/dev/null
+
+read -r width height < <(sed -nE 's/.*<svg width="([0-9.]+)" height="([0-9.]+)".*/\1 \2/p' "$tmp/shot.svg" | awk '{printf "%d %d\n", $1+0.99, $2+0.99}')
+echo "<html><body style=\"margin:0\"><img src=\"shot.svg\" width=\"$width\" height=\"$height\"></body></html>" > "$tmp/shot.html"
+"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --disable-gpu --mute-audio \
+  --hide-scrollbars --default-background-color=00000000 --force-device-scale-factor=2 \
+  --user-data-dir="$tmp/chrome" --window-size="$width,$height" --screenshot="$PWD/docs/screenshot.png" "file://$tmp/shot.html" >/dev/null 2>&1
+echo "wrote docs/screenshot.png"

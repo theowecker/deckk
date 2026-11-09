@@ -1,0 +1,19 @@
+version: "2"
+
+linters:
+  enable:
+    - misspell
+    - unconvert
+    - unparam
+  settings:
+    errcheck:
+      exclude-functions:
+        - fmt.Fprintf
+        - fmt.Fprintln
+        - fmt.Fprint
+        - (*os.File).Close
+
+formatters:
+  enable:
+    - gofmt
+    - goimports

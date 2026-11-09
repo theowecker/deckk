@@ -1,0 +1,12 @@
+{"type":"permission-mode","permissionMode":"auto","sessionId":"11111111-aaaa-bbbb-cccc-000000000001"}
+{"parentUuid":null,"isSidechain":false,"type":"user","isMeta":true,"message":{"role":"user","content":"<command-name>/clear</command-name>"},"cwd":"/Users/me/app","gitBranch":"main","sessionId":"11111111-aaaa-bbbb-cccc-000000000001"}
+{"parentUuid":"a","isSidechain":false,"type":"user","message":{"role":"user","content":[{"type":"text","text":"add a\n  dark mode toggle"}]},"cwd":"/Users/me/app","gitBranch":"main","sessionId":"11111111-aaaa-bbbb-cccc-000000000001"}
+{"parentUuid":"b","isSidechain":false,"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Sure."}]},"cwd":"/Users/me/app","gitBranch":"main","sessionId":"11111111-aaaa-bbbb-cccc-000000000001"}
+{"type":"ai-title","aiTitle":"Dark mode toggle","sessionId":"11111111-aaaa-bbbb-cccc-000000000001"}
+{"type":"last-prompt","lastPrompt":"add a dark mode toggle","sessionId":"11111111-aaaa-bbbb-cccc-000000000001"}
+{"parentUuid":"c","isSidechain":false,"type":"user","message":{"role":"user","content":"now ship it"},"cwd":"/Users/me/app","gitBranch":"feat/dark","sessionId":"11111111-aaaa-bbbb-cccc-000000000001"}
+{"parentUuid":"d","isSidechain":true,"type":"user","message":{"role":"user","content":"subagent task"},"cwd":"/tmp/elsewhere","gitBranch":"other","sessionId":"11111111-aaaa-bbbb-cccc-000000000001"}
+{"type":"ai-title","aiTitle":"Dark mode toggle and ship","sessionId":"11111111-aaaa-bbbb-cccc-000000000001"}
+{"type":"last-prompt","lastPrompt":"now ship it","sessionId":"11111111-aaaa-bbbb-cccc-000000000001"}
+{"type":"pr-link","sessionId":"11111111-aaaa-bbbb-cccc-000000000001","prNumber":42,"prUrl":"https://github.com/me/app/pull/42","prRepository":"me/app"}
+{"type":"custom-title","customTitle":"dark mode","sessionId":"11111111-aaaa-bbbb-cccc-000000000001"}
