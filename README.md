@@ -12,8 +12,13 @@ the ones that are running, and a way to bring everything back after a reboot.
 ## Install
 
 ```sh
-brew install --cask theowecker/tap/deckk
+brew tap theowecker/tap
+brew trust --cask theowecker/tap/deckk
+brew install --cask deckk
 ```
+
+Homebrew asks you to trust casks from taps outside its main repo before it
+will load them, which is what the middle line does.
 
 Then run `deckk`. It needs macOS and iTerm2, and uses tmux, which Homebrew
 installs for you. deckk runs its own tmux server with its own config, so it
