@@ -43,6 +43,8 @@ set -g set-clipboard on
 set -g history-limit 50000
 set -g mouse on
 set -g copy-command "pbcopy"
+set -s user-keys[0] "\e[deckk-copy~"
+bind -n User0 { if -F "#{pane_in_mode}" ` + copied + ` }
 bind -T copy-mode MouseDragEnd1Pane ` + copied + `
 bind -T copy-mode-vi MouseDragEnd1Pane ` + copied + `
 set -g base-index 0

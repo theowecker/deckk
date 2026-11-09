@@ -83,6 +83,11 @@ deckk reads what Claude Code already writes to disk:
 documented, so a Claude Code update can break deckk. The parsing is all in
 `internal/claude`.
 
+While deckk is open, its tab uses a "deckk" iTerm2 profile so that Cmd+C goes
+to deckk instead of iTerm2. The profile copies everything else from the
+profile you started in, and deckk switches back when you quit. It lives in
+`~/Library/Application Support/iTerm2/DynamicProfiles/deckk.json`.
+
 The mouse pointer changes over clickable things on iTerm2 3.7 and later.
 
 ## Development

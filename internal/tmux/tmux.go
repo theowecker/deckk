@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"slices"
 	"strings"
-	"syscall"
 )
 
 const (
@@ -223,15 +223,13 @@ func SetLabels(labels map[string]Label) error {
 	return err
 }
 
+// Attach runs as a child rather than replacing deckk, so deckk can tidy up
+// the terminal after you leave.
 func Attach(tmuxPath string) error {
-	env := os.Environ()
-	for i, kv := range env {
-		if strings.HasPrefix(kv, "TMUX=") {
-			env = append(env[:i], env[i+1:]...)
-			break
-		}
-	}
-	return syscall.Exec(tmuxPath, []string{"tmux", "-L", Socket, "attach-session", "-t", "=" + Session}, env)
+	cmd := exec.Command(tmuxPath, "-L", Socket, "attach-session", "-t", "="+Session)
+	cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
+	cmd.Env = slices.DeleteFunc(os.Environ(), func(kv string) bool { return strings.HasPrefix(kv, "TMUX=") })
+	return cmd.Run()
 }
 
 type Server struct{}

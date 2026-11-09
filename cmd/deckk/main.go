@@ -15,6 +15,7 @@ import (
 	"github.com/theowecker/deckk/internal/claude"
 	"github.com/theowecker/deckk/internal/config"
 	"github.com/theowecker/deckk/internal/deck"
+	"github.com/theowecker/deckk/internal/iterm"
 	"github.com/theowecker/deckk/internal/store"
 	"github.com/theowecker/deckk/internal/tmux"
 	"github.com/theowecker/deckk/internal/ui"
@@ -105,6 +106,12 @@ func launch(days int) error {
 		}
 	} else if err := tmux.Start(config, dashboardCmd); err != nil {
 		return err
+	}
+
+	if profile := os.Getenv("ITERM_PROFILE"); os.Getenv("TERM_PROGRAM") == "iTerm.app" &&
+		profile != "" && profile != iterm.ProfileName && iterm.InstallProfile(profile) == nil {
+		iterm.UseProfile(os.Stdout, iterm.ProfileName)
+		defer iterm.UseProfile(os.Stdout, profile)
 	}
 	return tmux.Attach(tmuxPath)
 }
