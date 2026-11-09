@@ -17,6 +17,10 @@ const plainGlyph = "#{?#{==:#{@deckk_status},home},◆," +
 
 const name = "#{?@deckk_name,#{@deckk_name},#W}"
 
+// tmux owns the mouse, so iTerm2 never sees a selection and Cmd+C has nothing
+// to copy. Copying to the macOS clipboard on release makes Cmd+V just work.
+const copied = `{ send -X copy-pipe-and-cancel ; display-message -d 1200 "Copied" }`
+
 // Window count at which the ⌃Space hint gives its room to the tabs. The
 // dashboard sizes tabs in ui/actions.go tabFit with the same threshold.
 const crowded = "6"
@@ -38,6 +42,9 @@ set -g allow-passthrough on
 set -g set-clipboard on
 set -g history-limit 50000
 set -g mouse on
+set -g copy-command "pbcopy"
+bind -T copy-mode MouseDragEnd1Pane ` + copied + `
+bind -T copy-mode-vi MouseDragEnd1Pane ` + copied + `
 set -g base-index 0
 set -g renumber-windows on
 set -g set-titles on

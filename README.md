@@ -42,6 +42,9 @@ place.
 Click a tab in the strip to switch to it. On the dashboard, `1` to `9` jump to
 a tab too.
 
+Drag over text to copy it to the clipboard, or double-click a word. Hold
+Option while dragging to get iTerm2's own selection instead.
+
 ## What it keeps track of
 
 - **Status.** Each session shows whether Claude is working or waiting on you,
