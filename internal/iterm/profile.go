@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"strings"
 )
 
@@ -87,8 +88,41 @@ func parentKeys(home, parent string) map[string]any {
 		if json.Unmarshal(out, &keys) != nil {
 			return nil
 		}
-		return keys
+		return withoutDeprecated(keys, plistJSON(filepath.Join(appPath(home), "Contents", "Resources", "DeprecatedProfileKeyMappings.plist")))
 	}
+}
+
+// iTerm2 asks to remove these from any dynamic profile that has them, every
+// time the profile loads. They are old defaults it no longer needs.
+func withoutDeprecated(keys, deprecated map[string]any) map[string]any {
+	kept := map[string]any{}
+	for key, value := range keys {
+		if old, ok := deprecated[key]; !ok || !reflect.DeepEqual(old, value) {
+			kept[key] = value
+		}
+	}
+	return kept
+}
+
+func appPath(home string) string {
+	for _, path := range []string{"/Applications/iTerm.app", filepath.Join(home, "Applications", "iTerm.app")} {
+		if _, err := os.Stat(path); err == nil {
+			return path
+		}
+	}
+	return ""
+}
+
+func plistJSON(path string) map[string]any {
+	out, err := exec.Command("plutil", "-convert", "json", "-o", "-", path).Output()
+	if err != nil {
+		return nil
+	}
+	var m map[string]any
+	if json.Unmarshal(out, &m) != nil {
+		return nil
+	}
+	return m
 }
 
 // UseProfile switches the current iTerm2 tab, and only that tab, to a profile.

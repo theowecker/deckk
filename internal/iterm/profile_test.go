@@ -33,3 +33,17 @@ func TestProfileInheritsAndRemapsCmdC(t *testing.T) {
 		t.Fatalf("the parent's Cmd+Backspace mapping was dropped: %v", p.KeyboardMap)
 	}
 }
+
+func TestDropsDeprecatedMappings(t *testing.T) {
+	ctrlLeft := map[string]any{"Action": float64(10), "Text": "[1;5D"}
+	deprecated := map[string]any{"0xf702-0x240000": ctrlLeft, "0xf703-0x240000": ctrlLeft}
+	keys := map[string]any{
+		"0xf702-0x240000": ctrlLeft,
+		"0xf703-0x240000": map[string]any{"Action": float64(11), "Text": "0x5"},
+		"0x7f-0x100000":   map[string]any{"Action": float64(11), "Text": "0x15"},
+	}
+	kept := withoutDeprecated(keys, deprecated)
+	if _, ok := kept["0xf702-0x240000"]; ok || len(kept) != 2 {
+		t.Fatalf("only exact deprecated mappings should go, kept %v", kept)
+	}
+}
