@@ -3,6 +3,7 @@ package tmux
 import (
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 const glyph = "#{?#{==:#{@deckk_status},home},#[fg=#E8875B]◆," +
@@ -18,8 +19,11 @@ const plainGlyph = "#{?#{==:#{@deckk_status},home},◆," +
 const name = "#{?@deckk_name,#{@deckk_name},#W}"
 
 // tmux owns the mouse, so iTerm2 never sees a selection and Cmd+C has nothing
-// to copy. Copying to the macOS clipboard on release makes Cmd+V just work.
+// to copy. A selection stays up until Cmd+C or Ctrl+C sends it to the macOS
+// clipboard, so Cmd+V just works.
 const copied = `{ send -X copy-pipe-and-cancel ; display-message -d 1200 "Copied" }`
+
+const copyIfSelected = `{ if -F "#{selection_present}" ` + copied + ` }`
 
 // Window count at which the ⌃Space hint gives its room to the tabs. The
 // dashboard sizes tabs in ui/actions.go tabFit with the same threshold.
@@ -32,7 +36,7 @@ const clickStatus = `{ if -F "#{==:#{mouse_status_range},new}" { select-window -
 // makes have no client tty, so it resets the pointer itself before those.
 const resetPointer = `{ if -F "#{client_tty}" { run-shell -b "printf '\\033]22;\\007' > '#{client_tty}' 2>/dev/null; true" } }`
 
-const config = `
+var config = `
 set -g default-terminal "tmux-256color"
 set -s terminal-features[90] "xterm*:RGB:extkeys:clipboard"
 set -g extended-keys on
@@ -48,10 +52,10 @@ set -g prefix2 None
 unbind C-b
 set -g copy-command "pbcopy"
 set -s user-keys[0] "\e[deckk-copy~"
-bind -n User0 { if -F "#{pane_in_mode}" ` + copied + ` }
-bind -T copy-mode MouseDragEnd1Pane ` + copied + `
-bind -T copy-mode-vi MouseDragEnd1Pane ` + copied + `
-set -g base-index 0
+bind -n User0 { if -F "#{pane_in_mode}" ` + copyIfSelected + ` }
+bind -n DoubleClick1Pane { select-pane -t = ; if -F "#{||:#{pane_in_mode},#{mouse_any_flag}}" { send -M } { copy-mode -H ; send -X select-word } }
+bind -n TripleClick1Pane { select-pane -t = ; if -F "#{||:#{pane_in_mode},#{mouse_any_flag}}" { send -M } { copy-mode -H ; send -X select-line } }
+` + copyModeBindings("copy-mode") + copyModeBindings("copy-mode-vi") + `set -g base-index 0
 set -g renumber-windows on
 set -g set-titles on
 set -g set-titles-string "deckk"
@@ -98,4 +102,13 @@ func WriteConfig() (string, error) {
 		return "", err
 	}
 	return path, os.WriteFile(path, []byte(config), 0o644)
+}
+
+func copyModeBindings(table string) string {
+	return strings.NewReplacer("TABLE", table).Replace(`bind -T TABLE MouseDown1Pane { select-pane ; send -X clear-selection }
+bind -T TABLE MouseDragEnd1Pane { send -X stop-selection }
+bind -T TABLE DoubleClick1Pane { select-pane ; send -X select-word }
+bind -T TABLE TripleClick1Pane { select-pane ; send -X select-line }
+bind -T TABLE C-c { if -F "#{selection_present}" ` + copied + ` { send -X cancel } }
+`)
 }
