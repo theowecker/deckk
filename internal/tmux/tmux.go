@@ -87,6 +87,7 @@ func RestartDashboard(dashboard string) error {
 	for _, w := range windows {
 		if w.Dashboard {
 			_, err := run("respawn-window", "-k", "-t", w.ID, dashboard)
+			_, _ = run("copy-mode", "-q", "-t", w.ID)
 			return err
 		}
 	}

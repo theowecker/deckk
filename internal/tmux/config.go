@@ -53,8 +53,10 @@ unbind C-b
 set -g copy-command "pbcopy"
 set -s user-keys[0] "\e[deckk-copy~"
 bind -n User0 { if -F "#{pane_in_mode}" ` + copyIfSelected + ` }
-bind -n DoubleClick1Pane { select-pane -t = ; if -F "#{||:#{pane_in_mode},#{mouse_any_flag}}" { send -M } { copy-mode -H ; send -X select-word } }
-bind -n TripleClick1Pane { select-pane -t = ; if -F "#{||:#{pane_in_mode},#{mouse_any_flag}}" { send -M } { copy-mode -H ; send -X select-line } }
+bind -n DoubleClick1Pane ` + toApp(`select-pane -t = ; copy-mode -H ; send -X select-word`) + `
+bind -n TripleClick1Pane ` + toApp(`select-pane -t = ; copy-mode -H ; send -X select-line`) + `
+bind -n MouseDrag1Pane ` + toApp(`copy-mode -M`) + `
+bind -n WheelUpPane ` + toApp(`if -F "#{alternate_on}" { send -M } { copy-mode -e }`) + `
 ` + copyModeBindings("copy-mode") + copyModeBindings("copy-mode-vi") + `set -g base-index 0
 set -g renumber-windows on
 set -g set-titles on
@@ -102,6 +104,12 @@ func WriteConfig() (string, error) {
 		return "", err
 	}
 	return path, os.WriteFile(path, []byte(config), 0o644)
+}
+
+// The dashboard never enters copy mode. It has no history to scroll, and a
+// click while it restarts would otherwise freeze it on a blank screen.
+func toApp(otherwise string) string {
+	return `{ if -F "#{||:#{pane_in_mode},#{mouse_any_flag},#{@deckk_dashboard}}" { send -M } { ` + otherwise + ` } }`
 }
 
 func copyModeBindings(table string) string {
