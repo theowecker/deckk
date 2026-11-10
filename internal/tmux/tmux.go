@@ -25,6 +25,7 @@ type Window struct {
 	Session   string
 	ClientTTY string
 	Active    bool
+	InMode    bool
 }
 
 func (w Window) PoppedOut() bool { return w.Session != Session }
@@ -87,7 +88,7 @@ func RestartDashboard(dashboard string) error {
 	for _, w := range windows {
 		if w.Dashboard {
 			_, err := run("respawn-window", "-k", "-t", w.ID, dashboard)
-			_, _ = run("copy-mode", "-q", "-t", w.ID)
+			_ = leaveModes(w.ID)
 			return err
 		}
 	}
@@ -104,7 +105,7 @@ func markDashboard(target string) error {
 }
 
 func Windows() ([]Window, error) {
-	out, err := run("list-windows", "-a", "-F", "#{window_id}\t#{pane_tty}\t#{@deckk_dashboard}\t#{session_name}\t#{&&:#{window_active},#{session_attached}}")
+	out, err := run("list-windows", "-a", "-F", "#{window_id}\t#{pane_tty}\t#{@deckk_dashboard}\t#{session_name}\t#{&&:#{window_active},#{session_attached}}\t#{pane_in_mode}")
 	if err != nil {
 		return nil, err
 	}
@@ -119,12 +120,13 @@ func Windows() ([]Window, error) {
 	var windows []Window
 	for line := range strings.Lines(out) {
 		fields := strings.Split(strings.TrimRight(line, "\n"), "\t")
-		if len(fields) != 5 {
+		if len(fields) != 6 {
 			continue
 		}
 		windows = append(windows, Window{
 			ID: fields[0], TTY: fields[1], Dashboard: fields[2] == "1",
 			Session: fields[3], ClientTTY: clients[fields[3]], Active: fields[4] == "1",
+			InMode: fields[5] != "0",
 		})
 	}
 	return windows, nil
@@ -235,7 +237,22 @@ func Attach(tmuxPath string) error {
 
 type Server struct{}
 
-func (Server) Windows() ([]Window, error) { return Windows() }
+// Something iTerm2 sends on attach can leave the dashboard in an empty
+// view-mode, which only Escape gets out of. It never needs a mode, so leave it.
+func (Server) Windows() ([]Window, error) {
+	windows, err := Windows()
+	for _, w := range windows {
+		if w.Dashboard && w.InMode {
+			_ = leaveModes(w.ID)
+		}
+	}
+	return windows, err
+}
+
+func leaveModes(windowID string) error {
+	_, err := run("copy-mode", "-q", "-t", windowID)
+	return err
+}
 func (Server) Open(dir, name, command string, focus bool) error {
 	return Open(dir, name, command, focus)
 }

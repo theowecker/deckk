@@ -26,7 +26,7 @@ func TestProfileInheritsAndRemapsCmdC(t *testing.T) {
 		t.Fatalf("profile %+v", p)
 	}
 	key := p.KeyboardMap["0x63-0x100000"]
-	if key["Action"] != float64(10) || key["Text"] != "[deckk-copy~" {
+	if key["Action"] != float64(10) || key["Text"] != CopySequence[1:] {
 		t.Fatalf("Cmd+C should send the deckk copy sequence, got %v", key)
 	}
 }

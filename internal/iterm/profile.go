@@ -14,7 +14,9 @@ const (
 	profileGUID = "6F0D9C1E-5B7A-4D2E-9C3B-DECC0000C0DE"
 	// CopySequence is what Cmd+C sends inside deckk. tmux binds it as a user
 	// key, so iTerm2 never runs its own copy and never nags about it.
-	CopySequence = "\x1b[deckk-copy~"
+	// Any CSI that starts like a real key confuses tmux's parser, and the tail
+	// leaks into the pane. Nothing uses 1337.
+	CopySequence = "\x1b[1337~"
 )
 
 // InstallProfile writes a dynamic profile that looks exactly like parent but

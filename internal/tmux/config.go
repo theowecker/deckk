@@ -1,9 +1,12 @@
 package tmux
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/theowecker/deckk/internal/iterm"
 )
 
 const glyph = "#{?#{==:#{@deckk_status},home},#[fg=#E8875B]◆," +
@@ -19,9 +22,9 @@ const plainGlyph = "#{?#{==:#{@deckk_status},home},◆," +
 const name = "#{?@deckk_name,#{@deckk_name},#W}"
 
 // tmux owns the mouse, so iTerm2 never sees a selection and Cmd+C has nothing
-// to copy. A selection stays up until Cmd+C or Ctrl+C sends it to the macOS
-// clipboard, so Cmd+V just works.
-const copied = `{ send -X copy-pipe-and-cancel ; display-message -d 1200 "Copied" }`
+// to copy. Cmd+C or Ctrl+C sends the selection to the macOS clipboard and,
+// like iTerm2, leaves it highlighted.
+const copied = `{ send -X copy-pipe-no-clear ; display-message -d 1200 "Copied" }`
 
 const copyIfSelected = `{ if -F "#{selection_present}" ` + copied + ` }`
 
@@ -51,11 +54,20 @@ set -g prefix None
 set -g prefix2 None
 unbind C-b
 set -g copy-command "pbcopy"
-set -s user-keys[0] "\e[deckk-copy~"
+set -s user-keys[0] "` + strings.ReplaceAll(iterm.CopySequence, "\x1b", `\e`) + `"
 bind -n User0 { if -F "#{pane_in_mode}" ` + copyIfSelected + ` }
 bind -n DoubleClick1Pane ` + toApp(`select-pane -t = ; copy-mode -H ; send -X select-word`) + `
 bind -n TripleClick1Pane ` + toApp(`select-pane -t = ; copy-mode -H ; send -X select-line`) + `
 bind -n MouseDrag1Pane ` + toApp(`copy-mode -M`) + `
+# deckk is one pane per window, so the mouse never splits, moves or resizes.
+unbind -n C-MouseDrag1Pane
+unbind -n M-MouseDrag1Pane
+unbind -n MouseDrag1Border
+unbind -n M-MouseDown3Pane
+unbind -n MouseDown3StatusLeft
+unbind -n M-MouseDown3Status
+unbind -n MouseDown3Status
+bind -n MouseDown3Pane { select-pane -t = ; send -M }
 bind -n WheelUpPane ` + toApp(`if -F "#{alternate_on}" { send -M } { copy-mode -e }`) + `
 ` + copyModeBindings("copy-mode") + copyModeBindings("copy-mode-vi") + `set -g base-index 0
 set -g renumber-windows on
@@ -112,11 +124,33 @@ func toApp(otherwise string) string {
 	return `{ if -F "#{||:#{pane_in_mode},#{mouse_any_flag},#{@deckk_dashboard}}" { send -M } { ` + otherwise + ` } }`
 }
 
+// Typing while text is selected leaves the selection and goes to the app, as
+// it would in iTerm2. Escape only clears, so it can't interrupt Claude.
 func copyModeBindings(table string) string {
-	return strings.NewReplacer("TABLE", table).Replace(`bind -T TABLE MouseDown1Pane { select-pane ; send -X clear-selection }
-bind -T TABLE MouseDragEnd1Pane { send -X stop-selection }
-bind -T TABLE DoubleClick1Pane { select-pane ; send -X select-word }
-bind -T TABLE TripleClick1Pane { select-pane ; send -X select-line }
-bind -T TABLE C-c { if -F "#{selection_present}" ` + copied + ` { send -X cancel } }
-`)
+	var b strings.Builder
+	bind := func(key, command string) {
+		fmt.Fprintf(&b, "bind -T %s %s %s\n", table, key, command)
+	}
+	bind("MouseDown1Pane", `{ select-pane ; if -F "#{scroll_position}" { send -X clear-selection } { send -X cancel } }`)
+	bind("MouseDragEnd1Pane", `{ send -X stop-selection }`)
+	bind("DoubleClick1Pane", `{ select-pane ; send -X select-word }`)
+	bind("TripleClick1Pane", `{ select-pane ; send -X select-line }`)
+	bind("C-c", `{ if -F "#{selection_present}" `+copied+` { send -X cancel ; send-keys C-c } }`)
+	bind("Escape", `{ send -X cancel }`)
+	for c := '!'; c <= '~'; c++ {
+		key := quote(string(c))
+		bind(key, `{ send -X cancel ; send-keys -l `+key+` }`)
+	}
+	for _, key := range []string{"Space", "Enter", "BSpace", "Tab", "BTab", "Up", "Down", "Left", "Right"} {
+		bind(key, `{ send -X cancel ; send-keys `+key+` }`)
+	}
+	return b.String()
+}
+
+// Single quotes, since tmux expands ~ even inside double quotes.
+func quote(s string) string {
+	if s == "'" {
+		return `"'"`
+	}
+	return "'" + s + "'"
 }
