@@ -6,7 +6,7 @@ import (
 )
 
 func TestProfileInheritsAndRemapsCmdC(t *testing.T) {
-	data, err := profileJSON("Default")
+	data, err := profileJSON("Default", map[string]any{"0x7f-0x100000": map[string]any{"Action": 11, "Text": "0x15"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -28,5 +28,8 @@ func TestProfileInheritsAndRemapsCmdC(t *testing.T) {
 	key := p.KeyboardMap["0x63-0x100000"]
 	if key["Action"] != float64(10) || key["Text"] != CopySequence[1:] {
 		t.Fatalf("Cmd+C should send the deckk copy sequence, got %v", key)
+	}
+	if p.KeyboardMap["0x7f-0x100000"]["Text"] != "0x15" {
+		t.Fatalf("the parent's Cmd+Backspace mapping was dropped: %v", p.KeyboardMap)
 	}
 }

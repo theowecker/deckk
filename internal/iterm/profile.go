@@ -5,8 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 )
 
 const (
@@ -30,7 +33,7 @@ func InstallProfile(parent string) error {
 	if _, err := os.Stat(filepath.Dir(dir)); err != nil {
 		return err
 	}
-	data, err := profileJSON(parent)
+	data, err := profileJSON(parent, parentKeys(home, parent))
 	if err != nil {
 		return err
 	}
@@ -44,20 +47,48 @@ func InstallProfile(parent string) error {
 	return os.WriteFile(path, data, 0o644)
 }
 
-func profileJSON(parent string) ([]byte, error) {
+// A dynamic profile's Keyboard Map replaces its parent's instead of adding to
+// it, so the parent's keys (Cmd+Backspace, Option+arrows) are copied in.
+func profileJSON(parent string, keys map[string]any) ([]byte, error) {
+	keyMap := map[string]any{}
+	maps.Copy(keyMap, keys)
 	copyKey := map[string]any{"Action": 10, "Text": CopySequence[1:]}
+	// Both spellings, since iTerm2 matches Cmd+C by either depending on
+	// whether the event carried a key code.
+	keyMap["0x63-0x100000"] = copyKey
+	keyMap["0x63-0x100000-0x8"] = copyKey
 	profile := map[string]any{
 		"Name":                        ProfileName,
 		"Guid":                        profileGUID,
 		"Dynamic Profile Parent Name": parent,
-		// Both spellings, since iTerm2 matches Cmd+C by either depending on
-		// whether the event carried a key code.
-		"Keyboard Map": map[string]any{
-			"0x63-0x100000":     copyKey,
-			"0x63-0x100000-0x8": copyKey,
-		},
+		"Keyboard Map":                keyMap,
 	}
 	return json.MarshalIndent(map[string]any{"Profiles": []any{profile}}, "", "  ")
+}
+
+// parentKeys reads the parent profile's key mappings from iTerm2's
+// preferences. A parent that can't be found just keeps iTerm2's defaults.
+func parentKeys(home, parent string) map[string]any {
+	prefs := filepath.Join(home, "Library", "Preferences", "com.googlecode.iterm2.plist")
+	for i := 0; ; i++ {
+		profile := fmt.Sprintf("New Bookmarks.%d", i)
+		name, err := exec.Command("plutil", "-extract", profile+".Name", "raw", "-o", "-", prefs).Output()
+		if err != nil {
+			return nil
+		}
+		if strings.TrimSpace(string(name)) != parent {
+			continue
+		}
+		out, err := exec.Command("plutil", "-extract", profile+".Keyboard Map", "json", "-o", "-", prefs).Output()
+		if err != nil {
+			return nil
+		}
+		var keys map[string]any
+		if json.Unmarshal(out, &keys) != nil {
+			return nil
+		}
+		return keys
+	}
 }
 
 // UseProfile switches the current iTerm2 tab, and only that tab, to a profile.
