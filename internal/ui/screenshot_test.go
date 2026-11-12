@@ -55,7 +55,7 @@ func TestScreenshot(t *testing.T) {
 	_ = st.SetClosed([]string{"a5"}, nil, at(40*time.Minute), 24*time.Hour)
 	cfg, _ := config.Load(filepath.Join(dir, "config.toml"))
 	m := New("", time.Time{}, st, cfg, &fakeHost{windows: windows})
-	m.width, m.height = 104, 26
+	m.width, m.height = 120, 26
 	m.loaded, m.startedAt = true, time.Time{}
 	m.sessions, m.tabs = sessions, windows
 	m.windows, m.popped = byTTY(windows)
@@ -63,7 +63,7 @@ func TestScreenshot(t *testing.T) {
 	m.rearrange()
 
 	screen := strip(m.width) + "\n\n" + m.View()
-	if err := os.WriteFile(out, []byte(screen), 0o644); err != nil {
+	if err := os.WriteFile(out, []byte(screenshotHTML(screen, m.width)), 0o644); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -82,7 +82,6 @@ func strip(width int) string {
 		tab.Render("  ") + glyph("#7AA2F7", "◓") + tab.Render(" Search API pagination  "),
 		tab.Render("  ") + glyph("#E8875B", "●") + tab.Render(" Onboarding copy pass  "),
 	}
-	hint := ghost.Render("⌃Space dashboard   ")
 	info := lipgloss.NewStyle().Background(lipgloss.Color("#30304A")).Foreground(lipgloss.Color("#8A8A9A")).Render("  ▴  ") + " "
 	button := lipgloss.NewStyle().Background(lipgloss.Color("#30304A")).Foreground(lipgloss.Color("#E8875B")).Bold(true).Render("  + new  ")
 	row := func(half string) (string, string) {
@@ -93,14 +92,14 @@ func strip(width int) string {
 		capOf := func(n int) string {
 			return lipgloss.NewStyle().Foreground(lipgloss.Color("#30304A")).Render(strings.Repeat(half, n))
 		}
-		return " " + strings.Join(caps, " "), strings.Repeat(" ", lipgloss.Width(hint)) + capOf(5) + " " + capOf(9) + " "
+		return " " + strings.Join(caps, " "), capOf(5) + " " + capOf(9) + " "
 	}
 	line := func(left, right string) string {
 		return left + strings.Repeat(" ", max(width-lipgloss.Width(left)-lipgloss.Width(right), 1)) + right
 	}
 	return strings.Join([]string{
 		line(row("▄")),
-		line(" "+strings.Join(tabs, " "), hint+info+button+" "),
+		line(" "+strings.Join(tabs, " "), info+button+" "),
 		line(row("▀")),
 	}, "\n")
 }
