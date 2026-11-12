@@ -4,13 +4,19 @@
 package terminal
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 )
+
+// A terminal waiting on a macOS automation prompt holds an AppleScript call
+// for two minutes. Long enough to click Allow, short enough not to stall.
+const scriptTimeout = 15 * time.Second
 
 // CopySequence is what Cmd+C sends where deckk can remap it. tmux binds it as
 // a user key and copies its own selection. Any CSI that starts like a real key
@@ -111,8 +117,13 @@ func (a App) running() bool {
 
 func (a App) run(body string) (string, error) {
 	script := fmt.Sprintf("tell application id %s\n%s\nend tell", quote(a.bundle), body)
-	out, err := exec.Command("osascript", "-e", script).CombinedOutput()
+	ctx, cancel := context.WithTimeout(context.Background(), scriptTimeout)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "osascript", "-e", script).CombinedOutput()
 	result := strings.TrimSpace(string(out))
+	if ctx.Err() != nil {
+		return "", fmt.Errorf("%s didn't answer. Check System Settings > Privacy & Security > Automation", a.Name)
+	}
 	if err != nil {
 		return "", fmt.Errorf("%s: %s", a.Name, result)
 	}

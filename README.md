@@ -57,13 +57,15 @@ copy. In iTerm2, Cmd+C works too. Click anywhere to clear the selection.
 deckk runs in any terminal. In iTerm2, Ghostty 1.3+ and Terminal it can also
 open, find and close tabs for you:
 
-| | iTerm2 | Ghostty | Terminal | Others |
+| When deckk runs in | iTerm2 | Ghostty | Terminal | Others |
 | --- | --- | --- | --- | --- |
 | Dashboard, tabs, resume, restore | yes | yes | yes | yes |
 | `o` moves a session to its own tab | yes | yes | a window | no |
-| Jump to sessions in other tabs | yes | yes | yes | no |
-| Cmd+C copies a selection | yes | Ctrl+C | Ctrl+C | Ctrl+C |
+| Copy a selection | Cmd+C | Ctrl+C | Ctrl+C | Ctrl+C |
 | Terminal's own selection | Option-drag | Shift-drag | Fn-drag | varies |
+
+Claude sessions running in iTerm2, Ghostty or Terminal tabs show up on the
+dashboard wherever deckk runs, and `↵` jumps to them.
 
 The first time deckk controls a terminal, macOS asks whether to allow it.
 
