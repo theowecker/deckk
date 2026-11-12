@@ -22,12 +22,18 @@ type fakeHost struct {
 	popped   []string
 	brought  []string
 	labels   map[string]tmux.Label
+	tabKeys  []string
 }
 
 func (h *fakeHost) PopOut(id string) error    { h.popped = append(h.popped, id); return nil }
 func (h *fakeHost) BringBack(id string) error { h.brought = append(h.brought, id); return nil }
 
 func (h *fakeHost) Focus(string) error { return nil }
+
+func (h *fakeHost) SetTabKeys(preset string) error {
+	h.tabKeys = append(h.tabKeys, preset)
+	return nil
+}
 
 func (h *fakeHost) Release(pid int, tty string) error {
 	h.released = append(h.released, tty)

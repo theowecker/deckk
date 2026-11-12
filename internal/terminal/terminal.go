@@ -41,7 +41,7 @@ type App struct {
 	close   string
 	open    string // {command} is the shell command for the new tab
 	// setup runs before deckk attaches and returns what undoes it.
-	setup func(out io.Writer) (undo func())
+	setup func(out io.Writer, tabKeys string) (undo func())
 }
 
 func Lookup(program string) (App, bool) {
@@ -59,11 +59,11 @@ func Current() (App, bool) { return Lookup(os.Getenv("TERM_PROGRAM")) }
 func (a App) Program() string { return a.program }
 
 // Setup prepares the tab deckk is about to take over.
-func (a App) Setup(out io.Writer) (undo func()) {
+func (a App) Setup(out io.Writer, tabKeys string) (undo func()) {
 	if a.setup == nil {
 		return func() {}
 	}
-	return a.setup(out)
+	return a.setup(out, tabKeys)
 }
 
 func (a App) CanOpenTabs() bool { return a.open != "" }

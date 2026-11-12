@@ -33,6 +33,7 @@ place.
 | --- | --- |
 | `↵` or double-click | open a session, or resume it if it isn't running |
 | `⌃Space` | flip between the dashboard and your last session |
+| `⌃⇧←` / `⌃⇧→` | previous or next tab (also `⌘⇧←` / `⌘⇧→` in iTerm2) |
 | `n` | start Claude in a folder |
 | `x` | close a session (it stays resumable) |
 | `o` / `O` | give one session, or all of them, its own iTerm2 tab |
@@ -92,7 +93,8 @@ The first time deckk controls a terminal, macOS asks whether to allow it.
 ## Settings
 
 Press `s` to set the view, model, effort and permission mode for every Claude
-that deckk starts. Settings live in `~/.config/deckk/config.toml`:
+that deckk starts, and the keys that switch tabs. Settings live in
+`~/.config/deckk/config.toml`:
 
 ```toml
 view = "focus"
@@ -101,10 +103,13 @@ effort = ""
 permission_mode = "acceptEdits"
 extra_args = "--add-dir ~/shared"
 days = 30
+tab_keys = ""
 ```
 
 An empty value leaves it to your normal Claude settings. `extra_args` is added
-to every `claude` command deckk runs.
+to every `claude` command deckk runs. `tab_keys` is empty for ⌘⇧← ⌘⇧→,
+`brackets` for ⌘⇧[ ⌘⇧], `pageup` for ⌃PgUp ⌃PgDn or `off`. The ⌘ keys take
+over iTerm2's own use of them, but only in the deckk tab.
 
 ## How it works
 

@@ -18,6 +18,7 @@ type Config struct {
 	Effort     string `toml:"effort"`
 	Permission string `toml:"permission_mode"`
 	ExtraArgs  string `toml:"extra_args"`
+	TabKeys    string `toml:"tab_keys"`
 	Days       int    `toml:"days"`
 
 	path string
@@ -28,16 +29,38 @@ type Option struct {
 	Label   string
 	Choices []string
 	field   func(*Config) *string
+	// Deckk options set deckk itself rather than the Claudes it starts.
+	Deckk bool
+	// Names shows a choice, and the empty choice, in words.
+	Names map[string]string
 }
+
+// Ways to switch deckk tabs from the keyboard. Ctrl+Shift+arrows work in any
+// terminal, and the iTerm2 profile maps the Cmd keys onto them.
+const (
+	TabKeysArrows   = ""
+	TabKeysBrackets = "brackets"
+	TabKeysPage     = "pageup"
+	TabKeysOff      = "off"
+)
 
 // Options are what the settings screen cycles through. An empty choice means
 // leave it to Claude's own settings. Modes that skip permission checks are
 // left out on purpose; extra_args can still set them.
 var Options = []Option{
-	{"view", "View", []string{"", "default", "verbose", "focus"}, func(c *Config) *string { return &c.View }},
-	{"model", "Model", []string{"", "opus", "sonnet", "fable", "haiku"}, func(c *Config) *string { return &c.Model }},
-	{"effort", "Effort", []string{"", "low", "medium", "high", "xhigh", "max"}, func(c *Config) *string { return &c.Effort }},
-	{"permission_mode", "Permissions", []string{"", "manual", "acceptEdits", "auto", "plan"}, func(c *Config) *string { return &c.Permission }},
+	{Key: "view", Label: "View", Choices: []string{"", "default", "verbose", "focus"}, field: func(c *Config) *string { return &c.View }},
+	{Key: "model", Label: "Model", Choices: []string{"", "opus", "sonnet", "fable", "haiku"}, field: func(c *Config) *string { return &c.Model }},
+	{Key: "effort", Label: "Effort", Choices: []string{"", "low", "medium", "high", "xhigh", "max"}, field: func(c *Config) *string { return &c.Effort }},
+	{Key: "permission_mode", Label: "Permissions", Choices: []string{"", "manual", "acceptEdits", "auto", "plan"}, field: func(c *Config) *string { return &c.Permission }},
+	{Key: "tab_keys", Label: "Switch tabs", Deckk: true,
+		Choices: []string{TabKeysArrows, TabKeysBrackets, TabKeysPage, TabKeysOff},
+		Names: map[string]string{
+			TabKeysArrows:   "⌘⇧← ⌘⇧→ in iTerm2, ⌃⇧← ⌃⇧→ anywhere",
+			TabKeysBrackets: "⌘⇧[ ⌘⇧] in iTerm2, ⌃⇧← ⌃⇧→ anywhere",
+			TabKeysPage:     "⌃PgUp ⌃PgDn",
+			TabKeysOff:      "off",
+		},
+		field: func(c *Config) *string { return &c.TabKeys }},
 }
 
 func DefaultPath() string {

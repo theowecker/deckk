@@ -27,6 +27,7 @@ type Host interface {
 	Release(pid int, tty string) error
 	PopOut(windowID string) error
 	BringBack(windowID string) error
+	SetTabKeys(preset string) error
 }
 
 type Model struct {

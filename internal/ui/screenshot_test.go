@@ -83,21 +83,24 @@ func strip(width int) string {
 		tab.Render("  ") + glyph("#E8875B", "●") + tab.Render(" Onboarding copy pass  "),
 	}
 	hint := ghost.Render("⌃Space dashboard   ")
+	info := lipgloss.NewStyle().Background(lipgloss.Color("#30304A")).Foreground(lipgloss.Color("#8A8A9A")).Render("  ▴  ") + " "
 	button := lipgloss.NewStyle().Background(lipgloss.Color("#30304A")).Foreground(lipgloss.Color("#E8875B")).Bold(true).Render("  + new  ")
 	row := func(half string) (string, string) {
 		var caps []string
 		for i, t := range tabs {
 			caps = append(caps, lipgloss.NewStyle().Foreground(lipgloss.Color(colors[i])).Render(strings.Repeat(half, lipgloss.Width(t))))
 		}
-		cap := lipgloss.NewStyle().Foreground(lipgloss.Color("#30304A")).Render(strings.Repeat(half, 9))
-		return " " + strings.Join(caps, " "), strings.Repeat(" ", lipgloss.Width(hint)) + cap + " "
+		capOf := func(n int) string {
+			return lipgloss.NewStyle().Foreground(lipgloss.Color("#30304A")).Render(strings.Repeat(half, n))
+		}
+		return " " + strings.Join(caps, " "), strings.Repeat(" ", lipgloss.Width(hint)) + capOf(5) + " " + capOf(9) + " "
 	}
 	line := func(left, right string) string {
 		return left + strings.Repeat(" ", max(width-lipgloss.Width(left)-lipgloss.Width(right), 1)) + right
 	}
 	return strings.Join([]string{
 		line(row("▄")),
-		line(" "+strings.Join(tabs, " "), hint+button+" "),
+		line(" "+strings.Join(tabs, " "), hint+info+button+" "),
 		line(row("▀")),
 	}, "\n")
 }

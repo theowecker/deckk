@@ -8,6 +8,7 @@ import (
 
 	"github.com/charmbracelet/x/ansi"
 
+	"github.com/theowecker/deckk/internal/config"
 	"github.com/theowecker/deckk/internal/terminal"
 )
 
@@ -35,13 +36,19 @@ const copyIfSelected = `{ if -F "#{selection_present}" ` + copied + ` }`
 const crowded = "6"
 
 // F12 rather than n, so the picker opens even while the filter has focus.
-const clickStatus = `{ if -F "#{==:#{mouse_status_range},new}" { select-window -t :0 ; send-keys -t :0 F12 } { select-window -t = } }`
+const clickStatus = `{ if -F "#{==:#{mouse_status_range},new}" { select-window -t :0 ; send-keys -t :0 F12 } { if -F "#{==:#{mouse_status_range},info}" ` + toggleInfo + ` { select-window -t = } } }`
+
+// The info band is the strip's last row, so hiding it is one row less.
+const toggleInfo = `{ if -F "#{==:#{status},4}" { set -g status 3 } { set -g status 4 } }`
+
+// The ▴ button collapses the info band and ▾ brings it back.
+const infoButton = `#[range=user|info]#[bg=#30304A,fg=#8A8A9A]  #{?#{==:#{status},4},▴,▾}  #[norange]#[default] `
 
 // Claude never resets the pointer the dashboard sets. Switches the dashboard
 // makes have no client tty, so it resets the pointer itself before those.
 const resetPointer = `{ if -F "#{client_tty}" { run-shell -b "printf '\\033]22;\\007' > '#{client_tty}' 2>/dev/null; true" } }`
 
-var config = `
+var tmuxConf = `
 set -g default-terminal "tmux-256color"
 set -s terminal-features[90] "xterm*:RGB:extkeys:clipboard"
 set -g extended-keys on
@@ -84,16 +91,16 @@ set -g @deckk_cap_tab "#[fg=#30304A]#{@deckk_cap}"
 set -g @deckk_cap_current "#[fg=#E8875B]#{@deckk_cap}"
 set -g @deckk_base_tab "#[fg=#30304A]#{s/▄/▀/:@deckk_cap}"
 set -g @deckk_base_current "#[fg=#E8875B]#{s/▄/▀/:@deckk_cap}"
-set -g status-format[0] "` + strip("@deckk_cap_tab", "@deckk_cap_current", newButton("▄")) + `"
+set -g status-format[0] "` + strip("@deckk_cap_tab", "@deckk_cap_current", buttonCaps("▄")) + `"
 set -g status-format[1] "` + strip("window-status-format", "window-status-current-format", "#{T:status-right}") + `"
-set -g status-format[2] "` + strip("@deckk_base_tab", "@deckk_base_current", newButton("▀")) + `"
+set -g status-format[2] "` + strip("@deckk_base_tab", "@deckk_base_current", buttonCaps("▀")) + `"
 set -g status-format[3] "#{?@deckk_info,#[fill=#24243A bg=#24243A]#{@deckk_info},}"
 set -g status-position top
 set -g status-justify left
 set -g status-style "bg=default,fg=default"
 set -g status-left " "
 set -g status-left-length 2
-set -g status-right "#{?#{e|<:#{session_windows},` + crowded + `},#[fg=#6B6B6B]⌃Space #[fg=#4A4A4A]dashboard   ,}#[range=user|new]#[bg=#30304A,fg=#E8875B,bold]  + new  #[norange]#[default] "
+set -g status-right "#{?#{e|<:#{session_windows},` + crowded + `},#[fg=#6B6B6B]⌃Space #[fg=#4A4A4A]dashboard   ,}` + infoButton + `#[range=user|new]#[bg=#30304A,fg=#E8875B,bold]  + new  #[norange]#[default] "
 set -g status-right-length 60
 set -g window-status-separator " "
 set -g window-status-style "default"
@@ -128,14 +135,37 @@ func strip(tab, current, right string) string {
 		"#[nolist align=right range=right]" + right + "#[norange default]"
 }
 
-// The + new button's cap, as wide as "  + new  ".
-func newButton(half string) string {
-	return "#[range=user|new]#[fg=#30304A]" + strings.Repeat(half, 9) + "#[norange default] "
+// The buttons' caps, as wide as "  ▴  " and "  + new  ".
+func buttonCaps(half string) string {
+	return "#[range=user|info]#[fg=#30304A]" + strings.Repeat(half, 5) + "#[norange default] " +
+		"#[range=user|new]#[fg=#30304A]" + strings.Repeat(half, 9) + "#[norange default] "
 }
 
 // Cap is a tab's top edge, as wide as its label in window-status-format.
 func Cap(name string) string {
 	return strings.Repeat("▄", ansi.StringWidth(strings.ReplaceAll(name, "##", "#"))+6)
+}
+
+// BindTabKeys sets the keys that move to the previous and next tab, from the
+// tab_keys setting. Ctrl+Shift+arrows reach tmux from any terminal and
+// nothing else uses them.
+func BindTabKeys(preset string) error {
+	args := []string{}
+	for _, key := range []string{"C-S-Left", "C-S-Right", "C-PPage", "C-NPage"} {
+		args = append(args, "unbind", "-q", "-n", key, ";")
+	}
+	var prev, next string
+	switch preset {
+	case config.TabKeysArrows, config.TabKeysBrackets:
+		prev, next = "C-S-Left", "C-S-Right"
+	case config.TabKeysPage:
+		prev, next = "C-PPage", "C-NPage"
+	}
+	if prev != "" {
+		args = append(args, "bind", "-n", prev, "previous-window", ";", "bind", "-n", next, "next-window")
+	}
+	_, err := run(args...)
+	return err
 }
 
 func WriteConfig() (string, error) {
@@ -147,7 +177,7 @@ func WriteConfig() (string, error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return "", err
 	}
-	return path, os.WriteFile(path, []byte(config), 0o644)
+	return path, os.WriteFile(path, []byte(tmuxConf), 0o644)
 }
 
 // The dashboard never enters copy mode. It has no history to scroll, and a

@@ -61,7 +61,7 @@ func run(args []string) error {
 
 	switch cmd {
 	case "":
-		return launch(*days)
+		return launch(*days, cfg.TabKeys)
 	case "dashboard":
 		return dashboard(*days, cfg, *program)
 	case "ls":
@@ -79,7 +79,7 @@ func run(args []string) error {
 	}
 }
 
-func launch(days int) error {
+func launch(days int, tabKeys string) error {
 	tmuxPath, err := tmux.Path()
 	if err != nil {
 		return err
@@ -110,7 +110,10 @@ func launch(days int) error {
 		return err
 	}
 
-	defer app.Setup(os.Stdout)()
+	if err := tmux.BindTabKeys(tabKeys); err != nil {
+		return err
+	}
+	defer app.Setup(os.Stdout, tabKeys)()
 	return tmux.Attach(tmuxPath)
 }
 

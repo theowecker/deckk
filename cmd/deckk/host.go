@@ -44,3 +44,10 @@ func (h host) PopOut(windowID string) error {
 }
 
 func (host) BringBack(windowID string) error { return tmux.BringBack(windowID) }
+
+func (host) SetTabKeys(preset string) error {
+	if err := tmux.BindTabKeys(preset); err != nil {
+		return err
+	}
+	return terminal.RefreshProfile(preset)
+}

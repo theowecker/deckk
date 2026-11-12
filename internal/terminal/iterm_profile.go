@@ -11,6 +11,8 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+
+	"github.com/theowecker/deckk/internal/config"
 )
 
 const (
@@ -20,7 +22,7 @@ const (
 
 // installProfile writes a dynamic profile that looks exactly like parent but
 // sends Cmd+C to deckk. iTerm2 reloads dynamic profiles as soon as they change.
-func installProfile(parent string) error {
+func installProfile(parent, tabKeys string) error {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return err
@@ -29,7 +31,7 @@ func installProfile(parent string) error {
 	if _, err := os.Stat(filepath.Dir(dir)); err != nil {
 		return err
 	}
-	data, err := profileJSON(parent, parentKeys(home, parent))
+	data, err := profileJSON(parent, parentKeys(home, parent), tabKeys)
 	if err != nil {
 		return err
 	}
@@ -45,7 +47,7 @@ func installProfile(parent string) error {
 
 // A dynamic profile's Keyboard Map replaces its parent's instead of adding to
 // it, so the parent's keys (Cmd+Backspace, Option+arrows) are copied in.
-func profileJSON(parent string, keys map[string]any) ([]byte, error) {
+func profileJSON(parent string, keys map[string]any, tabKeys string) ([]byte, error) {
 	keyMap := map[string]any{}
 	maps.Copy(keyMap, keys)
 	copyKey := map[string]any{"Action": 10, "Text": CopySequence[1:]}
@@ -53,6 +55,7 @@ func profileJSON(parent string, keys map[string]any) ([]byte, error) {
 	// whether the event carried a key code.
 	keyMap["0x63-0x100000"] = copyKey
 	keyMap["0x63-0x100000-0x8"] = copyKey
+	maps.Copy(keyMap, tabKeyMap(tabKeys))
 	profile := map[string]any{
 		"Name":                        profileName,
 		"Guid":                        profileGUID,
@@ -66,6 +69,43 @@ func profileJSON(parent string, keys map[string]any) ([]byte, error) {
 		"Scrollback in Alternate Screen": false,
 	}
 	return json.MarshalIndent(map[string]any{"Profiles": []any{profile}}, "", "  ")
+}
+
+// tabKeyMap sends the chosen Cmd keys to tmux as Ctrl+Shift+arrows. They
+// take over iTerm2's own use of the keys, but only in the deckk tab.
+func tabKeyMap(tabKeys string) map[string]any {
+	prev := map[string]any{"Action": 10, "Text": "[1;6D"}
+	next := map[string]any{"Action": 10, "Text": "[1;6C"}
+	switch tabKeys {
+	case config.TabKeysArrows:
+		return map[string]any{"0xf702-0x320000": prev, "0xf703-0x320000": next}
+	case config.TabKeysBrackets:
+		// Both spellings, with and without the key code, as for Cmd+C.
+		return map[string]any{"0x7b-0x120000": prev, "0x7b-0x120000-0x21": prev, "0x7d-0x120000": next, "0x7d-0x120000-0x1e": next}
+	}
+	return nil
+}
+
+// RefreshProfile rewrites an installed deckk profile for new tab keys.
+// iTerm2 picks up the change in tabs that already use it.
+func RefreshProfile(tabKeys string) error {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return err
+	}
+	data, err := os.ReadFile(filepath.Join(home, "Library", "Application Support", "iTerm2", "DynamicProfiles", "deckk.json"))
+	if err != nil {
+		return nil
+	}
+	var installed struct {
+		Profiles []struct {
+			Parent string `json:"Dynamic Profile Parent Name"`
+		}
+	}
+	if json.Unmarshal(data, &installed) != nil || len(installed.Profiles) == 0 {
+		return nil
+	}
+	return installProfile(installed.Profiles[0].Parent, tabKeys)
 }
 
 // parentKeys reads the parent profile's key mappings from iTerm2's

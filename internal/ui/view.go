@@ -483,8 +483,8 @@ func helpBody(frame int) ([]string, []int) {
 			{"x", "close a session running in deckk. It stays resumable"},
 			{"o   O", "give this session, or every one, its own tab"},
 			{"m   M", "bring this session, or all of them, from other tabs into deckk"},
-			{"R", "reopen everything: last workspace, pins and anything closed today"},
-			{"p", "pin a session so it is always part of your workspace"},
+			{"R", "reopen everything: last workspace and anything closed today"},
+			{"p", "pin a session to keep it in the Pinned list after you close it"},
 			{"r", "rename a session. Leave it empty to go back to Claude's title"},
 			{"a", "archive a session. Find still lists it"},
 			{"tab", "switch between Sessions, Background and Find"},
@@ -496,8 +496,10 @@ func helpBody(frame int) ([]string, []int) {
 		}},
 		{"ANYWHERE IN DECKK", [][2]string{
 			{"⌃Space", "flip between the dashboard and your last session"},
+			{"⌃⇧←  ⌃⇧→", "previous or next tab. ⌘⇧← and ⌘⇧→ in iTerm2"},
 			{"1 to 9", "on the dashboard, jump to that tab in the strip"},
 			{"click a tab", "switch to that session"},
+			{"click ▴", "hide the info line under the tabs, ▾ brings it back"},
 			{"scroll", "scroll back through a session"},
 		}},
 		{"FROM A SHELL", [][2]string{

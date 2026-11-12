@@ -12,6 +12,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/theowecker/deckk/internal/claude"
+	"github.com/theowecker/deckk/internal/config"
 	"github.com/theowecker/deckk/internal/deck"
 	"github.com/theowecker/deckk/internal/store"
 	"github.com/theowecker/deckk/internal/tmux"
@@ -520,5 +521,16 @@ func TestModelName(t *testing.T) {
 		if got := modelName(id); got != want {
 			t.Errorf("%s: got %q, want %q", id, got, want)
 		}
+	}
+}
+
+func TestChangingTabKeysRebindsThem(t *testing.T) {
+	m, host := newTestModel(t)
+	m.settings = true
+	m.setting = slices.IndexFunc(config.Options, func(o config.Option) bool { return o.Key == "tab_keys" })
+	_, cmd := press(m, "enter")
+	run(cmd)
+	if !slices.Equal(host.tabKeys, []string{config.TabKeysBrackets}) {
+		t.Fatalf("set %v", host.tabKeys)
 	}
 }

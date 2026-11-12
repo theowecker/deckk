@@ -304,14 +304,14 @@ func fitName(title string, max int) string {
 
 // tabFit shares the strip's width between session tabs. The numbers mirror
 // the tab formats in tmux/config.go: each tab costs its name plus 7 cells,
-// the dashboard tab 12, and the right side 29, or 10 once crowded.
+// the dashboard tab 12, and the right side 35, or 16 once crowded.
 func tabFit(width, tabs int) (int, bool) {
 	if tabs == 0 {
 		return maxTabName, false
 	}
-	right := 29
+	right := 35
 	if tabs+1 >= 6 {
-		right = 10
+		right = 16
 	}
 	per := (width - 1 - 12 - right - 1) / tabs
 	fit := min(per-7, maxTabName)

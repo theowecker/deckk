@@ -17,7 +17,7 @@ func TestConfigLoadsCleanly(t *testing.T) {
 	}
 	dir := t.TempDir()
 	conf := filepath.Join(dir, "tmux.conf")
-	if err := os.WriteFile(conf, []byte(config), 0o644); err != nil {
+	if err := os.WriteFile(conf, []byte(tmuxConf), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	socket := filepath.Join(dir, "sock")

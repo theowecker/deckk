@@ -3,10 +3,12 @@ package terminal
 import (
 	"encoding/json"
 	"testing"
+
+	"github.com/theowecker/deckk/internal/config"
 )
 
 func TestProfileInheritsAndRemapsCmdC(t *testing.T) {
-	data, err := profileJSON("Default", map[string]any{"0x7f-0x100000": map[string]any{"Action": 11, "Text": "0x15"}})
+	data, err := profileJSON("Default", map[string]any{"0x7f-0x100000": map[string]any{"Action": 11, "Text": "0x15"}}, config.TabKeysArrows)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -33,6 +35,9 @@ func TestProfileInheritsAndRemapsCmdC(t *testing.T) {
 	}
 	if p.Scrollback != 0 || p.Unlimited {
 		t.Fatalf("iTerm2 should keep no scrollback of its own: %+v", p)
+	}
+	if p.KeyboardMap["0xf702-0x320000"]["Text"] != "[1;6D" {
+		t.Fatalf("Cmd+Shift+Left should switch deckk tabs: %v", p.KeyboardMap)
 	}
 	if p.KeyboardMap["0x7f-0x100000"]["Text"] != "0x15" {
 		t.Fatalf("the parent's Cmd+Backspace mapping was dropped: %v", p.KeyboardMap)
