@@ -75,8 +75,10 @@ The first time deckk controls a terminal, macOS asks whether to allow it.
   and for how long. A session that finished while you were elsewhere is marked
   new until you open it.
 - **Context.** The selected row shows your last prompt, Claude's latest reply
-  and any pull request it opened. Under the tab strip, each tab shows its
-  status, folder, branch, worktree and pull request.
+  and any pull request it opened. Under the tab strip, each tab shows how
+  long it has been working or waiting, its folder, branch, uncommitted changes,
+  commits ahead or behind, worktree and pull request, and on the right the
+  model, effort, permission mode, context size and uptime.
 - **Pins.** `p` saves a session to the Pinned list, where it stays after you
   close it, however old it gets, until you unpin it.
 - **Sessions in other tabs.** Claude sessions started outside deckk show up

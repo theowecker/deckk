@@ -514,3 +514,11 @@ func TestBackgroundSessionsNeverCountAsClosed(t *testing.T) {
 		t.Fatal("a headless run finishing should not land in RECENTLY CLOSED")
 	}
 }
+
+func TestModelName(t *testing.T) {
+	for id, want := range map[string]string{"claude-opus-5-5": "opus 5.5", "claude-sonnet-4-5-20250929": "sonnet 4.5", "claude-fable-5-2": "fable 5.2"} {
+		if got := modelName(id); got != want {
+			t.Errorf("%s: got %q, want %q", id, got, want)
+		}
+	}
+}

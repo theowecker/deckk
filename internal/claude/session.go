@@ -4,7 +4,10 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
+
+	"github.com/theowecker/deckk/internal/git"
 )
 
 type Session struct {
@@ -17,6 +20,11 @@ type Session struct {
 	LastPrompt string
 	LastReply  string
 	Branch     string
+	Model      string
+	Effort     string
+	Mode       string
+	// Context is the tokens the latest turn sent.
+	Context    int
 	UpdatedAt  time.Time
 	Background bool
 
@@ -29,10 +37,8 @@ type Session struct {
 	PR    string
 	PRURL string
 
-	// Worktree names the linked git worktree Cwd is in, and Repo is the
-	// checkout it belongs to. Only set for running sessions.
-	Worktree string
-	Repo     string
+	// Only read for running sessions.
+	Git git.Status
 }
 
 func ShortID(id string) string {
@@ -89,10 +95,17 @@ func Load(home string, since time.Time, keep map[string]bool) ([]Session, error)
 			sessions = append(sessions, s)
 		}
 	}
+	var wg sync.WaitGroup
 	for i, s := range sessions {
 		if s.Running() {
-			sessions[i].Repo, sessions[i].Worktree = worktree(s.Cwd)
+			wg.Go(func() {
+				if g, ok := git.Read(s.Cwd); ok {
+					sessions[i].Git = g
+					sessions[i].Branch = g.Branch
+				}
+			})
 		}
 	}
+	wg.Wait()
 	return sessions, nil
 }

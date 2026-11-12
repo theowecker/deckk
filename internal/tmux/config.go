@@ -78,7 +78,7 @@ setw -g automatic-rename off
 setw -g monitor-bell on
 
 set -g status 2
-set -g status-format[1] "#{@deckk_info}"
+set -g status-format[1] "#{?@deckk_info,#[fill=#24243A bg=#24243A]#{@deckk_info},}"
 set -g status-position top
 set -g status-justify left
 set -g status-style "bg=default,fg=default"

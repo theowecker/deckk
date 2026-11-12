@@ -29,6 +29,10 @@ type Transcript struct {
 	Cwd         string
 	Entrypoint  string
 	Branch      string
+	Model       string
+	Effort      string
+	Mode        string
+	Context     int
 }
 
 func (t Transcript) Session() Session {
@@ -43,12 +47,16 @@ func (t Transcript) Session() Session {
 		PR:         t.PR,
 		PRURL:      t.PRURL,
 		Branch:     t.Branch,
+		Model:      t.Model,
+		Effort:     t.Effort,
+		Mode:       t.Mode,
+		Context:    t.Context,
 		UpdatedAt:  t.ModTime,
 	}
 }
 
 func (t Transcript) complete() bool {
-	return t.LastPrompt != "" && t.LastReply != "" && (t.CustomTitle != "" || t.AITitle != "" || t.AgentName != "")
+	return t.LastPrompt != "" && t.LastReply != "" && t.Model != "" && (t.CustomTitle != "" || t.AITitle != "" || t.AgentName != "")
 }
 
 func ScanTranscripts(dir string, since time.Time, keep map[string]bool) ([]Transcript, error) {
@@ -203,6 +211,8 @@ type entry struct {
 	Cwd         string          `json:"cwd"`
 	GitBranch   string          `json:"gitBranch"`
 	Entrypoint  string          `json:"entrypoint"`
+	Effort      string          `json:"effort"`
+	Mode        string          `json:"permissionMode"`
 	IsMeta      bool            `json:"isMeta"`
 	IsSidechain bool            `json:"isSidechain"`
 	Message     json.RawMessage `json:"message"`
@@ -259,9 +269,15 @@ func apply(t *Transcript, e entry, forward bool) {
 			setOnce(&t.PR, fmt.Sprintf("#%d", e.PRNumber))
 			setOnce(&t.PRURL, e.PRURL)
 		}
+	case "permission-mode":
+		setOnce(&t.Mode, e.Mode)
 	case "assistant":
 		if !forward && !e.IsSidechain {
 			setOnce(&t.LastReply, replyText(e.Message))
+			if t.Model == "" {
+				t.Model, t.Context = usage(e.Message)
+				t.Effort = e.Effort
+			}
 		}
 	}
 	if !e.IsSidechain {
@@ -312,6 +328,22 @@ func replyText(raw json.RawMessage) string {
 		}
 	}
 	return ""
+}
+
+// The context a turn used is everything it sent, cached or not.
+func usage(raw json.RawMessage) (model string, context int) {
+	var m struct {
+		Model string `json:"model"`
+		Usage struct {
+			Input      int `json:"input_tokens"`
+			CacheWrite int `json:"cache_creation_input_tokens"`
+			CacheRead  int `json:"cache_read_input_tokens"`
+		} `json:"usage"`
+	}
+	if json.Unmarshal(raw, &m) != nil {
+		return "", 0
+	}
+	return m.Model, m.Usage.Input + m.Usage.CacheWrite + m.Usage.CacheRead
 }
 
 func cleanPrompt(s string) string {
