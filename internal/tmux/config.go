@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/theowecker/deckk/internal/iterm"
+	"github.com/theowecker/deckk/internal/terminal"
 )
 
 const glyph = "#{?#{==:#{@deckk_status},home},#[fg=#E8875B]◆," +
@@ -54,7 +54,7 @@ set -g prefix None
 set -g prefix2 None
 unbind C-b
 set -g copy-command "pbcopy"
-set -s user-keys[0] "` + strings.ReplaceAll(iterm.CopySequence, "\x1b", `\e`) + `"
+set -s user-keys[0] "` + strings.ReplaceAll(terminal.CopySequence, "\x1b", `\e`) + `"
 bind -n User0 { if -F "#{pane_in_mode}" ` + copyIfSelected + ` }
 bind -n DoubleClick1Pane ` + toApp(`select-pane -t = ; copy-mode -H ; send -X select-word`) + `
 bind -n TripleClick1Pane ` + toApp(`select-pane -t = ; copy-mode -H ; send -X select-line`) + `

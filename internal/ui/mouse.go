@@ -120,8 +120,8 @@ func (m *Model) hover(x, y int) tea.Cmd {
 	return setPointer(shape)
 }
 
-// iTerm2 honours OSC 22 alongside mouse reporting only from 3.7. Inside tmux
-// it needs a passthrough wrapper to reach iTerm2 at all.
+// Ghostty and iTerm2 3.7+ honour OSC 22 alongside mouse reporting. Inside tmux
+// it needs a passthrough wrapper to reach the terminal at all.
 func setPointer(shape string) tea.Cmd {
 	return func() tea.Msg {
 		if !tmux.Inside() {

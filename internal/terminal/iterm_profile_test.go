@@ -1,4 +1,4 @@
-package iterm
+package terminal
 
 import (
 	"encoding/json"
@@ -24,7 +24,7 @@ func TestProfileInheritsAndRemapsCmdC(t *testing.T) {
 		t.Fatal(err)
 	}
 	p := doc.Profiles[0]
-	if p.Name != ProfileName || p.Guid == "" || p.Parent != "Default" {
+	if p.Name != profileName || p.Guid == "" || p.Parent != "Default" {
 		t.Fatalf("profile %+v", p)
 	}
 	key := p.KeyboardMap["0x63-0x100000"]

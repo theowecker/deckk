@@ -478,10 +478,10 @@ func helpBody(frame int) ([]string, []int) {
 		keys  [][2]string
 	}{
 		{"ON THE DASHBOARD", [][2]string{
-			{"↵  or double-click", "switch to a session, jump to its iTerm2 tab, or resume it here"},
+			{"↵  or double-click", "switch to a session, jump to its tab, or resume it here"},
 			{"n", "start Claude in a folder, or type a new path to create one"},
 			{"x", "close a session running in deckk. It stays resumable"},
-			{"o   O", "give this session, or every one, its own iTerm2 tab"},
+			{"o   O", "give this session, or every one, its own tab"},
 			{"m   M", "bring this session, or all of them, from other tabs into deckk"},
 			{"R", "reopen everything: last workspace, pins and anything closed today"},
 			{"p", "pin a session so it is always part of your workspace"},

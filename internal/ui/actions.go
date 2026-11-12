@@ -12,7 +12,7 @@ import (
 
 	"github.com/theowecker/deckk/internal/claude"
 	"github.com/theowecker/deckk/internal/deck"
-	"github.com/theowecker/deckk/internal/iterm"
+	"github.com/theowecker/deckk/internal/terminal"
 	"github.com/theowecker/deckk/internal/tmux"
 )
 
@@ -29,8 +29,8 @@ func (m Model) open(s claude.Session) tea.Cmd {
 	if s.Running() {
 		return func() tea.Msg {
 			err := m.host.Focus(s.TTY)
-			if errors.Is(err, iterm.ErrNotFound) {
-				err = fmt.Errorf("%s is running outside iTerm2 on %s", displayTitle(s), s.TTY)
+			if errors.Is(err, terminal.ErrNotFound) {
+				err = fmt.Errorf("%s is running in a tab deckk can't switch to, on %s", displayTitle(s), s.TTY)
 			}
 			return flashMsg{err: err}
 		}
@@ -68,7 +68,7 @@ func (m Model) close(s claude.Session, confirm string) (tea.Model, tea.Cmd) {
 	}
 	if !ok {
 		if s.Running() {
-			m.setFlash("That session lives in another iTerm2 tab. Press m to move it into deckk", nil)
+			m.setFlash("That session lives in another tab. Press m to move it into deckk", nil)
 		}
 		return m, nil
 	}

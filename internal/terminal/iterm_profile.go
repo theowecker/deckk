@@ -1,4 +1,4 @@
-package iterm
+package terminal
 
 import (
 	"bytes"
@@ -14,18 +14,13 @@ import (
 )
 
 const (
-	ProfileName = "deckk"
+	profileName = "deckk"
 	profileGUID = "6F0D9C1E-5B7A-4D2E-9C3B-DECC0000C0DE"
-	// CopySequence is what Cmd+C sends inside deckk. tmux binds it as a user
-	// key, so iTerm2 never runs its own copy and never nags about it.
-	// Any CSI that starts like a real key confuses tmux's parser, and the tail
-	// leaks into the pane. Nothing uses 1337.
-	CopySequence = "\x1b[1337~"
 )
 
-// InstallProfile writes a dynamic profile that looks exactly like parent but
+// installProfile writes a dynamic profile that looks exactly like parent but
 // sends Cmd+C to deckk. iTerm2 reloads dynamic profiles as soon as they change.
-func InstallProfile(parent string) error {
+func installProfile(parent string) error {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return err
@@ -59,7 +54,7 @@ func profileJSON(parent string, keys map[string]any) ([]byte, error) {
 	keyMap["0x63-0x100000"] = copyKey
 	keyMap["0x63-0x100000-0x8"] = copyKey
 	profile := map[string]any{
-		"Name":                        ProfileName,
+		"Name":                        profileName,
 		"Guid":                        profileGUID,
 		"Dynamic Profile Parent Name": parent,
 		"Keyboard Map":                keyMap,
@@ -131,7 +126,7 @@ func plistJSON(path string) map[string]any {
 	return m
 }
 
-// UseProfile switches the current iTerm2 tab, and only that tab, to a profile.
-func UseProfile(w io.Writer, name string) {
+// useProfile switches the current iTerm2 tab, and only that tab, to a profile.
+func useProfile(w io.Writer, name string) {
 	fmt.Fprintf(w, "\x1b]1337;SetProfile=%s\x07", name)
 }

@@ -15,8 +15,8 @@ import (
 	"github.com/theowecker/deckk/internal/claude"
 	"github.com/theowecker/deckk/internal/config"
 	"github.com/theowecker/deckk/internal/deck"
-	"github.com/theowecker/deckk/internal/iterm"
 	"github.com/theowecker/deckk/internal/store"
+	"github.com/theowecker/deckk/internal/terminal"
 	"github.com/theowecker/deckk/internal/tmux"
 	"github.com/theowecker/deckk/internal/ui"
 )
@@ -54,6 +54,7 @@ func run(args []string) error {
 		return err
 	}
 	days := flags.Int("days", cfg.Days, "show sessions active in the last N days")
+	program := flags.String("terminal", "", "the $TERM_PROGRAM deckk was started from")
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
@@ -62,7 +63,7 @@ func run(args []string) error {
 	case "":
 		return launch(*days)
 	case "dashboard":
-		return dashboard(*days, cfg)
+		return dashboard(*days, cfg, *program)
 	case "ls":
 		return list(*days)
 	case "stop":
@@ -91,7 +92,8 @@ func launch(days int) error {
 	if err != nil {
 		return err
 	}
-	dashboardCmd := shellQuote(exe) + " dashboard --days " + strconv.Itoa(days)
+	app, _ := terminal.Current()
+	dashboardCmd := shellQuote(exe) + " dashboard --days " + strconv.Itoa(days) + " --terminal " + shellQuote(app.Program())
 
 	config, err := tmux.WriteConfig()
 	if err != nil {
@@ -108,15 +110,11 @@ func launch(days int) error {
 		return err
 	}
 
-	if profile := os.Getenv("ITERM_PROFILE"); os.Getenv("TERM_PROGRAM") == "iTerm.app" &&
-		profile != "" && profile != iterm.ProfileName && iterm.InstallProfile(profile) == nil {
-		iterm.UseProfile(os.Stdout, iterm.ProfileName)
-		defer iterm.UseProfile(os.Stdout, profile)
-	}
+	defer app.Setup(os.Stdout)()
 	return tmux.Attach(tmuxPath)
 }
 
-func dashboard(days int, cfg *config.Config) error {
+func dashboard(days int, cfg *config.Config, program string) error {
 	if !tmux.Inside() {
 		return errors.New("the dashboard runs inside deckk; start it with plain deckk")
 	}
@@ -128,7 +126,7 @@ func dashboard(days int, cfg *config.Config) error {
 	if err != nil {
 		return err
 	}
-	model := ui.New(claude.Home(), since(days), st, cfg, host{tmuxPath: tmuxPath})
+	model := ui.New(claude.Home(), since(days), st, cfg, newHost(tmuxPath, program))
 	_, err = tea.NewProgram(model, tea.WithAltScreen(), tea.WithMouseAllMotion(), tea.WithReportFocus()).Run()
 	return err
 }

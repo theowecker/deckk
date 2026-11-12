@@ -20,9 +20,9 @@ brew install --cask deckk
 Homebrew asks you to trust casks from taps outside its main repo before it
 will load them, which is what the middle line does.
 
-Then run `deckk`. It needs macOS and iTerm2, and uses tmux, which Homebrew
-installs for you. deckk runs its own tmux server with its own config, so it
-won't touch any tmux setup you already have.
+Then run `deckk`. It needs macOS and uses tmux, which Homebrew installs for
+you. deckk runs its own tmux server with its own config, so it won't touch any
+tmux setup you already have.
 
 ## Use
 
@@ -49,9 +49,23 @@ place.
 Click a tab in the strip to switch to it. On the dashboard, `1` to `9` jump to
 a tab too.
 
-Drag over text to select it, or double-click a word, then press Cmd+C or
-Ctrl+C to copy. Click anywhere to clear the selection. Hold Option while
-dragging to get iTerm2's own selection instead.
+Drag over text to select it, or double-click a word, then press Ctrl+C to
+copy. In iTerm2, Cmd+C works too. Click anywhere to clear the selection.
+
+## Terminals
+
+deckk runs in any terminal. In iTerm2, Ghostty 1.3+ and Terminal it can also
+open, find and close tabs for you:
+
+| | iTerm2 | Ghostty | Terminal | Others |
+| --- | --- | --- | --- | --- |
+| Dashboard, tabs, resume, restore | yes | yes | yes | yes |
+| `o` moves a session to its own tab | yes | yes | a window | no |
+| Jump to sessions in other tabs | yes | yes | yes | no |
+| Cmd+C copies a selection | yes | Ctrl+C | Ctrl+C | Ctrl+C |
+| Terminal's own selection | Option-drag | Shift-drag | Fn-drag | varies |
+
+The first time deckk controls a terminal, macOS asks whether to allow it.
 
 ## What it keeps track of
 
@@ -93,13 +107,17 @@ deckk reads what Claude Code already writes to disk:
 documented, so a Claude Code update can break deckk. The parsing is all in
 `internal/claude`.
 
-While deckk is open, its tab uses a "deckk" iTerm2 profile so that Cmd+C goes
-to deckk instead of iTerm2. The profile copies everything else from the
-profile you started in, except iTerm2's own scrollback, which it turns off
-because tmux keeps each session's history. deckk switches back when you quit. It lives in
+Each terminal deckk can drive is a few lines of AppleScript in
+`internal/terminal/apps.go`, so adding one is a small change.
+
+In iTerm2, the deckk tab uses a "deckk" profile so that Cmd+C goes to deckk.
+The profile copies everything else from the profile you started in, except
+iTerm2's own scrollback, which it turns off because tmux keeps each session's
+history. deckk switches back when you quit. It lives in
 `~/Library/Application Support/iTerm2/DynamicProfiles/deckk.json`.
 
-The mouse pointer changes over clickable things on iTerm2 3.7 and later.
+The mouse pointer changes over clickable things in Ghostty and in iTerm2 3.7
+and later.
 
 ## Development
 
