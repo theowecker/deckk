@@ -63,6 +63,12 @@ func profileJSON(parent string, keys map[string]any) ([]byte, error) {
 		"Guid":                        profileGUID,
 		"Dynamic Profile Parent Name": parent,
 		"Keyboard Map":                keyMap,
+		// tmux keeps each session's history. iTerm2's own scrollback only
+		// holds the shell from before deckk started, and scrolling into it
+		// hides the tab strip and swallows clicks.
+		"Unlimited Scrollback":           false,
+		"Scrollback Lines":               0,
+		"Scrollback in Alternate Screen": false,
 	}
 	return json.MarshalIndent(map[string]any{"Profiles": []any{profile}}, "", "  ")
 }

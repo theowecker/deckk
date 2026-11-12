@@ -16,6 +16,8 @@ func TestProfileInheritsAndRemapsCmdC(t *testing.T) {
 			Guid        string                    `json:"Guid"`
 			Parent      string                    `json:"Dynamic Profile Parent Name"`
 			KeyboardMap map[string]map[string]any `json:"Keyboard Map"`
+			Scrollback  float64                   `json:"Scrollback Lines"`
+			Unlimited   bool                      `json:"Unlimited Scrollback"`
 		}
 	}
 	if err := json.Unmarshal(data, &doc); err != nil {
@@ -28,6 +30,9 @@ func TestProfileInheritsAndRemapsCmdC(t *testing.T) {
 	key := p.KeyboardMap["0x63-0x100000"]
 	if key["Action"] != float64(10) || key["Text"] != CopySequence[1:] {
 		t.Fatalf("Cmd+C should send the deckk copy sequence, got %v", key)
+	}
+	if p.Scrollback != 0 || p.Unlimited {
+		t.Fatalf("iTerm2 should keep no scrollback of its own: %+v", p)
 	}
 	if p.KeyboardMap["0x7f-0x100000"]["Text"] != "0x15" {
 		t.Fatalf("the parent's Cmd+Backspace mapping was dropped: %v", p.KeyboardMap)
