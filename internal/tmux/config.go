@@ -24,6 +24,9 @@ const plainGlyph = "#{?#{==:#{@deckk_status},home},◆," +
 
 const name = "#{?@deckk_name,#{@deckk_name},#W}"
 
+// The held tab fades while it is dragged.
+const held = "#9A5A40"
+
 // tmux owns the mouse, so iTerm2 never sees a selection and Cmd+C has nothing
 // to copy. Cmd+C or Ctrl+C sends the selection to the macOS clipboard and,
 // like iTerm2, leaves it highlighted.
@@ -37,8 +40,19 @@ const clickStatus = `{ if -F "#{==:#{mouse_status_range},new}" { select-window -
 // Dropping a tab on another moves it to that spot. Drag events only report
 // the tab the drag began on, so this waits for the drag end, which reports
 // the tab under the pointer. The dashboard stays first because deckk finds
-// it at index 0, and run -C expands the formats move-window can't.
-const dropTab = `{ if -F "#{&&:#{active_window_index},#{!=:#{window_index},#{active_window_index}}}" { run -C "move-window -#{?#{e|>:#{window_index},#{active_window_index}},a,b} -s :#{active_window_index} -t :#{?#{window_index},#{window_index},1} ; move-window -r" } }`
+// it at index 0, and run -C expands the formats move-window can't. The move
+// makes every tab's place stale until deckk measures again.
+const dropTab = `{ set -gu @deckk_drag ; if -F "#{&&:#{active_window_index},#{!=:#{window_index},#{active_window_index}}}" { run -C "move-window -#{?#{e|>:#{window_index},#{active_window_index}},a,b} -s :#{active_window_index} -t :#{?#{window_index},#{window_index},1} ; move-window -r ; #{W:set -wu -t #{window_id} @deckk_x ; }" } }`
+
+// While a tab is held, @deckk_drag follows the pointer so the strip can show
+// where it would land.
+const dragTab = `{ if -F "#{window_index}" { set -gF @deckk_drag "#{mouse_x}" } }`
+
+// A tab is under the pointer when @deckk_drag falls inside the place deckk
+// measured for it in PlaceTabs.
+const hovered = "#{&&:#{@deckk_x},#{&&:#{@deckk_drag},#{&&:#{e|>=:#{@deckk_drag},#{@deckk_x}},#{e|<:#{@deckk_drag},#{@deckk_x2}}}}}"
+
+const dropTarget = "#{&&:#{!=:#{window_active},1}," + hovered + "}"
 
 // The info band is the strip's last row, so hiding it is one row less.
 const toggleInfo = `{ if -F "#{==:#{status},4}" { set -g status 3 } { set -g status 4 } }`
@@ -89,14 +103,14 @@ setw -g automatic-rename off
 setw -g monitor-bell on
 
 set -g status 4
-set -g @deckk_cap_tab "#[fg=#30304A]#{@deckk_cap}"
-set -g @deckk_cap_current "#[fg=#E8875B]#{@deckk_cap}"
-set -g @deckk_base_tab "#[fg=#30304A]#{s/▄/▀/:@deckk_cap}"
-set -g @deckk_base_current "#[fg=#E8875B]#{s/▄/▀/:@deckk_cap}"
+set -g @deckk_cap_tab "#[fg=#{?` + dropTarget + `,#E8875B,#30304A}]#{@deckk_cap}"
+set -g @deckk_cap_current "#[fg=#{?@deckk_drag,` + held + `,#E8875B}]#{@deckk_cap}"
+set -g @deckk_base_tab "#[fg=#{?` + dropTarget + `,#E8875B,#30304A}]#{s/▄/▀/:@deckk_cap}"
+set -g @deckk_base_current "#[fg=#{?@deckk_drag,` + held + `,#E8875B}]#{s/▄/▀/:@deckk_cap}"
 set -g status-format[0] "` + strip("@deckk_cap_tab", "@deckk_cap_current", buttonCaps("▄")) + `"
 set -g status-format[1] "` + strip("window-status-format", "window-status-current-format", "#{T:status-right}") + `"
 set -g status-format[2] "` + strip("@deckk_base_tab", "@deckk_base_current", buttonCaps("▀")) + `"
-set -g status-format[3] "#{?@deckk_info,#[fill=#24243A bg=#24243A]#{@deckk_info},}"
+set -g status-format[3] "#{?@deckk_drag,#[fill=#24243A bg=#24243A fg=#E8875B]  ⇄  #[fg=#B4B4C0]drop on a tab to move it there,#{?@deckk_info,#[fill=#24243A bg=#24243A]#{@deckk_info},}}"
 set -g status-position top
 set -g status-justify left
 set -g status-style "bg=default,fg=default"
@@ -110,15 +124,18 @@ set -g window-status-current-style "default"
 set -g window-status-last-style "default"
 set -g window-status-activity-style "default"
 set -g window-status-bell-style "default"
-set -g window-status-format "#[bg=#30304A]  ` + glyph + `#{?#{==:#{@deckk_status},fresh},#[fg=#E8875B#,bold],#[fg=#B4B4C0]} ` + name + `  #[default]"
-set -g window-status-current-format "#[bg=#E8875B,fg=#1E1E2E,bold]  ` + plainGlyph + ` ` + name + `  #[default]"
+set -g window-status-format "#[bg=#{?` + dropTarget + `,#4A4A6E,#30304A}]  ` + glyph + `#{?#{==:#{@deckk_status},fresh},#[fg=#E8875B#,bold],#[fg=#B4B4C0]} ` + name + `  #[default]"
+set -g window-status-current-format "#[bg=#{?@deckk_drag,` + held + `,#E8875B},fg=#1E1E2E,bold]  ` + plainGlyph + ` ` + name + `  #[default]"
 set -g message-style "bg=default,fg=#E8875B"
 set -g pane-border-style "fg=#3A3A3A"
 set -g pane-active-border-style "fg=#E8875B"
 
 bind -n MouseDown1Status ` + clickStatus + `
 bind -n MouseDown1StatusRight ` + clickStatus + `
+bind -n MouseDrag1Status ` + dragTab + `
 bind -n MouseDragEnd1Status ` + dropTab + `
+# A tab dropped below the strip goes nowhere.
+bind -n MouseDragEnd1Pane { if -F "#{@deckk_drag}" { set -gu @deckk_drag } { send -M } }
 bind -n C-Space if -F "#{!=:#{session_name},deckk}" "" { if -F "#{@deckk_dashboard}" "last-window" "select-window -t :0" }
 
 set-hook -g session-window-changed ` + resetPointer + `

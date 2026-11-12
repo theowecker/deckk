@@ -6,7 +6,10 @@ import (
 	"os"
 	"os/exec"
 	"slices"
+	"strconv"
 	"strings"
+
+	"github.com/charmbracelet/x/ansi"
 )
 
 const (
@@ -244,6 +247,7 @@ type Server struct{}
 // view-mode, which only Escape gets out of. It never needs a mode, so leave it.
 func (Server) Windows() ([]Window, error) {
 	windows, err := Windows()
+	_ = PlaceTabs()
 	for _, w := range windows {
 		if w.Dashboard && w.InMode {
 			_ = leaveModes(w.ID)
@@ -263,3 +267,36 @@ func (Server) Select(windowID string) error            { return Select(windowID)
 func (Server) Close(windowID string) error             { return Close(windowID) }
 func (Server) SetLabels(labels map[string]Label) error { return SetLabels(labels) }
 func (Server) Detach() error                           { return Detach() }
+
+// PlaceTabs records each tab's columns on the strip, so the strip can tell
+// which tab a dragged one is over. Status-left is one cell and tabs are one
+// cell apart.
+func PlaceTabs() error {
+	out, err := run("list-windows", "-t", "="+Session, "-F", "#{window_id}\t#{@deckk_cap}\t#{@deckk_x}:#{@deckk_x2}")
+	if err != nil {
+		return err
+	}
+	var args []string
+	x := 1
+	for line := range strings.Lines(out) {
+		fields := strings.Split(strings.TrimRight(line, "\n"), "\t")
+		if len(fields) != 3 {
+			continue
+		}
+		end := x + ansi.StringWidth(fields[1])
+		if fields[2] != fmt.Sprintf("%d:%d", x, end) {
+			if len(args) > 0 {
+				args = append(args, ";")
+			}
+			args = append(args,
+				"set-option", "-w", "-t", fields[0], "@deckk_x", strconv.Itoa(x), ";",
+				"set-option", "-w", "-t", fields[0], "@deckk_x2", strconv.Itoa(end))
+		}
+		x = end + 1
+	}
+	if len(args) == 0 {
+		return nil
+	}
+	_, err = run(args...)
+	return err
+}
