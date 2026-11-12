@@ -75,12 +75,15 @@ The first time deckk controls a terminal, macOS asks whether to allow it.
   and for how long. A session that finished while you were elsewhere is marked
   new until you open it.
 - **Context.** The selected row shows your last prompt, Claude's latest reply
-  and any pull request it opened.
+  and any pull request it opened. Under the tab strip, each tab shows its
+  status, folder, branch, worktree and pull request.
+- **Pins.** `p` saves a session to the Pinned list, where it stays after you
+  close it, however old it gets, until you unpin it.
 - **Sessions in other tabs.** Claude sessions started outside deckk show up
   too, and `m` moves them in.
 - **Background runs.** Headless sessions from `claude -p`, plugins and
   scripts get their own Background view, so they don't crowd your own.
-- **Restarts.** Sessions in deckk keep running if you quit iTerm2. After a
+- **Restarts.** Sessions in deckk keep running if you quit your terminal. After a
   reboot, the dashboard lists what was open, plus anything closed in the last
   day, and `R` reopens all of it.
 
