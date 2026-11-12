@@ -75,13 +75,29 @@ func strip(width int) string {
 	glyph := func(c, g string) string {
 		return lipgloss.NewStyle().Background(lipgloss.Color("#30304A")).Foreground(lipgloss.Color(c)).Render(g)
 	}
+	colors := []string{"#E8875B", "#30304A", "#30304A", "#30304A"}
 	tabs := []string{
 		active.Render("  ◆ deckk  "),
 		tab.Render("  ") + glyph("#E8875B", "●") + lipgloss.NewStyle().Background(lipgloss.Color("#30304A")).Foreground(lipgloss.Color("#E8875B")).Bold(true).Render(" Checkout flow redesign  "),
 		tab.Render("  ") + glyph("#7AA2F7", "◓") + tab.Render(" Search API pagination  "),
 		tab.Render("  ") + glyph("#E8875B", "●") + tab.Render(" Onboarding copy pass  "),
 	}
-	left := " " + strings.Join(tabs, " ")
-	right := ghost.Render("⌃Space dashboard   ") + lipgloss.NewStyle().Background(lipgloss.Color("#30304A")).Foreground(lipgloss.Color("#E8875B")).Bold(true).Render("  + new  ") + " "
-	return left + strings.Repeat(" ", max(width-lipgloss.Width(left)-lipgloss.Width(right), 1)) + right
+	hint := ghost.Render("⌃Space dashboard   ")
+	button := lipgloss.NewStyle().Background(lipgloss.Color("#30304A")).Foreground(lipgloss.Color("#E8875B")).Bold(true).Render("  + new  ")
+	row := func(half string) (string, string) {
+		var caps []string
+		for i, t := range tabs {
+			caps = append(caps, lipgloss.NewStyle().Foreground(lipgloss.Color(colors[i])).Render(strings.Repeat(half, lipgloss.Width(t))))
+		}
+		cap := lipgloss.NewStyle().Foreground(lipgloss.Color("#30304A")).Render(strings.Repeat(half, 9))
+		return " " + strings.Join(caps, " "), strings.Repeat(" ", lipgloss.Width(hint)) + cap + " "
+	}
+	line := func(left, right string) string {
+		return left + strings.Repeat(" ", max(width-lipgloss.Width(left)-lipgloss.Width(right), 1)) + right
+	}
+	return strings.Join([]string{
+		line(row("▄")),
+		line(" "+strings.Join(tabs, " "), hint+button+" "),
+		line(row("▀")),
+	}, "\n")
 }

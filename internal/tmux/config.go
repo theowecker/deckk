@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/charmbracelet/x/ansi"
+
 	"github.com/theowecker/deckk/internal/terminal"
 )
 
@@ -77,8 +79,15 @@ setw -g allow-rename off
 setw -g automatic-rename off
 setw -g monitor-bell on
 
-set -g status 2
-set -g status-format[1] "#{?@deckk_info,#[fill=#24243A bg=#24243A]#{@deckk_info},}"
+set -g status 4
+set -g @deckk_cap_tab "#[fg=#30304A]#{@deckk_cap}"
+set -g @deckk_cap_current "#[fg=#E8875B]#{@deckk_cap}"
+set -g @deckk_base_tab "#[fg=#30304A]#{s/▄/▀/:@deckk_cap}"
+set -g @deckk_base_current "#[fg=#E8875B]#{s/▄/▀/:@deckk_cap}"
+set -g status-format[0] "` + strip("@deckk_cap_tab", "@deckk_cap_current", newButton("▄")) + `"
+set -g status-format[1] "` + strip("window-status-format", "window-status-current-format", "#{T:status-right}") + `"
+set -g status-format[2] "` + strip("@deckk_base_tab", "@deckk_base_current", newButton("▀")) + `"
+set -g status-format[3] "#{?@deckk_info,#[fill=#24243A bg=#24243A]#{@deckk_info},}"
 set -g status-position top
 set -g status-justify left
 set -g status-style "bg=default,fg=default"
@@ -107,6 +116,27 @@ set-hook -g client-detached ` + resetPointer + `
 # A tab never opens on a leftover selection.
 set-hook -g client-attached { copy-mode -q }
 `
+
+// strip is one row of the tab strip. The label row sits between two rows of
+// half blocks in each tab's color, which make the tabs look twice as tall.
+// Every row lists the same windows with the same click ranges.
+func strip(tab, current, right string) string {
+	sep := "#{?loop_last_flag,,#{E:window-status-separator}}"
+	return "#[align=left range=left]#{T:status-left}#[norange default]#[list=on align=left]" +
+		"#{W:#[range=window|#{window_index}]#[push-default]#{T:" + tab + "}#[pop-default]#[norange default]" + sep +
+		",#[range=window|#{window_index} list=focus]#[push-default]#{T:" + current + "}#[pop-default]#[norange list=on default]" + sep + "}" +
+		"#[nolist align=right range=right]" + right + "#[norange default]"
+}
+
+// The + new button's cap, as wide as "  + new  ".
+func newButton(half string) string {
+	return "#[range=user|new]#[fg=#30304A]" + strings.Repeat(half, 9) + "#[norange default] "
+}
+
+// Cap is a tab's top edge, as wide as its label in window-status-format.
+func Cap(name string) string {
+	return strings.Repeat("▄", ansi.StringWidth(strings.ReplaceAll(name, "##", "#"))+6)
+}
 
 func WriteConfig() (string, error) {
 	dir, err := os.UserCacheDir()
