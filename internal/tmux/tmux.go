@@ -206,6 +206,7 @@ type Label struct {
 	Name   string
 	Status string
 	Reel   string
+	Info   string
 }
 
 func SetLabels(labels map[string]Label) error {
@@ -220,7 +221,8 @@ func SetLabels(labels map[string]Label) error {
 		args = append(args,
 			"set-option", "-w", "-t", id, "@deckk_name", l.Name, ";",
 			"set-option", "-w", "-t", id, "@deckk_status", l.Status, ";",
-			"set-option", "-w", "-t", id, "@deckk_reel", l.Reel)
+			"set-option", "-w", "-t", id, "@deckk_reel", l.Reel, ";",
+			"set-option", "-w", "-t", id, "@deckk_info", l.Info)
 	}
 	_, err := run(args...)
 	return err

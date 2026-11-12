@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 
@@ -218,6 +219,7 @@ func (m Model) do(action func() error, success string) tea.Cmd {
 }
 
 func (m Model) syncLabels() tea.Cmd {
+	now := time.Now()
 	windows := m.tabs
 	byTTY := make(map[string]claude.Session)
 	for _, s := range m.sessions {
@@ -247,7 +249,7 @@ func (m Model) syncLabels() tea.Cmd {
 			if compact && !w.PoppedOut() {
 				name = strconv.Itoa(position)
 			}
-			label = tmux.Label{Name: name, Status: tabStatus(s), Reel: "◐"}
+			label = tmux.Label{Name: name, Status: tabStatus(s), Reel: "◐", Info: tabInfo(s, now)}
 			if m.unread(s) && !w.Active {
 				label.Status = "fresh"
 			}
