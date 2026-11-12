@@ -217,6 +217,16 @@ func TestNewButtonOpensThePickerEvenWhileFiltering(t *testing.T) {
 	}
 }
 
+func TestNewButtonLeavesSettings(t *testing.T) {
+	m, _ := newTestModel(t)
+	m, _ = press(m, "s")
+	tm, _ := m.Update(tea.KeyMsg{Type: tea.KeyF12})
+	m = tm.(Model)
+	if m.settings || m.picker == nil {
+		t.Fatal("+ new should swap settings for the folder picker")
+	}
+}
+
 func TestPopOutAndBringBackNeverRestartClaude(t *testing.T) {
 	m, host := newTestModel(t)
 

@@ -194,7 +194,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.KeyMsg:
 		if msg.Type == tea.KeyF12 {
-			m.help = false
+			m.help, m.settings, m.renaming = false, false, nil
 			return m.openPicker()
 		}
 		switch {
