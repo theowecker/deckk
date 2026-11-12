@@ -32,6 +32,9 @@ var (
 	errText = lipgloss.NewStyle().Foreground(red)
 	preview = lipgloss.NewStyle().Foreground(muted).Italic(true)
 	reply   = lipgloss.NewStyle().Foreground(muted)
+	soft    = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "#3A3A3A", Dark: "#C4C4CC"})
+	heading = lipgloss.NewStyle().Foreground(muted).Bold(true)
+	rule    = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "#D6D6D6", Dark: "#3A3A52"})
 )
 
 var spinner = []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
@@ -304,24 +307,24 @@ func (m Model) body() ([]string, []int) {
 
 	index := 0
 	now := time.Now()
+	titles, projects := m.columns()
 	for gi, g := range m.groups {
 		if gi > 0 {
 			add("", -1)
 		}
-		title := pad() + ghost.Render(fmt.Sprintf("%s  %d", g.Title, len(g.Sessions)+g.Hidden))
 		switch {
 		case m.byProject:
-			add(title, noOwner)
+			add(m.sectionTitle(g, "", ""), noOwner)
 		case g.Section == deck.Running:
-			add(title+sectionAction(g.Title, "O", "give each its own tab"), popAllOwner)
+			add(m.sectionTitle(g, "O", "give each its own tab"), popAllOwner)
 		case g.Section == deck.Elsewhere:
-			add(title+sectionAction(g.Title, "M", "move all into deckk"), moveInOwner)
+			add(m.sectionTitle(g, "M", "move all into deckk"), moveInOwner)
 		default:
-			add(title, noOwner)
+			add(m.sectionTitle(g, "", ""), noOwner)
 		}
 		for _, s := range g.Sessions {
 			selected := index == m.cursor
-			add(m.row(s, selected, now), index)
+			add(m.row(s, selected, now, titles, projects), index)
 			if selected {
 				for _, line := range m.preview(s) {
 					add(line, index)
@@ -340,40 +343,81 @@ func (m Model) body() ([]string, []int) {
 	return lines, owners
 }
 
-func (m Model) row(s claude.Session, selected bool, now time.Time) string {
+// sectionTitle is a heading with its count, a rule out to the status column
+// and, when the section has one, its action key at the end.
+func (m Model) sectionTitle(g deck.Group, key, label string) string {
+	head := heading.Render(g.Title) + "  " + ghost.Render(fmt.Sprint(len(g.Sessions)+g.Hidden))
+	end := ""
+	if key != "" {
+		end = " " + text.Render(key) + " " + ghost.Render(label)
+	}
+	width := lipgloss.Width(head) + lipgloss.Width(end)
+	line := rule.Render(strings.Repeat("─", max(m.width-gutter*2-width-1, 2)))
+	return pad() + head + " " + line + end
+}
+
+func (m Model) rowRoom() int {
+	return max(m.width-gutter-2-2-2-statusWidth, 10)
+}
+
+// columns are how wide titles and folders are padded, so folders and
+// branches line up down the list. Titles never take more than three fifths
+// of the row, folders no more than 18 cells.
+func (m Model) columns() (int, int) {
+	titles, projects := 0, 0
+	for _, g := range m.groups {
+		for _, s := range g.Sessions {
+			titles = max(titles, lipgloss.Width(rowTitle(s)))
+			projects = max(projects, lipgloss.Width(s.Project()))
+		}
+	}
+	return min(titles, m.rowRoom()*3/5), min(projects, 18)
+}
+
+func rowTitle(s claude.Session) string {
+	if s.Title == "" {
+		return "new session"
+	}
+	return displayTitle(s)
+}
+
+func (m Model) row(s claude.Session, selected bool, now time.Time, titles, projects int) string {
 	bar := "  "
-	titleStyle := text
+	titleStyle := soft
+	if s.Running() {
+		titleStyle = text
+	}
 	if selected {
 		bar = accent.Render("▌ ")
 		titleStyle = bold
 	}
-
-	glyph, status := m.status(s, now)
-	meta := s.Project()
-	if s.Branch != "" && s.Branch != "HEAD" {
-		meta += " · " + s.Branch
-	}
-	if _, popped := m.poppedOut(s); popped {
-		meta += " · own tab"
-	}
-
-	room := max(m.width-gutter-lipgloss.Width(bar)-2-2-statusWidth, 10)
-	title := displayTitle(s)
-	if s.Title == "" {
-		title = "new session"
-	}
-	metaRoom := min(lipgloss.Width(meta), room*2/5)
-	title = ansi.Truncate(title, room-metaRoom-2, "…")
-	meta = ansi.Truncate(meta, room-lipgloss.Width(title)-2, "…")
-
 	if m.unread(s) {
 		titleStyle = titleStyle.Foreground(clay)
 	}
-	content := titleStyle.Render(title) + "  " + dim.Render(meta)
-	used := lipgloss.Width(title) + 2 + lipgloss.Width(meta)
-	if s.Running() && m.store.Pinned[s.ID] && used+2 <= room {
-		content += " " + ghost.Render("◆")
-		used += 2
+
+	glyph, status := m.status(s, now)
+	room := m.rowRoom()
+	titles = min(titles, room)
+	title := ansi.Truncate(rowTitle(s), titles, "…")
+	content := titleStyle.Render(title) + strings.Repeat(" ", titles-lipgloss.Width(title))
+	used := titles
+
+	var meta []string
+	project := ansi.Truncate(s.Project(), projects, "…")
+	meta = append(meta, dim.Render(project)+strings.Repeat(" ", projects-lipgloss.Width(project)))
+	if s.Branch != "" && s.Branch != "HEAD" {
+		meta = append(meta, ghost.Render("⎇ ")+dim.Render(s.Branch))
+	}
+	if _, popped := m.poppedOut(s); popped {
+		meta = append(meta, ghost.Render("own tab"))
+	}
+	if s.Running() && m.store.Pinned[s.ID] {
+		meta = append(meta, ghost.Render("◆"))
+	}
+	if metaRoom := room - used - 3; metaRoom > 3 {
+		info := strings.TrimRight(ansi.Truncate(strings.Join(meta, "  "), metaRoom, "…"), " ")
+		content += "   " + info
+		used += 3 + lipgloss.Width(info)
 	}
 	fill := strings.Repeat(" ", max(room-used, 0))
 	return bar + glyph + " " + content + fill + "  " + lipgloss.PlaceHorizontal(statusWidth, lipgloss.Right, status)
@@ -528,11 +572,6 @@ func helpBody(frame int) ([]string, []int) {
 		owners[i] = noOwner
 	}
 	return lines, owners
-}
-
-func sectionAction(title, key, label string) string {
-	gap := max(22-lipgloss.Width(title), 2)
-	return strings.Repeat(" ", gap) + text.Render(key) + "  " + ghost.Render(label)
 }
 
 func plural(n int, word string) string {
