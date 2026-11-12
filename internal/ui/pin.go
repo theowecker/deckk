@@ -1,0 +1,84 @@
+package ui
+
+import (
+	"strings"
+
+	tea "github.com/charmbracelet/bubbletea"
+
+	"github.com/theowecker/deckk/internal/claude"
+	"github.com/theowecker/deckk/internal/tmux"
+)
+
+type pinTabMsg string
+
+// A pinned tab keeps only the first word of its title.
+func pinnedName(s claude.Session) string {
+	first, _, _ := strings.Cut(strings.TrimSpace(displayTitle(s)), " ")
+	return fitName(first, 8)
+}
+
+// currentTab finds the tab the pin button was clicked on. It asks tmux
+// rather than trusting m.tabs, which can be a refresh behind.
+func (m Model) currentTab() tea.Cmd {
+	return func() tea.Msg {
+		windows, err := m.host.Windows()
+		if err != nil {
+			return flashMsg{err: err}
+		}
+		for _, w := range windows {
+			if w.Session == tmux.Session && w.Active && !w.Dashboard {
+				return pinTabMsg(w.TTY)
+			}
+		}
+		return nil
+	}
+}
+
+func (m *Model) pinTab(tty string) tea.Cmd {
+	for _, s := range m.sessions {
+		if s.Running() && s.TTY == tty {
+			return m.togglePin(s)
+		}
+	}
+	return nil
+}
+
+// Pinned tabs sit together right after the dashboard, like a browser's.
+func (m *Model) togglePin(s claude.Session) tea.Cmd {
+	if err := m.store.TogglePin(s.ID); err != nil {
+		m.mark(err)
+		return nil
+	}
+	m.mark(nil)
+	id, hosted := m.window(s)
+	if !hosted {
+		return nil
+	}
+	after := ""
+	for _, w := range m.tabs {
+		if w.Session != tmux.Session || w.PoppedOut() || w.ID == id {
+			continue
+		}
+		if w.Dashboard || m.pinnedTab(w) {
+			after = w.ID
+		}
+	}
+	if after == "" {
+		return m.syncLabels()
+	}
+	return tea.Batch(m.syncLabels(), func() tea.Msg {
+		if err := m.host.MoveAfter(id, after); err != nil {
+			return flashMsg{err: err}
+		}
+		return flashMsg{}
+	})
+}
+
+func (m Model) pinnedTab(w tmux.Window) bool {
+	for _, s := range m.sessions {
+		if s.Running() && s.TTY == w.TTY {
+			return m.store.Pinned[s.ID]
+		}
+	}
+	return false
+}

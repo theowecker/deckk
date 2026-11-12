@@ -4,9 +4,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/theowecker/deckk/internal/claude"
 	"github.com/theowecker/deckk/internal/deck"
@@ -17,10 +20,37 @@ import (
 const band = "#24243A"
 
 // tabInfo describes a hosted session: what it's doing and where on the left,
-// how Claude is set up on the right.
-func tabInfo(s claude.Session, now time.Time) string {
-	return " " + chip(s, now) + "  " + strings.Join(where(s), "   ") +
-		"#[align=right]" + strings.Join(setup(s, now), "#[fg=#4A4A5E] · ") + "  "
+// how Claude is set up and the pin button on the right. The setup drops its
+// last details until the band fits the width.
+func tabInfo(s claude.Session, now time.Time, pinned bool, width int) string {
+	left := " " + chip(s, now) + "  " + strings.Join(where(s), "   ")
+	button := pinButton(pinned)
+	details := setup(s, now)
+	for {
+		right := strings.Join(details, "#[fg=#4A4A5E] · ")
+		if right != "" {
+			right += "  "
+		}
+		right += button
+		if len(details) == 0 || bandWidth(left)+bandWidth(right)+2 <= width {
+			return left + "#[align=right]" + right
+		}
+		details = details[:len(details)-1]
+	}
+}
+
+func pinButton(pinned bool) string {
+	label := " pin "
+	if pinned {
+		label = " unpin "
+	}
+	return "#[range=user|pin]#[bg=#30304A,fg=#B4B4C0]" + label + "#[norange bg=" + band + "] "
+}
+
+var markup = regexp.MustCompile(`#\[[^\]]*\]`)
+
+func bandWidth(s string) int {
+	return ansi.StringWidth(strings.ReplaceAll(markup.ReplaceAllString(s, ""), "##", "#"))
 }
 
 func chip(s claude.Session, now time.Time) string {

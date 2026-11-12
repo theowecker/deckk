@@ -544,3 +544,38 @@ func TestChangingTabKeysRebindsThem(t *testing.T) {
 		t.Fatalf("set %v", host.tabKeys)
 	}
 }
+
+func TestPinButtonPinsAndShrinksTheTabYouAreOn(t *testing.T) {
+	m, host := newTestModel(t)
+	host.windows[1].Active = true
+	tm, cmd := m.Update(tea.KeyMsg{Type: tea.KeyF11})
+	for _, msg := range run(cmd) {
+		tm, cmd = tm.Update(msg)
+		for _, msg := range run(cmd) {
+			if labels, ok := msg.(labelsSetMsg); ok {
+				tm, _ = tm.Update(labels)
+			}
+		}
+	}
+	m = tm.(Model)
+	if !m.store.Pinned["dddddddd"] {
+		t.Fatal("the pin button should pin the session in the active tab")
+	}
+	if !slices.Equal(host.moved, []string{"@1>@0"}) {
+		t.Fatalf("moved %v, want the pinned tab right after the dashboard", host.moved)
+	}
+	if got := host.labels["@1"]; got.Name != "Inside" || !strings.Contains(got.Info, " unpin ") {
+		t.Fatalf("label %+v", got)
+	}
+}
+
+func TestBandDropsDetailsToFit(t *testing.T) {
+	s := claude.Session{Status: "busy", Cwd: "/tmp/x", Model: "claude-opus-5-5", Context: 120000, StartedAt: time.Now().Add(-time.Hour)}
+	wide, narrow := tabInfo(s, time.Now(), false, 200), tabInfo(s, time.Now(), false, 50)
+	if !strings.Contains(wide, "up ") || strings.Contains(narrow, "up ") || !strings.Contains(narrow, " pin ") {
+		t.Fatalf("wide %q\nnarrow %q", wide, narrow)
+	}
+	if bandWidth(narrow) > 50 {
+		t.Fatalf("narrow band is %d wide", bandWidth(narrow))
+	}
+}

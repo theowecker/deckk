@@ -65,7 +65,8 @@ func (m Model) updateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 	case "p":
 		if s, ok := m.selected(); ok {
-			m.mark(m.store.TogglePin(s.ID))
+			cmd := m.togglePin(s)
+			return m, cmd
 		}
 	case "a":
 		if s, ok := m.selected(); ok {

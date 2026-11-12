@@ -27,6 +27,7 @@ type Host interface {
 	Release(pid int, tty string) error
 	PopOut(windowID string) error
 	BringBack(windowID string) error
+	MoveAfter(windowID, afterID string) error
 	SetTabKeys(preset string) error
 }
 
@@ -188,11 +189,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, spin()
 
+	case pinTabMsg:
+		cmd := m.pinTab(string(msg))
+		return m, cmd
+
 	case flashMsg:
 		m.setFlash(msg.text, msg.err)
 		return m, m.load(false)
 
 	case tea.KeyMsg:
+		if msg.Type == tea.KeyF11 {
+			return m, m.currentTab()
+		}
 		if msg.Type == tea.KeyF12 {
 			m.help, m.settings, m.renaming = false, false, nil
 			return m.openPicker()

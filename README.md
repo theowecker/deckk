@@ -81,8 +81,10 @@ The first time deckk controls a terminal, macOS asks whether to allow it.
   long it has been working or waiting, its folder, branch, uncommitted changes,
   commits ahead or behind, worktree and pull request, and on the right the
   model, effort, permission mode, context size and uptime.
-- **Pins.** `p` saves a session to the Pinned list, where it stays after you
-  close it, however old it gets, until you unpin it.
+- **Pins.** `p`, or the pin button under a tab, saves a session to the Pinned
+  list, where it stays after you close it, however old it gets, until you
+  unpin it. A pinned tab shrinks to its first word and moves up next to the
+  deckk tab.
 - **Sessions in other tabs.** Claude sessions started outside deckk show up
   too, and `m` moves them in.
 - **Background runs.** Headless sessions from `claude -p`, plugins and

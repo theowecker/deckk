@@ -227,13 +227,18 @@ func (m Model) syncLabels() tea.Cmd {
 			byTTY[s.TTY] = s
 		}
 	}
-	strip := 0
+	strip, room := 0, m.width
 	for _, w := range windows {
-		if !w.Dashboard && !w.PoppedOut() {
+		if w.Dashboard || w.PoppedOut() {
+			continue
+		}
+		if s, ok := byTTY[w.TTY]; ok && m.store.Pinned[s.ID] {
+			room -= len([]rune(pinnedName(s))) + 8
+		} else {
 			strip++
 		}
 	}
-	fit, compact := tabFit(m.width, strip)
+	fit, compact := tabFit(room, strip)
 
 	changed := map[string]tmux.Label{}
 	position := 0
@@ -245,11 +250,15 @@ func (m Model) syncLabels() tea.Cmd {
 		if w.Dashboard {
 			label = tmux.Label{Name: "deckk", Status: "home"}
 		} else if s, ok := byTTY[w.TTY]; ok {
+			pinned := m.store.Pinned[s.ID]
 			name := fitName(displayTitle(s), fit)
-			if compact && !w.PoppedOut() {
+			switch {
+			case pinned:
+				name = pinnedName(s)
+			case compact && !w.PoppedOut():
 				name = strconv.Itoa(position)
 			}
-			label = tmux.Label{Name: name, Status: tabStatus(s), Reel: "◐", Info: tabInfo(s, now)}
+			label = tmux.Label{Name: name, Status: tabStatus(s), Reel: "◐", Info: tabInfo(s, now, pinned, m.width)}
 			if m.unread(s) && !w.Active {
 				label.Status = "fresh"
 			}

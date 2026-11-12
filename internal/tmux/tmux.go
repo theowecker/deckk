@@ -159,6 +159,12 @@ func BringBack(windowID string) error {
 	return err
 }
 
+// MoveAfter puts a tab right after another, keeping indexes dense.
+func MoveAfter(windowID, afterID string) error {
+	_, err := run("move-window", "-a", "-s", windowID, "-t", afterID, ";", "move-window", "-r", "-t", "="+Session+":")
+	return err
+}
+
 func AttachCommand(tmuxPath, session string) string {
 	return "exec " + shellQuote(tmuxPath) + " -L " + Socket + " attach-session -t " + shellQuote("="+session)
 }

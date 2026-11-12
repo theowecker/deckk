@@ -35,7 +35,8 @@ const copied = `{ send -X copy-pipe-no-clear ; display-message -d 1200 "Copied" 
 const copyIfSelected = `{ if -F "#{selection_present}" ` + copied + ` }`
 
 // F12 rather than n, so the picker opens even while the filter has focus.
-const clickStatus = `{ if -F "#{==:#{mouse_status_range},new}" { select-window -t :0 ; send-keys -t :0 F12 } { if -F "#{==:#{mouse_status_range},info}" ` + toggleInfo + ` { select-window -t = } } }`
+// F11 asks the dashboard to pin or unpin the tab you are on.
+const clickStatus = `{ if -F "#{==:#{mouse_status_range},new}" { select-window -t :0 ; send-keys -t :0 F12 } { if -F "#{==:#{mouse_status_range},info}" ` + toggleInfo + ` { if -F "#{==:#{mouse_status_range},pin}" { send-keys -t :0 F11 } { select-window -t = } } } }`
 
 // Dropping a tab on another moves it to that spot. Drag events only report
 // the tab the drag began on, so this waits for the drag end, which reports
