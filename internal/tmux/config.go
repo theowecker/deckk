@@ -34,6 +34,12 @@ const copyIfSelected = `{ if -F "#{selection_present}" ` + copied + ` }`
 // F12 rather than n, so the picker opens even while the filter has focus.
 const clickStatus = `{ if -F "#{==:#{mouse_status_range},new}" { select-window -t :0 ; send-keys -t :0 F12 } { if -F "#{==:#{mouse_status_range},info}" ` + toggleInfo + ` { select-window -t = } } }`
 
+// Dropping a tab on another moves it to that spot. Drag events only report
+// the tab the drag began on, so this waits for the drag end, which reports
+// the tab under the pointer. The dashboard stays first because deckk finds
+// it at index 0, and run -C expands the formats move-window can't.
+const dropTab = `{ if -F "#{&&:#{active_window_index},#{!=:#{window_index},#{active_window_index}}}" { run -C "move-window -#{?#{e|>:#{window_index},#{active_window_index}},a,b} -s :#{active_window_index} -t :#{?#{window_index},#{window_index},1} ; move-window -r" } }`
+
 // The info band is the strip's last row, so hiding it is one row less.
 const toggleInfo = `{ if -F "#{==:#{status},4}" { set -g status 3 } { set -g status 4 } }`
 
@@ -112,6 +118,7 @@ set -g pane-active-border-style "fg=#E8875B"
 
 bind -n MouseDown1Status ` + clickStatus + `
 bind -n MouseDown1StatusRight ` + clickStatus + `
+bind -n MouseDragEnd1Status ` + dropTab + `
 bind -n C-Space if -F "#{!=:#{session_name},deckk}" "" { if -F "#{@deckk_dashboard}" "last-window" "select-window -t :0" }
 
 set-hook -g session-window-changed ` + resetPointer + `

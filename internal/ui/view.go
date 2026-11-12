@@ -500,6 +500,7 @@ func helpBody(frame int) ([]string, []int) {
 			{"1 to 9", "on the dashboard, jump to that tab in the strip"},
 			{"click a tab", "switch to that session"},
 			{"click ▴", "hide the info line under the tabs, ▾ brings it back"},
+			{"drag a tab", "drop it on another tab to move it there"},
 			{"scroll", "scroll back through a session"},
 		}},
 		{"FROM A SHELL", [][2]string{

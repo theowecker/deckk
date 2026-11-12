@@ -34,6 +34,7 @@ place.
 | `↵` or double-click | open a session, or resume it if it isn't running |
 | `⌃Space` | flip between the dashboard and your last session |
 | `⌃⇧←` / `⌃⇧→` | previous or next tab (also `⌘⇧←` / `⌘⇧→` in iTerm2) |
+| drag a tab | drop it on another tab to move it there |
 | `n` | start Claude in a folder |
 | `x` | close a session (it stays resumable) |
 | `o` / `O` | give one session, or all of them, its own iTerm2 tab |
