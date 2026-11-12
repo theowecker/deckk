@@ -104,6 +104,8 @@ bind -n C-Space if -F "#{!=:#{session_name},deckk}" "" { if -F "#{@deckk_dashboa
 
 set-hook -g session-window-changed ` + resetPointer + `
 set-hook -g client-detached ` + resetPointer + `
+# A tab never opens on a leftover selection.
+set-hook -g client-attached { copy-mode -q }
 `
 
 func WriteConfig() (string, error) {
