@@ -54,7 +54,7 @@ func TestRecentlyClosedSectionAndRestore(t *testing.T) {
 	for _, s := range ToRestore(sessions(), closed) {
 		restore = append(restore, s.ID)
 	}
-	assertSlice(t, restore, []string{"old", "pin"})
+	assertSlice(t, restore, []string{"old"})
 }
 
 func TestArrangeByProjectPutsBusyProjectsFirst(t *testing.T) {
@@ -87,7 +87,7 @@ func TestRestoreSkipsBackgroundSessions(t *testing.T) {
 	list[0].Background = true
 	withOpen := marks
 	withOpen.Open = map[string]bool{"old": true}
-	if got := ToRestore(list, withOpen); len(got) != 1 || got[0].ID != "pin" {
+	if got := ToRestore(list, withOpen); len(got) != 0 {
 		t.Fatalf("got %+v", got)
 	}
 }
@@ -97,14 +97,14 @@ func TestArrangeFiltersOnEveryWord(t *testing.T) {
 	assertSlice(t, ids(Arrange(sessions(), marks, "IDEA", false)), []string{"RECENT:new", "RECENT:old"})
 }
 
-func TestToRestoreCoversPinnedAndLastOpen(t *testing.T) {
+func TestToRestoreCoversLastOpenButNotPins(t *testing.T) {
 	withOpen := marks
 	withOpen.Open = map[string]bool{"old": true, "busy": true, "gone": true}
 	var got []string
 	for _, s := range ToRestore(sessions(), withOpen) {
 		got = append(got, s.ID)
 	}
-	assertSlice(t, got, []string{"old", "pin"})
+	assertSlice(t, got, []string{"old"})
 }
 
 func TestAgo(t *testing.T) {

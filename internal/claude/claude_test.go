@@ -77,6 +77,37 @@ func TestScanSkipsEmptyAndStaleTranscripts(t *testing.T) {
 	if len(transcripts) != 0 {
 		t.Fatalf("got %d transcripts, want none newer than the future", len(transcripts))
 	}
+
+	keep := map[string]bool{"11111111-aaaa-bbbb-cccc-000000000001": true}
+	transcripts, err = ScanTranscripts("testdata/projects", time.Now().Add(time.Hour), keep)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(transcripts) != 1 {
+		t.Fatalf("got %d transcripts, want the kept one whatever its age", len(transcripts))
+	}
+}
+
+func TestWorktreeFindsTheMainCheckout(t *testing.T) {
+	root := t.TempDir()
+	repo := filepath.Join(root, "shop")
+	tree := filepath.Join(repo, ".claude", "worktrees", "checkout")
+	if err := os.MkdirAll(filepath.Join(tree, "app"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(repo, ".git", "worktrees", "checkout"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	gitdir := "gitdir: " + filepath.Join(repo, ".git", "worktrees", "checkout") + "\n"
+	if err := os.WriteFile(filepath.Join(tree, ".git"), []byte(gitdir), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if main, name := worktree(filepath.Join(tree, "app")); main != repo || name != "checkout" {
+		t.Fatalf("got %q %q", main, name)
+	}
+	if main, name := worktree(repo); main != "" || name != "" {
+		t.Fatalf("the main checkout is no worktree, got %q %q", main, name)
+	}
 }
 
 func TestParsePS(t *testing.T) {

@@ -53,7 +53,7 @@ type foundMsg []claude.Session
 // once on the way in; the transcript cache makes later visits cheap.
 func (m Model) findEverything() tea.Cmd {
 	return func() tea.Msg {
-		sessions, err := claude.Load(m.home, time.Time{})
+		sessions, err := claude.Load(m.home, time.Time{}, nil)
 		if err != nil {
 			return flashMsg{err: err}
 		}

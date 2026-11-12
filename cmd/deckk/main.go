@@ -136,7 +136,7 @@ func list(days int) error {
 	if err != nil {
 		return err
 	}
-	sessions, err := claude.Load(claude.Home(), since(days))
+	sessions, err := claude.Load(claude.Home(), since(days), st.Pinned)
 	if err != nil {
 		return err
 	}

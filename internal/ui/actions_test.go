@@ -143,7 +143,7 @@ func TestPickerCreatesAMissingFolder(t *testing.T) {
 	}
 }
 
-func TestRestoreReopensLastWorkspaceAndPins(t *testing.T) {
+func TestRestoreReopensLastWorkspaceButNotPins(t *testing.T) {
 	m, host := newTestModel(t)
 	if err := m.store.SetOpen([]string{"bbbbbbbb"}, nil); err != nil {
 		t.Fatal(err)
@@ -153,7 +153,7 @@ func TestRestoreReopensLastWorkspaceAndPins(t *testing.T) {
 	}
 	_, cmd := press(m, "R")
 	run(cmd)
-	if len(host.opened) != 2 {
+	if len(host.opened) != 1 {
 		t.Fatalf("opened %v", host.opened)
 	}
 }

@@ -211,7 +211,7 @@ func Matches(s claude.Session, query string) bool {
 func ToRestore(sessions []claude.Session, marks Marks) []claude.Session {
 	var out []claude.Session
 	for _, s := range sessions {
-		wanted := marks.Pinned[s.ID] || marks.Open[s.ID] || marks.recentlyClosed(s)
+		wanted := marks.Open[s.ID] || marks.recentlyClosed(s)
 		if wanted && !s.Running() && !marks.Archived[s.ID] && !s.Background {
 			out = append(out, s)
 		}

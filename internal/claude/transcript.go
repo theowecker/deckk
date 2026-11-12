@@ -51,7 +51,7 @@ func (t Transcript) complete() bool {
 	return t.LastPrompt != "" && t.LastReply != "" && (t.CustomTitle != "" || t.AITitle != "" || t.AgentName != "")
 }
 
-func ScanTranscripts(dir string, since time.Time, keep map[string]Live) ([]Transcript, error) {
+func ScanTranscripts(dir string, since time.Time, keep map[string]bool) ([]Transcript, error) {
 	paths, err := filepath.Glob(filepath.Join(dir, "*", "*.jsonl"))
 	if err != nil {
 		return nil, err
@@ -78,13 +78,13 @@ func ScanTranscripts(dir string, since time.Time, keep map[string]Live) ([]Trans
 	return transcripts, nil
 }
 
-func scanOne(path string, since time.Time, keep map[string]Live) *Transcript {
+func scanOne(path string, since time.Time, keep map[string]bool) *Transcript {
 	info, err := os.Stat(path)
 	if err != nil {
 		return nil
 	}
 	id := strings.TrimSuffix(filepath.Base(path), ".jsonl")
-	if _, live := keep[id]; !live && info.ModTime().Before(since) {
+	if !keep[id] && info.ModTime().Before(since) {
 		return nil
 	}
 	t, err := cache.read(path, info)

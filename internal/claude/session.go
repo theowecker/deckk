@@ -1,6 +1,7 @@
 package claude
 
 import (
+	"maps"
 	"os"
 	"path/filepath"
 	"time"
@@ -27,6 +28,11 @@ type Session struct {
 
 	PR    string
 	PRURL string
+
+	// Worktree names the linked git worktree Cwd is in, and Repo is the
+	// checkout it belongs to. Only set for running sessions.
+	Worktree string
+	Repo     string
 }
 
 func ShortID(id string) string {
@@ -45,17 +51,23 @@ func Home() string {
 	return filepath.Join(home, ".claude")
 }
 
-func Load(home string, since time.Time) ([]Session, error) {
+// Sessions in keep load whatever their age.
+func Load(home string, since time.Time, keep map[string]bool) ([]Session, error) {
 	live, err := ReadLive(filepath.Join(home, "sessions"))
 	if err != nil {
 		return nil, err
 	}
 	liveByID := make(map[string]Live, len(live))
+	wanted := maps.Clone(keep)
+	if wanted == nil {
+		wanted = map[string]bool{}
+	}
 	for _, l := range live {
 		liveByID[l.SessionID] = l
+		wanted[l.SessionID] = true
 	}
 
-	transcripts, err := ScanTranscripts(filepath.Join(home, "projects"), since, liveByID)
+	transcripts, err := ScanTranscripts(filepath.Join(home, "projects"), since, wanted)
 	if err != nil {
 		return nil, err
 	}
@@ -75,6 +87,11 @@ func Load(home string, since time.Time) ([]Session, error) {
 			s := Session{ID: l.SessionID}
 			l.applyTo(&s)
 			sessions = append(sessions, s)
+		}
+	}
+	for i, s := range sessions {
+		if s.Running() {
+			sessions[i].Repo, sessions[i].Worktree = worktree(s.Cwd)
 		}
 	}
 	return sessions, nil

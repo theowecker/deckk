@@ -117,8 +117,9 @@ func (m Model) Init() tea.Cmd {
 // Only scheduled loads re-arm the timer, or polling loops would stack up.
 func (m Model) load(scheduled bool) tea.Cmd {
 	started := time.Now()
+	pinned := maps.Clone(m.store.Pinned)
 	return func() tea.Msg {
-		sessions, err := claude.Load(m.home, m.since)
+		sessions, err := claude.Load(m.home, m.since, pinned)
 		if err != nil {
 			return loadedMsg{err: err, scheduled: scheduled, started: started}
 		}
