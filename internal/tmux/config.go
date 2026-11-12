@@ -31,10 +31,6 @@ const copied = `{ send -X copy-pipe-no-clear ; display-message -d 1200 "Copied" 
 
 const copyIfSelected = `{ if -F "#{selection_present}" ` + copied + ` }`
 
-// Window count at which the ⌃Space hint gives its room to the tabs. The
-// dashboard sizes tabs in ui/actions.go tabFit with the same threshold.
-const crowded = "6"
-
 // F12 rather than n, so the picker opens even while the filter has focus.
 const clickStatus = `{ if -F "#{==:#{mouse_status_range},new}" { select-window -t :0 ; send-keys -t :0 F12 } { if -F "#{==:#{mouse_status_range},info}" ` + toggleInfo + ` { select-window -t = } } }`
 
@@ -100,7 +96,7 @@ set -g status-justify left
 set -g status-style "bg=default,fg=default"
 set -g status-left " "
 set -g status-left-length 2
-set -g status-right "#{?#{e|<:#{session_windows},` + crowded + `},#[fg=#6B6B6B]⌃Space #[fg=#4A4A4A]dashboard   ,}` + infoButton + `#[range=user|new]#[bg=#30304A,fg=#E8875B,bold]  + new  #[norange]#[default] "
+set -g status-right "` + infoButton + `#[range=user|new]#[bg=#30304A,fg=#E8875B,bold]  + new  #[norange]#[default] "
 set -g status-right-length 60
 set -g window-status-separator " "
 set -g window-status-style "default"
