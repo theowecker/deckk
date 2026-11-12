@@ -33,7 +33,7 @@ func chip(s claude.Session, now time.Time) string {
 	case deck.Working:
 		bg, label = "#7AA2F7", "◐ working"
 	case deck.YourTurn:
-		bg, label = "#E8875B", "● your turn"
+		bg, label = "#E8875B", "● waiting"
 	}
 	return "#[bg=" + bg + ",fg=#1E1E2E,bold] " + tmuxText(label+since) + " #[bg=" + band + ",nobold]"
 }

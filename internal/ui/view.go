@@ -133,7 +133,7 @@ func (m Model) headerLeft() string {
 			parts = append(parts, glyph+" "+text.Render(fmt.Sprint(n))+" "+dim.Render(label))
 		}
 	}
-	add(yourTurn, accent.Render("●"), "your turn")
+	add(yourTurn, accent.Render("●"), "waiting")
 	if fresh > 0 {
 		parts[len(parts)-1] += dim.Render(" · ") + accent.Bold(true).Render(fmt.Sprintf("%d new", fresh))
 	}
@@ -389,9 +389,9 @@ func (m Model) status(s claude.Session, now time.Time) (string, string) {
 		return working.Render(spinner[m.frame%len(spinner)]), working.Render("working") + since
 	case deck.YourTurn:
 		if m.unread(s) {
-			return accent.Render("●"), accent.Render("your turn ") + accent.Bold(true).Render("new")
+			return accent.Render("●"), accent.Render("waiting ") + accent.Bold(true).Render("new")
 		}
-		return accent.Render("●"), accent.Render("your turn") + since
+		return accent.Render("●"), accent.Render("waiting") + since
 	case deck.Other:
 		return ghost.Render("●"), dim.Render(s.Status)
 	}
