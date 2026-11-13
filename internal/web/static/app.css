@@ -395,6 +395,8 @@ h3 { margin: 22px 0 8px 14px; font-size: 13px; font-weight: 600; color: var(--se
 .chat-card .chat { max-height: 58vh; min-height: 240px; }
 .chat-card .status { color: var(--secondary); font-size: 12px; display: flex; gap: 6px; align-items: center; }
 .typing { display: inline-flex; gap: 3px; }
+.bubble.thinking { padding: 12px 14px; animation: rise 0.3s var(--ease); }
+@keyframes rise { from { opacity: 0; transform: translateY(4px) scale(0.96); } }
 .typing i { width: 5px; height: 5px; border-radius: 50%; background: var(--secondary); animation: typing 1.2s infinite; }
 .typing i:nth-child(2) { animation-delay: 0.15s; }
 .typing i:nth-child(3) { animation-delay: 0.3s; }

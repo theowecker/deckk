@@ -307,10 +307,16 @@ function conversation(s) {
     turns.flatMap((t) => [
       t.prompt && el("p", { class: "bubble mine" }, t.prompt),
       t.reply && el("p", { class: "bubble them" }, t.reply),
-    ]));
+    ]),
+    s.state === "working" && thinking("Claude is working"));
   if (!chat.childElementCount) return null;
   keepScroll(chat, s.id);
   return chat;
+}
+
+// thinking is the bubble that stands in for a reply on its way.
+function thinking(label) {
+  return el("p", { class: "bubble them thinking", "aria-label": label }, el("span", { class: "typing", "aria-hidden": "true" }, el("i"), el("i"), el("i")));
 }
 
 function keepScroll(chat, key) {
@@ -328,7 +334,8 @@ function composer(key, placeholder, onSubmit, hint) {
     value: drafts.get(key) || "",
     oninput: (e) => drafts.set(key, e.target.value),
     onkeydown: (e) => {
-      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+      // Enter sends and Shift+Enter starts a new line, as in Claude Code.
+      if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
         e.preventDefault();
         submit(true);
       }
@@ -364,7 +371,7 @@ function detailBody(s) {
     conversation(s),
     composer(s.id, s.running ? "Write to this session" : "Resume and write to this session",
       (text, send) => act("prompt", { id: s.id, text, send }),
-      { typeIn: true, text: "Type in puts it in the session's prompt for you to check in deckk. ⌘↵ sends it." }),
+      { typeIn: true, text: "Enter sends, Shift+Enter adds a line. Type in leaves it in the session's prompt for you to check in deckk." }),
     el("div", { class: "facts" },
       el("span", {}, s.folder),
       s.pr && safeLink(s.prUrl) && el("a", { href: s.prUrl, target: "_blank", rel: "noopener noreferrer" }, `PR ${s.pr}`),
@@ -516,12 +523,12 @@ function renderChat(s) {
     ];
   });
   const chat = el("div", { class: "chat", tabindex: "0", role: "log", "data-chat": "deckk", "aria-label": "Conversation with deckk" },
-    turns.length ? turns : el("p", { class: "why" }, "Ask what needs you, where you left off, or what to do next."));
+    turns.length ? turns : el("p", { class: "why" }, "Ask what needs you, where you left off, or what to do next."),
+    d.working && thinking("deckk is thinking"));
   keepScroll(chat, "deckk");
   card.replaceChildren(
     chat,
-    d.working && el("p", { class: "status" }, el("span", { class: "typing", "aria-hidden": "true" }, el("i"), el("i"), el("i")), "deckk is thinking"),
-    composer("deckk", "Ask deckk", (text) => act("chat", { text }), { typeIn: false, text: "⌘↵ sends. deckk answers in its pane on the dashboard too." }),
+    composer("deckk", "Ask deckk", (text) => act("chat", { text }), { typeIn: false, text: "Enter sends, Shift+Enter adds a line. deckk answers in its pane on the dashboard too." }),
   );
 }
 
