@@ -454,3 +454,29 @@ func TestTheDashboardFadesWhileTheDeckkSessionHasTheKeyboard(t *testing.T) {
 		t.Fatal("a click on the dashboard brings it back at once")
 	}
 }
+
+func TestAFinishedSessionYouArentWatchingNotifiesOnce(t *testing.T) {
+	m, host := newTestModel(t)
+	finish := func(s []claude.Session) {
+		in := inside(s)
+		in.Status, in.StatusAt, in.LastReply = "idle", time.Now(), "The cart total is fixed."
+	}
+	m = refresh(t, m, host, finish)
+	if len(host.notes) != 1 || !strings.Contains(host.notes[0], "Inside deckk is waiting") || !strings.Contains(host.notes[0], "cart total") {
+		t.Fatalf("notes %v", host.notes)
+	}
+	m = refresh(t, m, host, func(s []claude.Session) { inside(s).Status = "busy" })
+	refresh(t, m, host, finish)
+	if len(host.notes) != 1 {
+		t.Fatalf("notified again within a minute: %v", host.notes)
+	}
+}
+
+func TestNoNotificationForTheTabYouAreOn(t *testing.T) {
+	m, host := newTestModel(t)
+	host.windows[1].Active = true
+	refresh(t, m, host, func(s []claude.Session) { inside(s).Status = "idle" })
+	if len(host.notes) != 0 {
+		t.Fatalf("notes %v", host.notes)
+	}
+}

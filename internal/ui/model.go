@@ -36,6 +36,8 @@ type Host interface {
 	OpenHQ(focus bool) error
 	CloseHQ() error
 	HQPane() (tmux.Pane, bool, error)
+	// Notify shows a macOS notification.
+	Notify(title, subtitle, body string) error
 	// Deliver types text into a Claude prompt, given by pane ID or tty, if it
 	// is empty or still holds exactly replace.
 	Deliver(target, text, replace string, send bool) (tmux.Delivery, error)
@@ -82,6 +84,7 @@ type Model struct {
 	clashes     map[string]map[string]bool
 	clashesSeen bool
 	web         Publisher
+	notified    map[string]time.Time
 	flashSeq    int
 	webStart    WebStarter
 	typingGap   time.Duration
@@ -110,8 +113,8 @@ func New(home string, since time.Time, st *store.Store, cfg *config.Config, host
 		home: home, since: since, store: st, cfg: cfg, host: host, filter: ti,
 		labels: map[string]tmux.Label{}, seen: map[string]bool{}, startedAt: time.Now(),
 		wasRunning: map[string]bool{}, closing: map[string]bool{}, lastSeen: map[string]time.Time{},
-		typingGap: typingGap,
-		deckk:     newDeckkState(), clashes: map[string]map[string]bool{},
+		typingGap: typingGap, notified: map[string]time.Time{},
+		deckk: newDeckkState(), clashes: map[string]map[string]bool{},
 	}
 }
 
@@ -195,9 +198,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.trackClosed()
 			m.trackSeen()
 			m.collisions = deck.Collisions(m.sessions, msg.edits, git.Root)
-			m.report(append(m.trackEvents(), m.trackCollisions()...))
+			events := m.trackEvents()
+			m.report(append(events, m.trackCollisions()...))
 			m.rearrange()
-			cmd = tea.Batch(m.syncLabels(), m.nudge(), m.prefill(), m.fillStarted(), m.startDeckk())
+			cmd = tea.Batch(m.syncLabels(), m.nudge(), m.prefill(), m.fillStarted(), m.startDeckk(), m.notify(events))
 			m.publish()
 		}
 		if msg.scheduled {

@@ -88,6 +88,8 @@ func openHQ(cfg *config.Config) error {
 
 func (host) CloseHQ() error { return tmux.CloseHQ() }
 
+func (host) Notify(title, subtitle, body string) error { return terminal.Notify(title, subtitle, body) }
+
 func (host) HQPane() (tmux.Pane, bool, error) { return tmux.HQ() }
 
 func (host) Deliver(target, text, replace string, send bool) (tmux.Delivery, error) {

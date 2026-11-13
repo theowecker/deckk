@@ -133,3 +133,12 @@ func (a App) run(body string) (string, error) {
 func quote(s string) string {
 	return `"` + strings.NewReplacer(`\`, `\\`, `"`, `\"`).Replace(s) + `"`
 }
+
+// Notify shows a macOS notification. The text goes to AppleScript as
+// arguments rather than inside the script, so quotes in it can't break out.
+func Notify(title, subtitle, body string) error {
+	script := `on run argv
+	display notification (item 3 of argv) with title (item 1 of argv) subtitle (item 2 of argv)
+end run`
+	return exec.Command("osascript", "-e", script, title, subtitle, body).Run()
+}

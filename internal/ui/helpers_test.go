@@ -23,6 +23,7 @@ type fakeHost struct {
 	popped   []string
 	brought  []string
 	moved    []string
+	notes    []string
 
 	hqOpened, hqClosed int
 	hqPane             tmux.Pane
@@ -44,6 +45,11 @@ func (h *fakeHost) MoveAfter(id, after string) error {
 }
 
 func (h *fakeHost) Focus(string) error { return nil }
+
+func (h *fakeHost) Notify(title, subtitle, body string) error {
+	h.notes = append(h.notes, title+" | "+subtitle+" | "+body)
+	return nil
+}
 
 func (h *fakeHost) OpenHQ(focus bool) error { h.hqOpened++; return nil }
 func (h *fakeHost) CloseHQ() error          { h.hqClosed++; return nil }

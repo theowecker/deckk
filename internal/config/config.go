@@ -24,6 +24,7 @@ type Config struct {
 	Updates    string `toml:"updates"`
 	Ask        string `toml:"sessions_ask"`
 	Web        string `toml:"web_view"`
+	Notify     string `toml:"notifications"`
 	Days       int    `toml:"days"`
 
 	path string
@@ -71,6 +72,8 @@ func (c *Config) AskDeckk() bool { return c.HQOn() && c.Ask != Off }
 
 func (c *Config) WebOn() bool { return c.Web != Off }
 
+func (c *Config) NotifyOn() bool { return c.Notify != Off }
+
 var onOff = []string{On, Off}
 
 // Options are what the settings screen cycles through. An empty choice means
@@ -107,6 +110,9 @@ var Options = []Option{
 	{Key: "sessions_ask", Label: "Asking deckk", Deckk: true, Choices: onOff,
 		Names: map[string]string{On: "sessions deckk starts can ask it what's next", Off: "off"},
 		field: func(c *Config) *string { return &c.Ask }},
+	{Key: "notifications", Label: "Notifications", Deckk: true, Choices: onOff,
+		Names: map[string]string{On: "when a session you aren't looking at waits on you", Off: "off"},
+		field: func(c *Config) *string { return &c.Notify }},
 	{Key: "web_view", Label: "Web view", Deckk: true, Choices: onOff,
 		Names: map[string]string{On: "on localhost, press w to open it", Off: "off"},
 		field: func(c *Config) *string { return &c.Web }},

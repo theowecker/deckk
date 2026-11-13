@@ -74,7 +74,8 @@ copy. In iTerm2, Cmd+C works too. Click anywhere to clear the selection.
 
 - **Status.** Each session shows whether Claude is working or waiting on you,
   and for how long. A session that finished while you were elsewhere is marked
-  new until you open it.
+  new until you open it, and macOS tells you, at most once a minute for each
+  session.
 - **Context.** The selected row shows your last prompt, Claude's latest reply
   and any pull request it opened. Under the tab strip, each tab shows how long
   it has been working or waiting, its folder, branch, uncommitted changes,
@@ -182,6 +183,7 @@ suggestions = ""
 updates = ""
 sessions_ask = ""
 web_view = ""
+notifications = ""
 ```
 
 An empty value leaves it to your normal Claude settings, or to deckk's
@@ -196,7 +198,8 @@ default.
 | `suggestions` | empty types them in for you to send, `send` also sends the ones it marks safe, `list` only lists them under Next up |
 | `updates` | `off` stops telling the deckk session about changes, so it only acts when you ask |
 | `sessions_ask` | `off` leaves the `ask_deckk` tools out of sessions deckk starts |
-| `web_view` | `off` stops the page's server |
+| `web_view` | `off` stops the hub's server |
+| `notifications` | `off` stops the macOS notification when a session you aren't looking at starts waiting on you |
 
 The ⌘ keys for switching tabs take over iTerm2's own use of them, but only in
 the deckk tab.
