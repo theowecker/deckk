@@ -612,6 +612,18 @@ func TestTypingIntoTheListDoesntTriggerShortcuts(t *testing.T) {
 	}
 }
 
+func TestHoldingAKeyStillMoves(t *testing.T) {
+	m, _ := newTestModel(t)
+	m.typingGap = typingGap
+	start := m.cursor
+	for range 3 {
+		m, _ = press(m, "j")
+	}
+	if m.cursor != start+3 || strings.Contains(m.flash, "typing") {
+		t.Fatalf("cursor %d from %d, flash %q", m.cursor, start, m.flash)
+	}
+}
+
 func TestFindPutsYourSessionsBeforeBackgroundRuns(t *testing.T) {
 	m, _ := newTestModel(t)
 	now := time.Now()

@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/theowecker/deckk/internal/claude"
@@ -31,6 +32,31 @@ type Store struct {
 	Trusted map[string]bool `json:"trusted,omitempty"`
 	// Briefed is when the deckk session last briefed the user on opening.
 	Briefed time.Time `json:"briefed,omitzero"`
+
+	labels atomic.Pointer[Labels]
+}
+
+// Labels are the marks a session gets from the user, copied at every save so
+// code off the dashboard's goroutine, like the page's search, can read them
+// while the dashboard changes the store.
+type Labels struct {
+	Pinned, Archived map[string]bool
+	Names            map[string]string
+}
+
+func (l *Labels) ApplyNames(sessions []claude.Session) {
+	for i := range sessions {
+		if name, ok := l.Names[sessions[i].ID]; ok {
+			sessions[i].Title = name
+		}
+	}
+}
+
+// Labels is the latest copy, safe to read from any goroutine.
+func (s *Store) Labels() *Labels { return s.labels.Load() }
+
+func (s *Store) copyLabels() {
+	s.labels.Store(&Labels{Pinned: maps.Clone(s.Pinned), Archived: maps.Clone(s.Archived), Names: maps.Clone(s.Names)})
 }
 
 // A Prefill is a suggestion deckk typed into a session's prompt. The text is
@@ -66,6 +92,7 @@ func Open(path string) (*Store, error) {
 		Prefilled: map[string]Prefill{}, Dismissed: map[string]time.Time{}, Trusted: map[string]bool{}}
 	data, err := os.ReadFile(path)
 	if errors.Is(err, fs.ErrNotExist) {
+		s.copyLabels()
 		return s, nil
 	} else if err != nil {
 		return nil, err
@@ -100,6 +127,7 @@ func Open(path string) (*Store, error) {
 	if s.Trusted == nil {
 		s.Trusted = map[string]bool{}
 	}
+	s.copyLabels()
 	return s, nil
 }
 
@@ -233,6 +261,7 @@ func toggle(set map[string]bool, id string) {
 }
 
 func (s *Store) save() error {
+	s.copyLabels()
 	if err := os.MkdirAll(filepath.Dir(s.path), 0o755); err != nil {
 		return err
 	}

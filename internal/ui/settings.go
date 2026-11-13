@@ -25,10 +25,14 @@ func (m Model) updateSettings(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 func (m *Model) cycleSetting() tea.Cmd {
 	o := config.Options[m.setting]
-	if err := m.cfg.Cycle(o); err != nil {
+	// Commands already handed out read the old config, so it is replaced
+	// rather than changed in place.
+	next := *m.cfg
+	if err := next.Cycle(o); err != nil {
 		m.setFlash("", err)
 		return nil
 	}
+	m.cfg = &next
 	if effect, ok := settingEffects[o.Key]; ok {
 		return effect(m, m.cfg.Value(o))
 	}
@@ -53,7 +57,7 @@ var settingEffects = map[string]func(m *Model, value string) tea.Cmd{
 		if value == config.Off {
 			return m.do(m.host.CloseHQ, "")
 		}
-		return m.do(func() error { return m.host.OpenHQ(false) }, "")
+		return m.do(func() error { return m.host.OpenHQ(*m.cfg, false) }, "")
 	},
 }
 

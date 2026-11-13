@@ -33,7 +33,7 @@ type Host interface {
 	SetTabKeys(preset string) error
 
 	// The deckk session beside the dashboard.
-	OpenHQ(focus bool) error
+	OpenHQ(cfg config.Config, focus bool) error
 	CloseHQ() error
 	HQPane() (tmux.Pane, bool, error)
 	// Notify shows a macOS notification.
@@ -58,6 +58,7 @@ type Model struct {
 	groups   []deck.Group
 	flat     []claude.Session
 	loaded   bool
+	folders  []string
 
 	cursor      int
 	selectedID  string
@@ -89,6 +90,8 @@ type Model struct {
 	webStart    WebStarter
 	typingGap   time.Duration
 	lastLetter  time.Time
+	lastRune    rune
+	inWord      bool
 
 	lastClick  time.Time
 	lastClickY int
@@ -129,6 +132,9 @@ type loadedMsg struct {
 	// cfg is the config file again when something else changed it, such as
 	// the deckk session's intro turning the session off.
 	cfg *config.Config
+	// folders are where the page offers to start a session, read here
+	// because finding them lists directories.
+	folders []string
 }
 
 type labelsSetMsg map[string]tmux.Label
@@ -149,13 +155,18 @@ func (m Model) Init() tea.Cmd {
 func (m Model) load(scheduled bool) tea.Cmd {
 	started := time.Now()
 	pinned := maps.Clone(m.store.Pinned)
+	web := m.web != nil
 	return func() tea.Msg {
 		sessions, err := claude.Load(m.home, m.since, pinned)
 		if err != nil {
 			return loadedMsg{err: err, scheduled: scheduled, started: started}
 		}
 		windows, err := m.host.Windows()
-		return loadedMsg{sessions, windows, err, scheduled, started, m.snapshot(), claude.EditsOf(sessions), m.changedConfig()}
+		msg := loadedMsg{sessions, windows, err, scheduled, started, m.snapshot(), claude.EditsOf(sessions), m.changedConfig(), nil}
+		if web {
+			msg.folders = candidateDirs(sessions)
+		}
+		return msg
 	}
 }
 
@@ -187,11 +198,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.loadedAt = msg.started
 			if msg.cfg != nil {
-				*m.cfg = *msg.cfg
+				m.cfg = msg.cfg
 			}
 			m.sessions = m.takeDeckk(msg.sessions, msg.deckk)
 			m.store.ApplyNames(m.sessions)
 			m.windows, m.popped = byTTY(msg.windows)
+			if msg.folders != nil {
+				m.folders = msg.folders
+			}
 			m.tabs = msg.windows
 			m.loaded = true
 			m.trackWorkspace()

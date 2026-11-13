@@ -51,8 +51,8 @@ func (h *fakeHost) Notify(title, subtitle, body string) error {
 	return nil
 }
 
-func (h *fakeHost) OpenHQ(focus bool) error { h.hqOpened++; return nil }
-func (h *fakeHost) CloseHQ() error          { h.hqClosed++; return nil }
+func (h *fakeHost) OpenHQ(_ config.Config, focus bool) error { h.hqOpened++; return nil }
+func (h *fakeHost) CloseHQ() error                           { h.hqClosed++; return nil }
 
 func (h *fakeHost) HQPane() (tmux.Pane, bool, error) { return h.hqPane, h.hqPane.ID != "", nil }
 

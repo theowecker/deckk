@@ -26,5 +26,10 @@ func Trusted(dir string) bool {
 	if json.Unmarshal(data, &settings) != nil {
 		return false
 	}
-	return settings.Projects[filepath.Clean(dir)].Trusted
+	if settings.Projects[filepath.Clean(dir)].Trusted {
+		return true
+	}
+	// Claude may key the folder with symlinks resolved.
+	real, err := filepath.EvalSymlinks(dir)
+	return err == nil && settings.Projects[real].Trusted
 }

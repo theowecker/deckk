@@ -39,21 +39,53 @@ func fadeParams(params string, grey [3]int, base string) string {
 		switch codes[i] {
 		case "", "0", "39":
 			out = append(out, codes[i], base)
-		case "38", "48":
-			if i+4 < len(codes) && codes[i+1] == "2" {
-				var c [3]int
-				for j := range c {
-					v, _ := strconv.Atoi(codes[i+2+j])
-					c[j] = int(float64(v)*(1-fadeBy) + float64(grey[j])*fadeBy)
+		case "38", "48", "58":
+			code := codes[i]
+			var rgb [3]int
+			switch {
+			case i+4 < len(codes) && codes[i+1] == "2":
+				for j := range rgb {
+					rgb[j], _ = strconv.Atoi(codes[i+2+j])
 				}
-				out = append(out, codes[i], "2", strconv.Itoa(c[0]), strconv.Itoa(c[1]), strconv.Itoa(c[2]))
 				i += 4
+			case i+2 < len(codes) && codes[i+1] == "5":
+				n, _ := strconv.Atoi(codes[i+2])
+				rgb = xterm256(n)
+				i += 2
+			default:
+				out = append(out, codes[i])
 				continue
 			}
-			out = append(out, codes[i])
+			var c [3]int
+			for j := range c {
+				c[j] = int(float64(rgb[j])*(1-fadeBy) + float64(grey[j])*fadeBy)
+			}
+			out = append(out, code, "2", strconv.Itoa(c[0]), strconv.Itoa(c[1]), strconv.Itoa(c[2]))
 		default:
 			out = append(out, codes[i])
 		}
 	}
 	return strings.Join(out, ";")
+}
+
+// xterm256 is the colour a 256-colour index stands for in xterm's palette.
+func xterm256(n int) [3]int {
+	basic := [16][3]int{{0, 0, 0}, {205, 0, 0}, {0, 205, 0}, {205, 205, 0}, {0, 0, 238}, {205, 0, 205}, {0, 205, 205}, {229, 229, 229},
+		{127, 127, 127}, {255, 0, 0}, {0, 255, 0}, {255, 255, 0}, {92, 92, 255}, {255, 0, 255}, {0, 255, 255}, {255, 255, 255}}
+	switch {
+	case n < 16:
+		return basic[max(n, 0)]
+	case n < 232:
+		n -= 16
+		level := func(v int) int {
+			if v == 0 {
+				return 0
+			}
+			return 55 + v*40
+		}
+		return [3]int{level(n / 36), level(n / 6 % 6), level(n % 6)}
+	default:
+		v := 8 + (min(n, 255)-232)*10
+		return [3]int{v, v, v}
+	}
 }

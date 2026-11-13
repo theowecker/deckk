@@ -136,15 +136,18 @@ func keyMsg(key string) tea.KeyMsg {
 // than this are someone typing, most likely meant for the deckk session.
 const typingGap = 150 * time.Millisecond
 
-// typing reports a letter that follows another too closely to be a shortcut.
+// typing reports a letter that follows a different one too closely to be a
+// shortcut. One key repeating, held or tapped fast like jjj, still counts,
+// until a word has started.
 func (m *Model) typing(msg tea.KeyMsg) bool {
 	if msg.Type != tea.KeyRunes || msg.Alt || len(msg.Runes) != 1 || m.typingGap == 0 {
 		return false
 	}
 	now := time.Now()
-	burst := now.Sub(m.lastLetter) < m.typingGap
-	m.lastLetter = now
-	return burst
+	quick := now.Sub(m.lastLetter) < m.typingGap
+	m.inWord = quick && (m.inWord || msg.Runes[0] != m.lastRune)
+	m.lastLetter, m.lastRune = now, msg.Runes[0]
+	return m.inWord
 }
 
 func typingHint(deckkOpen bool) string {

@@ -489,7 +489,7 @@ func (m *Model) openDeckk() tea.Cmd {
 		m.setFlash("The deckk session is off. Turn it on in settings, s", nil)
 		return nil
 	}
-	return m.do(func() error { return m.host.OpenHQ(true) }, "")
+	return m.do(func() error { return m.host.OpenHQ(*m.cfg, true) }, "")
 }
 
 type deckkStartedMsg struct{ err error }
@@ -502,7 +502,7 @@ func (m *Model) startDeckk() tea.Cmd {
 		return nil
 	}
 	m.deckk.starting = true
-	return func() tea.Msg { return deckkStartedMsg{m.host.OpenHQ(false)} }
+	return func() tea.Msg { return deckkStartedMsg{m.host.OpenHQ(*m.cfg, false)} }
 }
 
 func (m *Model) deckkStarted(msg deckkStartedMsg) {

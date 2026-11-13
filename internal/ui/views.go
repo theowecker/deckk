@@ -65,7 +65,7 @@ func (m Model) findEverything() tea.Cmd {
 		if err != nil {
 			return flashMsg{err: err}
 		}
-		m.store.ApplyNames(sessions)
+		m.store.Labels().ApplyNames(sessions)
 		return foundMsg(slices.DeleteFunc(sessions, func(s claude.Session) bool { return hq.Is(s.Cwd) }))
 	}
 }

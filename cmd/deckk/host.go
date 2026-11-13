@@ -14,12 +14,11 @@ type host struct {
 	tmux.Server
 	tmuxPath string
 	app      terminal.App
-	cfg      *config.Config
 }
 
-func newHost(tmuxPath, program string, cfg *config.Config) host {
+func newHost(tmuxPath, program string) host {
 	app, _ := terminal.Lookup(program)
-	return host{tmuxPath: tmuxPath, app: app, cfg: cfg}
+	return host{tmuxPath: tmuxPath, app: app}
 }
 
 func (host) Focus(tty string) error { return terminal.Focus(tty) }
@@ -61,8 +60,8 @@ func (host) SetTabKeys(preset string) error {
 
 // OpenHQ starts the deckk session beside the dashboard, writing its role and
 // tool config first so an upgraded deckk always hands it the current ones.
-func (h host) OpenHQ(focus bool) error {
-	if err := openHQ(h.cfg); err != nil {
+func (h host) OpenHQ(cfg config.Config, focus bool) error {
+	if err := openHQ(&cfg); err != nil {
 		return err
 	}
 	if focus {
@@ -70,7 +69,7 @@ func (h host) OpenHQ(focus bool) error {
 		if err != nil {
 			return err
 		}
-		return tmux.OpenHQ(hq.Dir(), hq.Command(h.cfg, exe), true)
+		return tmux.OpenHQ(hq.Dir(), hq.Command(&cfg, exe), true)
 	}
 	return nil
 }

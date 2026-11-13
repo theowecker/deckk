@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"text/tabwriter"
 	"time"
@@ -145,7 +145,7 @@ func dashboard(days int, cfg *config.Config, program string) error {
 	if err != nil {
 		return err
 	}
-	model := ui.New(claude.Home(), since(days), st, cfg, newHost(tmuxPath, program, cfg))
+	model := ui.New(claude.Home(), since(days), st, cfg, newHost(tmuxPath, program))
 	// The page's actions reach the dashboard like key presses, once the
 	// program that takes them exists.
 	var running atomic.Pointer[tea.Program]
@@ -199,11 +199,13 @@ const searchLimit = 80
 // your own sessions first, newest first, then background runs.
 func search(st *store.Store) web.Search {
 	return func(query string) ([]web.Found, error) {
-		sessions, err := claude.Load(claude.Home(), time.Time{}, st.Pinned)
+		labels := st.Labels()
+		sessions, err := loadEverything(labels.Pinned)
 		if err != nil {
 			return nil, err
 		}
-		st.ApplyNames(sessions)
+		sessions = slices.Clone(sessions)
+		labels.ApplyNames(sessions)
 		sessions = slices.DeleteFunc(sessions, func(s claude.Session) bool {
 			return hq.Is(s.Cwd) || !deck.Matches(s, query)
 		})
@@ -221,21 +223,39 @@ func search(st *store.Store) web.Search {
 			found = append(found, web.Found{
 				ID: s.ID, Title: cmp.Or(s.Title, "new session"), Project: s.Project(), Folder: s.Cwd, Branch: s.Branch,
 				Updated: s.UpdatedAt, LastPrompt: clip(s.LastPrompt, 200), Running: s.Running(), Background: s.Background,
-				Pinned: st.Pinned[s.ID], Archived: st.Archived[s.ID],
+				Pinned: labels.Pinned[s.ID], Archived: labels.Archived[s.ID],
 			})
 		}
 		return found, nil
 	}
 }
 
-// sessionID is the shape of Claude's session IDs; anything else is refused
-// before it reaches a file path.
-var sessionID = regexp.MustCompile(`^[0-9a-f-]{8,64}$`)
+// Typing a search asks once per pause, so a few seconds of reuse spares
+// rereading every transcript, and running git in each session, per letter.
+var everything struct {
+	sync.Mutex
+	at       time.Time
+	sessions []claude.Session
+}
+
+func loadEverything(pinned map[string]bool) ([]claude.Session, error) {
+	everything.Lock()
+	defer everything.Unlock()
+	if time.Since(everything.at) < 5*time.Second {
+		return everything.sessions, nil
+	}
+	sessions, err := claude.Load(claude.Home(), time.Time{}, pinned)
+	if err != nil {
+		return nil, err
+	}
+	everything.at, everything.sessions = time.Now(), sessions
+	return sessions, nil
+}
 
 // history is the page's view of a session: its last ten exchanges, each
 // clipped so a long reply can't swamp the page.
 func history(id string) ([]web.Turn, error) {
-	if !sessionID.MatchString(id) {
+	if !claude.IsSessionID(id) {
 		return nil, errors.New("no such session")
 	}
 	path := claude.TranscriptPath(claude.Home(), id)

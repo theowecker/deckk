@@ -33,8 +33,17 @@ var (
 	notAlphanumeric = regexp.MustCompile(`[^A-Za-z0-9-]`)
 )
 
+var sessionID = regexp.MustCompile(`^[0-9a-f-]{8,64}$`)
+
+// IsSessionID checks an ID has the shape of Claude's before it reaches a
+// file path or a glob.
+func IsSessionID(id string) bool { return sessionID.MatchString(id) }
+
 // TranscriptPath finds a session's transcript under any project folder.
 func TranscriptPath(home, id string) string {
+	if !IsSessionID(id) {
+		return ""
+	}
 	paths, _ := filepath.Glob(filepath.Join(home, "projects", "*", id+".jsonl"))
 	if len(paths) == 0 {
 		return ""
