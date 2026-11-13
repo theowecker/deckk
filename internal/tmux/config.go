@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/charmbracelet/x/ansi"
@@ -218,7 +219,7 @@ func copyModeBindings(table string) string {
 		fmt.Fprintf(&b, "bind -T %s %s %s\n", table, key, command)
 	}
 	bind("MouseDown1Pane", `{ `+noteClick+` ; select-pane ; if -F "#{scroll_position}" { send -X clear-selection } { send -X cancel } }`)
-	bind("MouseDragEnd1Pane", "{ "+outside("other-end", "set-mark", "other-end", "stop-selection")+" }")
+	bind("MouseDragEnd1Pane", `{ if -F "#{@deckk_drag}" { set -gu @deckk_drag } { `+outside("other-end", "set-mark", "other-end", "stop-selection")+` } }`)
 	bind("DoubleClick1Pane", sameClick(`{ select-pane ; send -X select-word ; `+outside("other-end", "set-mark", "other-end", "stop-selection")+` }`))
 	bind("TripleClick1Pane", sameClick(`{ select-pane ; send -X select-line ; `+outside("other-end", "set-mark", "other-end", "stop-selection")+` }`))
 	// Anchored at the mark the drag left, since tmux re-anchors at the cursor,
@@ -231,9 +232,17 @@ func copyModeBindings(table string) string {
 	bind("User1", `{ `+findPrompt+` }`)
 	bind("User2", `{ send -X search-again }`)
 	bind("Escape", `{ send -X cancel }`)
-	// A paste arrives as a key no binding can name, so it reaches Any, as do
-	// mouse events nothing else claims; those have a position and are ignored.
-	bind("Any", `{ if -F "#{!=:#{mouse_y},}" { set -gq @deckk_noop 1 } { send -X cancel } }`)
+	// send-keys -K with no key replays the key that ran the binding through
+	// the key tables, which is how keys deckk binds itself still work after
+	// leaving copy mode, and how Any passes on pastes and keys no binding can
+	// name, like é. Named keys don't survive a replay, so the rest are sent to
+	// the app by name. Mouse events nothing else claims have a position and
+	// are ignored, since replaying them would land back here.
+	const replay = `{ send -X cancel ; send-keys -K }`
+	bind("Any", `{ if -F "#{!=:#{mouse_y},}" { set -gq @deckk_noop 1 } `+replay+` }`)
+	for _, key := range deckkKeys {
+		bind(key, replay)
+	}
 	for c := '!'; c <= '~'; c++ {
 		key := quote(string(c))
 		bind(key, `{ send -X cancel ; send-keys -l `+key+` }`)
@@ -244,6 +253,8 @@ func copyModeBindings(table string) string {
 	}
 	return b.String()
 }
+
+var deckkKeys = []string{"C-Space", "C-S-Up", "C-S-Down", "C-S-Left", "C-S-Right", "C-PPage", "C-NPage"}
 
 func passedKeys() []string {
 	var keys []string
@@ -256,10 +267,9 @@ func passedKeys() []string {
 	for n := 1; n <= 12; n++ {
 		named = append(named, fmt.Sprintf("F%d", n))
 	}
-	reserved := map[string]bool{"C-Space": true, "C-S-Up": true, "C-S-Down": true, "C-S-Left": true, "C-S-Right": true, "C-PPage": true, "C-NPage": true}
 	for _, mod := range []string{"", "S-", "C-", "M-", "C-S-", "M-S-", "C-M-"} {
 		for _, key := range named {
-			if !reserved[mod+key] && (mod == "" || key != "BTab") {
+			if !slices.Contains(deckkKeys, mod+key) && (mod == "" || key != "BTab") {
 				keys = append(keys, mod+key)
 			}
 		}
