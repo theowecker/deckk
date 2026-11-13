@@ -222,6 +222,9 @@ func copyModeBindings(table string) string {
 		outside("jump-to-mark", "begin-selection", "jump-to-mark", "stop-selection")+` } }`)
 	bind("C-c", `{ if -F "#{selection_present}" `+copied+` { send -X cancel ; send-keys C-c } }`)
 	bind("Escape", `{ send -X cancel }`)
+	// A paste arrives as a key no binding can name, so it reaches Any, as do
+	// mouse events nothing else claims; those have a position and are ignored.
+	bind("Any", `{ if -F "#{!=:#{mouse_y},}" { set -gq @deckk_noop 1 } { send -X cancel } }`)
 	for c := '!'; c <= '~'; c++ {
 		key := quote(string(c))
 		bind(key, `{ send -X cancel ; send-keys -l `+key+` }`)
