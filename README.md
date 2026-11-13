@@ -167,6 +167,12 @@ sessions that moved since. The notes show in each session's preview, and the
 **Board** tab lays them out with your goals: every project touched this week,
 how its sessions stand, and one line on each.
 
+Each heading or top-level bullet in `goals.md` is a goal. The deckk session
+links sessions to the goal they serve as it works, or you pick a goal in a
+session's detail in the browser. The Board and the browser's Goals panels
+then show each goal's sessions: how many are waiting or working, how their
+PRs stand and what reviews flagged.
+
 It never types into a prompt you've started, into the tab you're on, or into
 the deckk session while you're talking to it, and it never sends text that
 would run a command. Every update it hears about costs it a turn, so updates

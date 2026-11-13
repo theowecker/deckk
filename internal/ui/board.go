@@ -2,7 +2,6 @@ package ui
 
 import (
 	"fmt"
-	"regexp"
 	"slices"
 	"strings"
 	"time"
@@ -100,30 +99,29 @@ func (m Model) boardRow(s claude.Session, selected bool, now time.Time, titles i
 	return bar + glyph + " " + line + "  " + lipgloss.PlaceHorizontal(statusWidth, lipgloss.Right, status)
 }
 
-var markdownMarks = regexp.MustCompile(`^\s*(#+\s*|[-*]\s+(\[[ x]\]\s+)?)|\*\*|` + "`")
-
 func (m Model) goalLines() []string {
 	const shown = 6
-	head := pad() + heading.Render("GOALS") + " " + rule.Render(strings.Repeat("─", max(m.width-gutter*2-7, 2)))
 	if !m.cfg.HQOn() {
 		return nil
 	}
-	var goals []string
-	for raw := range strings.Lines(m.deckk.goals) {
-		if line := strings.TrimSpace(markdownMarks.ReplaceAllString(raw, "")); line != "" {
-			goals = append(goals, line)
-		}
-	}
+	head := pad() + heading.Render("GOALS") + " " + rule.Render(strings.Repeat("─", max(m.width-gutter*2-7, 2)))
+	goals := m.goals()
 	lines := []string{head}
 	if len(goals) == 0 {
 		lines = append(lines, pad()+dim.Render("No goals yet. Tell the deckk session what you're working toward; press c."))
+	}
+	width := 0
+	for _, g := range goals[:min(len(goals), shown)] {
+		width = max(width, min(lipgloss.Width(g.title), (m.width-gutter*2)/2))
 	}
 	for i, g := range goals {
 		if i == shown {
 			lines = append(lines, pad()+ghost.Render(fmt.Sprintf("+ %d more in goals.md", len(goals)-shown)))
 			break
 		}
-		lines = append(lines, pad()+"  "+text.Render(ansi.Truncate(g, m.width-gutter*2-2, "…")))
+		title := ansi.Truncate(g.title, width, "…")
+		line := "  " + text.Render(title) + strings.Repeat(" ", width-lipgloss.Width(title)) + "   " + dim.Render(m.summary(g))
+		lines = append(lines, pad()+ansi.Truncate(line, m.width-gutter*2, "…"))
 	}
 	return append(lines, "")
 }

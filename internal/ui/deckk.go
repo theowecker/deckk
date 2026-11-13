@@ -31,6 +31,7 @@ type deckkState struct {
 	recent  []hq.Event
 	notes   map[string]hq.Note
 	reviews map[string]hq.Review
+	links   map[string]string
 
 	states   map[string]deck.State
 	prs      map[string]string
@@ -47,7 +48,7 @@ type deckkState struct {
 func newDeckkState() deckkState {
 	return deckkState{
 		suggestions: map[string]hq.Suggestion{}, states: map[string]deck.State{}, prs: map[string]string{},
-		told: map[string]bool{}, inflight: map[string]bool{}, given: map[string]bool{}, reviews: map[string]hq.Review{},
+		told: map[string]bool{}, inflight: map[string]bool{}, given: map[string]bool{}, reviews: map[string]hq.Review{}, links: map[string]string{},
 	}
 }
 
@@ -59,6 +60,7 @@ type deckkSnapshot struct {
 	recent      []hq.Event
 	notes       map[string]hq.Note
 	reviews     map[string]hq.Review
+	links       map[string]string
 	pane        tmux.Pane
 	open        bool
 }
@@ -72,6 +74,7 @@ func (m Model) snapshot() deckkSnapshot {
 	snap.recent, _ = hq.Recent(15)
 	snap.notes, _ = hq.LoadNotes()
 	snap.reviews, _ = hq.LoadReviews()
+	snap.links, _ = hq.LoadLinks()
 	snap.pane, snap.open, _ = m.host.HQPane()
 	return snap
 }
@@ -102,6 +105,9 @@ func (m *Model) takeDeckk(sessions []claude.Session, snap deckkSnapshot) []claud
 	m.deckk.questions = snap.questions
 	m.deckk.proposals = snap.proposals
 	m.deckk.goals, m.deckk.recent, m.deckk.notes = snap.goals, snap.recent, snap.notes
+	if snap.links != nil {
+		m.deckk.links = snap.links
+	}
 	for id, r := range snap.reviews {
 		if r.At.After(m.deckk.reviews[id].At) {
 			m.deckk.reviews[id] = r

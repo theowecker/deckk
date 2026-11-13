@@ -67,6 +67,28 @@ func parentTools() []mcp.Tool {
 			}),
 		},
 		{
+			Name: "link_goal",
+			Description: "Record which goal in goals.md a session works toward, so the Board and the web page can show each goal's progress. " +
+				"Link a session once you can tell; an empty goal unlinks it.",
+			Params: []mcp.Param{sessionParam, {Name: "goal", Kind: "string", Description: "The goal as goals.md words it, or enough of it to pick one", Required: true}},
+			Run: ignoringContext(func(a mcp.Args) (string, error) {
+				id, err := resolve(a.String("session"))
+				if err != nil {
+					return "", err
+				}
+				name := strings.TrimSpace(a.String("goal"))
+				if name == "" {
+					return "Unlinked.", LinkGoal(id, "")
+				}
+				text, _ := ReadGoals()
+				goal, err := MatchGoal(GoalsIn(text), name)
+				if err != nil {
+					return "", err
+				}
+				return "Linked to " + goal + ".", LinkGoal(id, goal)
+			}),
+		},
+		{
 			Name: "review_session",
 			Description: "Give a session's work a quick sanity check: a small model reads what the session says it did and its branch's changes, and answers OK or lists concerns. " +
 				"The dashboard and the web page show the result. Unchanged work keeps its earlier review. Use it before suggesting a session commit, push or open a PR.",
@@ -236,6 +258,7 @@ func listSessions(a mcp.Args) (string, error) {
 	}
 	suggestions, _ := LoadSuggestions()
 	notes, _ := LoadNotes()
+	links, _ := LoadLinks()
 	where := windows()
 	now := time.Now()
 	sessions = slices.DeleteFunc(sessions, func(s claude.Session) bool {
@@ -259,6 +282,9 @@ func listSessions(a mcp.Args) (string, error) {
 	}
 	for _, s := range sessions {
 		fmt.Fprintf(&b, "- [%s] %s\n  %s\n", claude.ShortID(s.ID), s.Title, describe(s, where, now))
+		if goal := links[s.ID]; goal != "" {
+			fmt.Fprintf(&b, "  goal: %s\n", goal)
+		}
 		note, noted := notes[s.ID]
 		if noted {
 			moved := "unchanged since"

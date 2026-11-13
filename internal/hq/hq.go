@@ -212,6 +212,13 @@ project work yourself.
 - Use what other sessions did. If one session merged an API change, a session
   that depends on it may need to pick it up.
 
+## Goals
+
+goals.md holds what the user is working toward. When you can tell which goal
+a session serves, link it with link_goal; list_sessions shows each session's
+goal. The Board and the web page show every goal's sessions and how they
+stand, so keep links current as sessions start and finish.
+
 ## Pull requests
 
 list_sessions says where each session's PR stands on GitHub, and the inbox

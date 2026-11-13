@@ -41,22 +41,23 @@ type Action struct {
 }
 
 const (
-	Open    = "open"
-	Dismiss = "dismiss"
-	Talk    = "talk"
-	Pin     = "pin"
-	Archive = "archive"
-	Rename  = "rename"
-	Prompt  = "prompt"
-	Chat    = "chat"
-	Goals   = "goals"
-	Trust   = "trust"
-	New     = "new"
-	Close   = "close"
-	Review  = "review"
+	Open     = "open"
+	Dismiss  = "dismiss"
+	Talk     = "talk"
+	Pin      = "pin"
+	Archive  = "archive"
+	Rename   = "rename"
+	Prompt   = "prompt"
+	Chat     = "chat"
+	Goals    = "goals"
+	Trust    = "trust"
+	New      = "new"
+	Close    = "close"
+	Review   = "review"
+	LinkGoal = "goal"
 )
 
-var Kinds = map[string]bool{Open: true, Dismiss: true, Talk: true, Pin: true, Archive: true, Rename: true, Prompt: true, Chat: true, Goals: true, Trust: true, New: true, Close: true, Review: true}
+var Kinds = map[string]bool{Open: true, Dismiss: true, Talk: true, Pin: true, Archive: true, Rename: true, Prompt: true, Chat: true, Goals: true, Trust: true, New: true, Close: true, Review: true, LinkGoal: true}
 
 type Search func(query string) ([]Found, error)
 

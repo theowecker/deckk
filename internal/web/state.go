@@ -18,6 +18,8 @@ type State struct {
 	Background []Session `json:"background"`
 	Notice     Notice    `json:"notice"`
 	Folders    []string  `json:"folders"`
+	// GoalList is each goal in the goals file with how its sessions stand.
+	GoalList []Goal `json:"goalList"`
 }
 
 type Deckk struct {
@@ -105,7 +107,8 @@ type Session struct {
 	Reviewing bool     `json:"reviewing,omitempty"`
 	// Changes says there is something to review: uncommitted work, commits
 	// ahead or a pull request.
-	Changes bool `json:"changes,omitempty"`
+	Changes bool   `json:"changes,omitempty"`
+	Goal    string `json:"goal,omitempty"`
 }
 
 type Event struct {
@@ -126,4 +129,10 @@ type Verdict struct {
 	At       time.Time `json:"at"`
 	// Earlier says the session has moved on since the review.
 	Earlier bool `json:"earlier,omitempty"`
+}
+
+type Goal struct {
+	Title    string   `json:"title"`
+	Summary  string   `json:"summary"`
+	Sessions []string `json:"sessions,omitempty"`
 }

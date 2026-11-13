@@ -305,7 +305,7 @@ function renderNow(s) {
       el("strong", {}, x.title),
       el("span", { class: "tile-note" }, x.suggestion ? "✦ Suggestion above" : x.summary || x.project),
       x.review && !x.review.ok && !x.review.earlier && el("span", { class: "tile-flag" }, `⚑ The review flagged ${plural((x.review.concerns || []).length || 1, "thing")}`),
-    ))), more && el("div", { class: "more-row" }, more));
+    ))), ...(more ? [el("div", { class: "more-row" }, more)] : []));
 }
 
 function renderToday(t) {
@@ -482,6 +482,10 @@ function detailBody(s) {
         ? { typeIn: true, disabled: true, suggestion: offer, text: "This session runs in another terminal tab. Press m on it in deckk to move it in, then write to it here." }
         : { typeIn: true, suggestion: offer, text: offer ? "Click the suggestion or press Tab to use it." : "Enter sends." }),
     reviewBlock(s),
+    (state.goalList || []).length > 0 && el("label", { class: "goal-pick" }, "Goal",
+      el("select", { "data-focus": `goal:${s.id}`, onchange: (e) => act("goal", { id: s.id, text: e.target.value }, e.target.value ? "Linked to the goal" : "Unlinked") },
+        el("option", { value: "", selected: !s.goal }, "None"),
+        state.goalList.map((g) => el("option", { value: g.title, selected: s.goal === g.title }, g.title)))),
     el("div", { class: "facts" },
       el("span", {}, s.folder),
       s.pr && safeLink(s.prUrl) && el("a", { href: s.prUrl, target: "_blank", rel: "noopener noreferrer" }, `PR ${s.pr}`),
@@ -836,10 +840,22 @@ function renderGoals(goals) {
         el("button", { class: "button", "data-focus": "goals-cancel", onclick: () => { drafts.delete("goals"); editingGoals = false; render(true); focusOn("goals-edit"); } }, "Cancel")));
     return;
   }
-  $("goals").replaceChildren(title,
-    goals.trim()
-      ? el("div", { class: "goals" }, markdown(goals))
-      : el("p", {}, "No goals yet. Add some, or tell deckk what you're working toward and it will keep them here."));
+  $("goals").replaceChildren(title, goalsBody(goals));
+}
+
+function goalsBody(goals) {
+  const list = state.goalList || [];
+  if (!goals.trim()) return el("p", {}, "No goals yet. Add some, or tell deckk what you're working toward and it will keep them here.");
+  if (!list.length) return el("div", { class: "goals" }, markdown(goals));
+  return el("ul", { class: "goal-list" }, list.map((g) =>
+    el("li", {}, el("strong", {}, g.title), el("span", { class: g.sessions ? "goal-sum" : "goal-sum none" }, g.summary))));
+}
+
+function renderHomeGoals() {
+  const list = state.goalList || [];
+  $("home-goals").hidden = list.length === 0;
+  $("home-goals").replaceChildren(el("h2", {}, "Goals",
+    el("button", { class: "button quiet", "data-focus": "goals-open", onclick: () => go("deckk") }, "Edit")), goalsBody(state.goals || ""));
 }
 
 let selectedAt = 0;
@@ -909,6 +925,7 @@ function render(force = false) {
   renderLook(s);
   renderNow(s);
   renderToday(s.today || {});
+  renderHomeGoals();
   renderActivity(s.activity || []);
   renderNew(s);
   renderGrouping();

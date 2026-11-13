@@ -101,6 +101,19 @@ func (m *Model) webAction(a webActionMsg) tea.Cmd {
 		m.mark(m.store.ToggleArchive(s.ID))
 	case web.Trust:
 		m.toggleTrust(s)
+	case web.LinkGoal:
+		if a.Text == "" {
+			m.mark(hq.LinkGoal(s.ID, ""))
+			delete(m.deckk.links, s.ID)
+			return nil
+		}
+		goal, err := hq.MatchGoal(hq.GoalsIn(m.deckk.goals), a.Text)
+		if err != nil {
+			m.setFlash("", err)
+			return nil
+		}
+		m.mark(hq.LinkGoal(s.ID, goal))
+		m.deckk.links[s.ID] = goal
 	case web.Review:
 		_, again := m.deckk.reviews[s.ID]
 		return m.startReview(s, false, again)
@@ -322,6 +335,14 @@ func (m Model) webState() web.State {
 	}
 
 	st.Goals = m.deckk.goals
+	st.GoalList = []web.Goal{}
+	for _, g := range m.goals() {
+		goal := web.Goal{Title: g.title, Summary: m.summary(g)}
+		for _, s := range g.sessions {
+			goal.Sessions = append(goal.Sessions, displayTitle(s))
+		}
+		st.GoalList = append(st.GoalList, goal)
+	}
 	for _, e := range m.deckk.recent {
 		st.Activity = append(st.Activity, web.Event{At: e.At, Text: e.Title + " " + e.Kind})
 	}
@@ -391,6 +412,7 @@ func (m Model) webSession(s claude.Session, now time.Time) web.Session {
 	}
 	label, weight := prLabel(s.PRStatus)
 	out.PRState, out.PRNeedsYou = label, weight == 2
+	out.Goal = m.goalOf(s)
 	out.Reviewing = m.reviewing[s.ID]
 	if r, ok := m.deckk.reviews[s.ID]; ok {
 		out.Review = &web.Verdict{OK: r.OK, Concerns: concernLines(r.Text), At: r.At, Earlier: s.UpdatedAt.After(r.At)}
