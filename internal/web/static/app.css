@@ -113,6 +113,7 @@ h1, h2 { margin: 0; }
 .cassette .base { fill: #C96B45; }
 .cassette .reel circle { fill: #F4E9DC; }
 .cassette .reel path { fill: #1E1E2E; }
+/* Each reel turns inside a group that places it, so turning can't move it. */
 .cassette .reel { transform-box: fill-box; transform-origin: center; }
 body[data-working] .cassette .reel { animation: reel 1.4s linear infinite; }
 @keyframes reel { to { rotate: 360deg; } }
