@@ -83,8 +83,14 @@ set -s user-keys[0] "` + strings.ReplaceAll(terminal.CopySequence, "\x1b", `\e`)
 bind -n User0 { if -F "#{pane_in_mode}" ` + copyIfSelected + ` }
 set -s user-keys[1] "` + strings.ReplaceAll(terminal.FindSequence, "\x1b", `\e`) + `"
 set -s user-keys[2] "` + strings.ReplaceAll(terminal.FindNextSequence, "\x1b", `\e`) + `"
-bind -n User1 { if -F "#{==:#{@deckk_pane},dashboard}" { send-keys / } { copy-mode ; ` + findPrompt + ` } }
-bind -n User2 { if -F "#{pane_in_mode}" { send -X search-again } }
+bind -n User1 ` + findKey + `
+bind -n User2 ` + findNextKey + `
+# Ctrl+Shift+F and G search too, for terminals where deckk can't remap Cmd.
+# tmux names the shifted letter both ways, depending on how it was sent.
+bind -n C-S-f ` + findKey + `
+bind -n C-S-F ` + findKey + `
+bind -n C-S-g ` + findNextKey + `
+bind -n C-S-G ` + findNextKey + `
 bind -n MouseDown1Pane { ` + noteClick + ` ; select-pane -t = ; send -M }
 bind -n DoubleClick1Pane ` + sameClick(toApp(`select-pane -t = ; copy-mode -H ; send -X select-word`)) + `
 bind -n TripleClick1Pane ` + sameClick(toApp(`select-pane -t = ; copy-mode -H ; send -X select-line`)) + `
@@ -229,8 +235,12 @@ func copyModeBindings(table string) string {
 	bind("C-c", `{ if -F "#{selection_present}" `+copied+` { send -X cancel ; send-keys C-c } }`)
 	bind("MouseDown3Pane", `{ select-pane ; `+rightMenu+` }`)
 	bind("User0", copyIfSelected)
-	bind("User1", `{ `+findPrompt+` }`)
-	bind("User2", `{ send -X search-again }`)
+	for _, key := range []string{"User1", "C-S-f", "C-S-F"} {
+		bind(key, `{ `+findPrompt+` }`)
+	}
+	for _, key := range []string{"User2", "C-S-g", "C-S-G"} {
+		bind(key, `{ send -X search-again }`)
+	}
 	bind("Escape", `{ send -X cancel }`)
 	// send-keys -K with no key replays the key that ran the binding through
 	// the key tables, which is how keys deckk binds itself still work after
@@ -317,6 +327,10 @@ func sameClick(command string) string {
 }
 
 const findPrompt = `command-prompt -p "find" { send -X search-backward-text "%%" }`
+
+const findKey = `{ if -F "#{==:#{@deckk_pane},dashboard}" { send-keys / } { copy-mode ; ` + findPrompt + ` } }`
+
+const findNextKey = `{ if -F "#{pane_in_mode}" { send -X search-again } }`
 
 // tmux takes the right click, so the terminal's own menu never shows; this
 // offers the parts of it a session needs.

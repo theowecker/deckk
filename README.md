@@ -75,7 +75,10 @@ meant for the deckk session can't rearrange your tabs.
 
 Drag over text to select it, or double-click a word, then press Ctrl+C to
 copy. In iTerm2, Cmd+C works too, and Cmd+F searches a session's whole
-history, with Cmd+G for the next match; on the dashboard it opens Find. Right-click a
+history, with Cmd+G for the next match; on the dashboard it opens Find.
+Ctrl+Shift+F and Ctrl+Shift+G do the same in Ghostty and other terminals
+that report Shift with Ctrl, where Cmd+F stays the terminal's own search of
+the screen. Right-click a
 session for Copy, Paste, Find and Scroll to bottom. To select more than a screen, scroll and
 shift-click where the selection should end. Click anywhere to clear it, or
 just type: keys go to Claude whether or not you've scrolled back.
