@@ -155,8 +155,10 @@ func (m Model) hints() []hint {
 	switch {
 	case m.help:
 		return []hint{{"esc", "close help"}}
+	case m.picker != nil && m.picker.project != "":
+		return []hint{{"enter", "open"}, {"←", "all folders"}, {"esc", "back"}}
 	case m.picker != nil:
-		return []hint{{"enter", "start claude"}, {"esc", "cancel"}}
+		return []hint{{"enter", "start or resume"}, {"→", "a folder's sessions"}, {"esc", "cancel"}}
 	case m.renaming != nil:
 		return []hint{{"enter", "save"}, {"esc", "cancel"}}
 	case m.settings:
@@ -600,25 +602,49 @@ func (m Model) activeCursor() int {
 
 func (m Model) pickerBody() ([]string, []int) {
 	p := m.picker
-	if len(p.shown) == 0 {
-		return []string{pad() + dim.Render("No folder matches. Type a full path like ~/dev/new-app")}, []int{-1}
+	if p.rows() == 0 {
+		return []string{pad() + dim.Render("Nothing matches. Type a full path like ~/dev/new-app")}, []int{-1}
 	}
-	lines := []string{pad() + ghost.Render(fmt.Sprintf("FOLDERS  %d", len(p.shown)))}
-	owners := []int{-1}
-	for i, dir := range p.shown {
-		bar, style := "  ", text
-		if i == p.cursor {
-			bar, style = accent.Render("▌ "), bold
+	var lines []string
+	var owners []int
+	add := func(line string, owner int) {
+		lines = append(lines, line)
+		owners = append(owners, owner)
+	}
+	if p.project != "" {
+		add(pad()+ghost.Render(strings.ToUpper(filepath.Base(p.project)))+"  "+dim.Render(abbreviateHome(filepath.Dir(p.project))), -1)
+		add(m.pickerLine(0, accent.Render("+ ")+"new session here"), 0)
+	} else if len(p.shown) > 0 {
+		add(pad()+ghost.Render(fmt.Sprintf("FOLDERS  %d", len(p.shown))), -1)
+		for i, dir := range p.shown {
+			name := filepath.Base(dir)
+			if dir == p.create {
+				name = accent.Render("+ create ") + name
+			}
+			add(m.pickerLine(i, name+"  "+dim.Render(abbreviateHome(filepath.Dir(dir)))), i)
 		}
-		name := style.Render(filepath.Base(dir))
-		if dir == p.create {
-			name = accent.Render("+ create ") + name
+	}
+	if len(p.sessions) > 0 {
+		add("", -1)
+		add(pad()+ghost.Render(fmt.Sprintf("SESSIONS  %d", len(p.sessions))), -1)
+		now := time.Now()
+		titles := min(48, max(20, m.width/2))
+		for i, s := range p.sessions {
+			index := len(p.shown) + i
+			add(m.row(s, index == p.cursor, now, titles, 16), index)
 		}
-		line := name + "  " + dim.Render(abbreviateHome(filepath.Dir(dir)))
-		lines = append(lines, bar+ansi.Truncate(line, m.width-gutter*2, "…"))
-		owners = append(owners, i)
+	} else if p.project != "" {
+		add(pad()+dim.Render("No sessions in this folder yet."), -1)
 	}
 	return lines, owners
+}
+
+func (m Model) pickerLine(i int, line string) string {
+	bar, style := "  ", text
+	if i == m.picker.cursor {
+		bar, style = accent.Render("▌ "), bold
+	}
+	return bar + style.Render(ansi.Truncate(line, m.width-gutter*2, "…"))
 }
 
 func helpBody(frame int) ([]string, []int) {

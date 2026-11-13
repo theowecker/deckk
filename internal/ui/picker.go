@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"cmp"
 	"os"
 	"path/filepath"
 	"slices"
@@ -10,33 +11,57 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/theowecker/deckk/internal/claude"
+	"github.com/theowecker/deckk/internal/deck"
 )
 
 type picker struct {
-	input  textinput.Model
-	all    []string
-	shown  []string
-	create string
-	cursor int
+	input    textinput.Model
+	all      []string
+	shown    []string
+	create   string
+	cursor   int
+	pool     []claude.Session
+	sessions []claude.Session
+	// project is the folder whose sessions the picker lists, or empty while
+	// it lists every folder.
+	project string
 }
+
+const pickerSessions = 12
 
 func (m Model) openPicker() (tea.Model, tea.Cmd) {
 	ti := textinput.New()
 	ti.Prompt = "in "
-	ti.Placeholder = "type to find a folder, or a path like ~/dev/new-app"
+	ti.Placeholder = "a folder, an old session, or a new path like ~/dev/app"
 	ti.PromptStyle = dim
 	ti.Cursor.Style = accent
-	p := &picker{input: ti, all: candidateDirs(m.sessions)}
+	p := &picker{input: ti, all: candidateDirs(m.sessions), pool: m.pickerPool()}
 	p.refilter()
 	m.picker = p
 	m.offset = 0
-	return m, p.input.Focus()
+	cmds := []tea.Cmd{p.input.Focus()}
+	if m.everything == nil {
+		cmds = append(cmds, m.findEverything())
+	}
+	return m, tea.Batch(cmds...)
+}
+
+func (m Model) pickerPool() []claude.Session {
+	pool := m.everything
+	if pool == nil {
+		pool = m.sessions
+	}
+	return slices.DeleteFunc(slices.Clone(pool), func(s claude.Session) bool { return s.Background })
 }
 
 func (m Model) updatePicker(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	p := m.picker
 	switch msg.String() {
 	case "esc", "ctrl+c":
+		if p.project != "" && msg.String() == "esc" {
+			p.leaveProject()
+			return m, nil
+		}
 		m.picker = nil
 		m.scroll()
 		return m, nil
@@ -46,7 +71,23 @@ func (m Model) updatePicker(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.picker = nil
 			return m, m.newSession(dir, dir == p.create)
 		}
+		if i := p.cursor - len(p.shown); i < len(p.sessions) {
+			s := p.sessions[i]
+			m.picker = nil
+			return m, m.openWithSuggestion(s)
+		}
 		return m, nil
+	case "right", "tab":
+		if p.project == "" && p.cursor < len(p.shown) && p.shown[p.cursor] != p.create {
+			p.enterProject(p.shown[p.cursor])
+			m.offset = 0
+		}
+		return m, nil
+	case "left":
+		if p.project != "" && p.input.Value() == "" {
+			p.leaveProject()
+			return m, nil
+		}
 	case "up", "ctrl+p":
 		m.movePicker(-1)
 		return m, nil
@@ -61,9 +102,26 @@ func (m Model) updatePicker(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
+func (p *picker) enterProject(dir string) {
+	p.project = dir
+	p.input.SetValue("")
+	p.refilter()
+	p.cursor = 0
+}
+
+func (p *picker) leaveProject() {
+	dir := p.project
+	p.project = ""
+	p.input.SetValue("")
+	p.refilter()
+	p.cursor = max(0, slices.Index(p.shown, dir))
+}
+
+func (p *picker) rows() int { return len(p.shown) + len(p.sessions) }
+
 func (m *Model) movePicker(delta int) {
 	p := m.picker
-	p.cursor = max(0, min(p.cursor+delta, len(p.shown)-1))
+	p.cursor = max(0, min(p.cursor+delta, p.rows()-1))
 	m.scroll()
 }
 
@@ -71,6 +129,18 @@ func (p *picker) refilter() {
 	query := strings.TrimSpace(p.input.Value())
 	p.shown = p.shown[:0]
 	p.create = ""
+	p.sessions = p.sessions[:0]
+	p.cursor = 0
+	if p.project != "" {
+		p.shown = append(p.shown, p.project)
+		for _, s := range p.pool {
+			if inFolder(s, p.project) && deck.Matches(s, query) {
+				p.sessions = append(p.sessions, s)
+			}
+		}
+		sortNewest(p.sessions)
+		return
+	}
 	if strings.HasPrefix(query, "/") || strings.HasPrefix(query, "~") {
 		dir := filepath.Clean(expandHome(query))
 		switch {
@@ -86,7 +156,26 @@ func (p *picker) refilter() {
 			p.shown = append(p.shown, dir)
 		}
 	}
-	p.cursor = 0
+	if query == "" {
+		return
+	}
+	for _, s := range p.pool {
+		if deck.Matches(s, query) {
+			p.sessions = append(p.sessions, s)
+		}
+	}
+	sortNewest(p.sessions)
+	p.sessions = p.sessions[:min(len(p.sessions), pickerSessions)]
+}
+
+func inFolder(s claude.Session, dir string) bool {
+	return filepath.Clean(s.Cwd) == dir || filepath.Clean(s.Dir) == dir
+}
+
+func sortNewest(sessions []claude.Session) {
+	slices.SortFunc(sessions, func(a, b claude.Session) int {
+		return cmp.Or(b.UpdatedAt.Compare(a.UpdatedAt), strings.Compare(a.ID, b.ID))
+	})
 }
 
 func matchesPath(dir, query string) bool {

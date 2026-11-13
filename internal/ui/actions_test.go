@@ -638,3 +638,35 @@ func TestFindPutsYourSessionsBeforeBackgroundRuns(t *testing.T) {
 		t.Fatalf("your sessions should come first and background runs few: %+v", m.groups[1])
 	}
 }
+
+func TestTheNewPickerFindsOldSessionsAndAFoldersSessions(t *testing.T) {
+	m, host := newTestModel(t)
+	m, _ = press(m, "n")
+	if len(m.picker.sessions) != 0 {
+		t.Fatal("with nothing typed the picker lists folders only")
+	}
+	old := m.sessions[0]
+	for _, r := range strings.Fields(old.Title)[0] {
+		m, _ = press(m, string(r))
+	}
+	if !slices.ContainsFunc(m.picker.sessions, func(s claude.Session) bool { return s.ID == old.ID }) {
+		t.Fatalf("typing %q should find the session, got %v", old.Title, m.picker.sessions)
+	}
+
+	m, _ = press(m, "esc")
+	m, _ = press(m, "n")
+	m.picker.cursor = slices.Index(m.picker.shown, filepath.Clean(old.Cwd))
+	if m.picker.cursor < 0 {
+		t.Fatalf("%s isn't offered", old.Cwd)
+	}
+	m, _ = press(m, "right")
+	if m.picker.project == "" || len(m.picker.sessions) == 0 || m.picker.shown[0] != m.picker.project {
+		t.Fatalf("→ should list the folder's sessions: %+v", m.picker)
+	}
+	m, _ = press(m, "down")
+	m, cmd := press(m, "enter")
+	run(cmd)
+	if m.picker != nil || len(host.opened)+len(host.selected) == 0 {
+		t.Fatalf("enter on a session should open it, opened %v selected %v", host.opened, host.selected)
+	}
+}

@@ -40,7 +40,7 @@ place.
 | Key | Does |
 | --- | --- |
 | `↵` or double-click | open a session, or resume it if it isn't running |
-| `n` | start Claude in a folder |
+| `n` | start Claude in a folder, or find an old session to resume (→ shows a folder's sessions) |
 | `x` | close a session (it stays resumable) |
 | `p` / `r` | pin or rename a session |
 | `R` | reopen everything that should be open |

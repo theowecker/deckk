@@ -189,12 +189,23 @@ func Open(dir, name, command string, focus bool) error {
 	if err != nil {
 		return err
 	}
-	_, err = run("set-option", "-w", "-t", id, "@deckk_name", name)
-	return err
+	if _, err := run("set-option", "-w", "-t", id, "@deckk_name", name); err != nil || !focus {
+		return err
+	}
+	return dropStraySelection(id)
 }
 
 func Select(windowID string) error {
-	_, err := run("select-window", "-t", windowID)
+	if _, err := run("select-window", "-t", windowID); err != nil {
+		return err
+	}
+	return dropStraySelection(windowID)
+}
+
+// A double-click that opens a tab reaches tmux as a DoubleClick a moment
+// later, aimed at the tab now showing, which selects a word in it.
+func dropStraySelection(windowID string) error {
+	_, err := run("run-shell", "-b", "-d", "0.5", "-C", "-t", windowID, `if -F "#{selection_present}" "send -X cancel"`)
 	return err
 }
 

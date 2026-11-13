@@ -282,6 +282,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case foundMsg:
 		m.everything = msg
+		if p := m.picker; p != nil {
+			cursor := p.cursor
+			p.pool = m.pickerPool()
+			p.refilter()
+			p.cursor = min(cursor, max(p.rows()-1, 0))
+		}
 		m.rearrange()
 		return m, nil
 

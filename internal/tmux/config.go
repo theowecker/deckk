@@ -214,8 +214,8 @@ func copyModeBindings(table string) string {
 	}
 	bind("MouseDown1Pane", `{ select-pane ; if -F "#{scroll_position}" { send -X clear-selection } { send -X cancel } }`)
 	bind("MouseDragEnd1Pane", "{ "+outside("other-end", "set-mark", "other-end", "stop-selection")+" }")
-	bind("DoubleClick1Pane", `{ select-pane ; send -X select-word ; `+outside("other-end", "set-mark", "other-end")+` }`)
-	bind("TripleClick1Pane", `{ select-pane ; send -X select-line ; `+outside("other-end", "set-mark", "other-end")+` }`)
+	bind("DoubleClick1Pane", `{ select-pane ; send -X select-word ; `+outside("other-end", "set-mark", "other-end", "stop-selection")+` }`)
+	bind("TripleClick1Pane", `{ select-pane ; send -X select-line ; `+outside("other-end", "set-mark", "other-end", "stop-selection")+` }`)
 	// Anchored at the mark the drag left, since tmux re-anchors at the cursor,
 	// which moves when scrolling.
 	bind("S-MouseDown1Pane", `{ select-pane ; if -F "#{selection_present}" { send -X clear-selection ; `+
