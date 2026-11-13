@@ -97,7 +97,7 @@ unbind -n M-MouseDown3Pane
 unbind -n MouseDown3StatusLeft
 unbind -n M-MouseDown3Status
 unbind -n MouseDown3Status
-bind -n MouseDown3Pane { select-pane -t = ; send -M }
+bind -n MouseDown3Pane { select-pane -t = ; if -F "#{||:#{mouse_any_flag},#{==:#{@deckk_pane},dashboard}}" { send -M } { ` + rightMenu + ` } }
 bind -n WheelUpPane ` + toApp(`if -F "#{alternate_on}" { send -M } { copy-mode -e }`) + `
 ` + copyModeBindings("copy-mode") + copyModeBindings("copy-mode-vi") + `set -g base-index 0
 set -g renumber-windows on
@@ -226,6 +226,7 @@ func copyModeBindings(table string) string {
 	bind("S-MouseDown1Pane", `{ select-pane ; if -F "#{selection_present}" { send -X clear-selection ; `+
 		outside("jump-to-mark", "begin-selection", "jump-to-mark", "stop-selection")+` } }`)
 	bind("C-c", `{ if -F "#{selection_present}" `+copied+` { send -X cancel ; send-keys C-c } }`)
+	bind("MouseDown3Pane", `{ select-pane ; `+rightMenu+` }`)
 	bind("User0", copyIfSelected)
 	bind("User1", `{ `+findPrompt+` }`)
 	bind("User2", `{ send -X search-again }`)
@@ -306,3 +307,11 @@ func sameClick(command string) string {
 }
 
 const findPrompt = `command-prompt -p "find" { send -X search-backward-text "%%" }`
+
+// tmux takes the right click, so the terminal's own menu never shows; this
+// offers the parts of it a session needs.
+var rightMenu = `display-menu -O -x M -y M ` +
+	`"#{?selection_present,,-}Copy" c { send -X copy-pipe-no-clear ; display-message -d 1200 "Copied" } ` +
+	`Paste v { if -F "#{pane_in_mode}" { send -X cancel } ; run "pbpaste | ` + shellQuote(tmuxBin) + ` -S '#{socket_path}' load-buffer -b deckk-paste -" ; paste-buffer -p -d -b deckk-paste } ` +
+	`"Find…" f { copy-mode ; ` + findPrompt + ` } ` +
+	`"#{?pane_in_mode,,-}Scroll to bottom" b { send -X cancel }`
