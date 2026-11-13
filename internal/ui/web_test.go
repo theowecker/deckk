@@ -132,3 +132,35 @@ func TestThePageCanWriteToSessionsAndToDeckk(t *testing.T) {
 		t.Fatal("pin and rename should reach the store")
 	}
 }
+
+func TestThePageClosesAWorkingSessionOnlyWhenConfirmed(t *testing.T) {
+	m, host := newTestModel(t)
+	tm, cmd := m.Update(WebAction(web.Action{Kind: web.Close, ID: "dddddddd"}))
+	run(cmd)
+	if len(host.closed) != 0 {
+		t.Fatalf("closed without confirming: %v", host.closed)
+	}
+	_, cmd = tm.Update(WebAction(web.Action{Kind: web.Close, ID: "dddddddd", Confirm: true}))
+	run(cmd)
+	if !slices.Equal(host.closed, []string{"@1"}) {
+		t.Fatalf("closed %v", host.closed)
+	}
+}
+
+func TestThePageStartsASessionWithItsFirstPrompt(t *testing.T) {
+	m, host := newTestModel(t)
+	dir := t.TempDir()
+	tm, cmd := m.Update(WebAction(web.Action{Kind: web.New, Folder: dir + "/fresh", Text: "set it up", Send: true}))
+	run(cmd)
+	if len(host.opened) != 1 || !strings.HasPrefix(host.opened[0], dir+"/fresh ") || !isDir(dir+"/fresh") {
+		t.Fatalf("opened %v", host.opened)
+	}
+	if w := tm.(Model).deckk.awaiting; len(w) != 1 || w[0].prompt != "set it up" || !w[0].send {
+		t.Fatalf("awaiting %+v", w)
+	}
+	_, cmd = tm.Update(WebAction(web.Action{Kind: web.New, Folder: "relative/path"}))
+	run(cmd)
+	if len(host.opened) != 1 {
+		t.Fatalf("a relative folder should be refused: %v", host.opened)
+	}
+}

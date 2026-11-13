@@ -3,16 +3,18 @@
 // deckk's link carries the token after #, which never reaches a server. It
 // is kept per origin, which includes the port, and cleared from the address.
 let token = "";
-{
+function readToken() {
   const fromLink = new URLSearchParams(location.hash.slice(1)).get("t");
   try {
     if (fromLink) localStorage.setItem("deckk-token", fromLink);
     token = fromLink || localStorage.getItem("deckk-token") || "";
   } catch {
-    token = fromLink || "";
+    token = fromLink || token;
   }
   if (fromLink) history.replaceState(null, "", location.pathname);
+  return Boolean(fromLink);
 }
+readToken();
 
 const $ = (id) => document.getElementById(id);
 const sections = ["home", "sessions", "deckk"];
@@ -28,6 +30,10 @@ let found = null;
 let query = "";
 let renaming = "";
 let editingGoals = false;
+let starting = false;
+let closing = "";
+let pendingChat = null;
+let clashKey = "";
 let grouping = "status";
 try {
   const saved = localStorage.getItem("deckk-grouping");
@@ -76,9 +82,16 @@ async function act(kind, fields = {}, done = "") {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ kind, ...fields }),
   }).catch(() => null);
-  if (!response) return toast("deckk isn't answering. Is it still running?", true);
-  if (!response.ok) return toast((await response.text()).trim(), true);
+  if (!response) {
+    toast("deckk isn't answering. Is it still running?", true);
+    return false;
+  }
+  if (!response.ok) {
+    toast((await response.text()).trim(), true);
+    return false;
+  }
   if (done) toast(done);
+  return true;
 }
 
 let toastTimer;
@@ -133,14 +146,20 @@ function showSection(animate) {
   if (name === "deckk") loadChat(true);
 }
 
-window.addEventListener("hashchange", () => showSection(true));
+window.addEventListener("hashchange", () => {
+  if (readToken()) stream();
+  showSection(true);
+});
 
 function go(section, sessionID) {
   if (sessionID) {
     open.add(sessionID);
+    clearTimeout(searchTimer);
     query = "";
     $("search").value = "";
     found = null;
+    const listed = (grouping === "project" ? state.projects : grouping === "background" ? [{ sessions: state.background }] : state.groups) || [];
+    if (!listed.some((g) => (g.sessions || []).some((x) => x.id === sessionID))) grouping = "status";
   }
   if (current() !== section) location.hash = section;
   render(true);
@@ -157,10 +176,17 @@ function go(section, sessionID) {
 function renderSidebar(s) {
   const waiting = s.counts.waiting;
   const home = $("count-home");
-  home.textContent = waiting || "";
+  const count = (node, n, label) => {
+    node.textContent = n || "";
+    if (n) node.setAttribute("aria-label", label);
+    else node.removeAttribute("aria-label");
+  };
+  count(home, waiting, `${waiting} waiting on you`);
   home.classList.toggle("alert", waiting > 0);
-  $("count-sessions").textContent = s.counts.waiting + s.counts.working || "";
-  $("count-deckk").textContent = (s.nextUp || []).length || "";
+  const live = s.counts.waiting + s.counts.working;
+  count($("count-sessions"), live, `${live} running`);
+  const next = (s.nextUp || []).length;
+  count($("count-deckk"), next, `${plural(next, "suggestion")}`);
   document.body.toggleAttribute("data-working", s.counts.working > 0 || (s.deckk && s.deckk.working));
 }
 
@@ -176,6 +202,9 @@ function renderHomeHead(s) {
 }
 
 function renderClashes(clashes) {
+  const key = JSON.stringify(clashes);
+  if (key === clashKey) return;
+  clashKey = key;
   $("clashes").replaceChildren(...clashes.map((c) =>
     el("div", { class: "clash", role: "alert" },
       el("p", {}, `${c.a} and ${c.b} both edited the same files.`),
@@ -226,7 +255,9 @@ function liveSessions(s) {
 function renderNow(s) {
   const live = liveSessions(s);
   if (!live.length) {
-    $("now").replaceChildren(el("p", { class: "empty-card" }, "Nothing is running. Start a session with n in deckk, or resume one from Sessions."));
+    $("now").replaceChildren(el("div", { class: "empty-card" },
+      el("p", {}, "Nothing is running. Start a session, or resume one from Sessions."),
+      el("button", { class: "button primary", "data-focus": "start-empty", onclick: () => newSession() }, "New session")));
     return;
   }
   $("now").replaceChildren(el("div", { class: "now" }, live.map((x) =>
@@ -274,7 +305,8 @@ function renderActivity(events) {
 
 function renderGrouping() {
   const choice = (value, label) => el("button", {
-    class: "segment", "aria-pressed": grouping === value ? "true" : "false", "data-focus": `grouping:${value}`,
+    class: "segment", "aria-pressed": !found && grouping === value ? "true" : "false", "data-focus": `grouping:${value}`,
+    disabled: Boolean(found), title: found ? "Clear the search to group sessions" : undefined,
     onclick: () => {
       grouping = value;
       try { localStorage.setItem("deckk-grouping", value); } catch {}
@@ -298,15 +330,33 @@ async function loadHistory(s) {
   if (known && known.since === s.since) return;
   histories.set(s.id, { since: s.since, turns: known ? known.turns : null });
   const response = await api(`api/history?id=${encodeURIComponent(s.id)}`).catch(() => null);
-  const turns = response && response.ok ? await response.json() : null;
+  if (!response || !response.ok) {
+    histories.delete(s.id);
+    return;
+  }
+  const turns = await response.json();
   histories.set(s.id, { since: s.since, turns });
-  render(true);
+  patchChat(s);
+}
+
+// A loaded history replaces only the conversation, so an opening row keeps
+// animating and the composer keeps its text.
+function patchChat(s) {
+  const old = document.querySelector(`[data-chat="${CSS.escape(s.id)}"]`);
+  if (!old) return render();
+  if (selecting()) {
+    deferred = true;
+    return;
+  }
+  saveScroll(old);
+  const fresh = conversation(s);
+  if (fresh) old.replaceWith(fresh);
 }
 
 function conversation(s) {
   const loaded = histories.get(s.id);
   const turns = loaded && loaded.turns && loaded.turns.length ? loaded.turns : [{ prompt: s.lastPrompt, reply: s.lastReply }];
-  const chat = el("div", { class: "chat", tabindex: "0", role: "log", "data-chat": s.id, "aria-label": `Recent conversation in ${s.title}` },
+  const chat = el("div", { class: "chat", tabindex: "0", role: "region", "data-chat": s.id, "aria-label": `Recent conversation in ${s.title}` },
     turns.flatMap((t) => [
       t.prompt && el("p", { class: "bubble mine" }, t.prompt),
       t.reply && el("p", { class: "bubble them" }, t.reply),
@@ -319,7 +369,7 @@ function conversation(s) {
 
 // thinking is the bubble that stands in for a reply on its way.
 function thinking(label) {
-  return el("p", { class: "bubble them thinking", "aria-label": label }, el("span", { class: "typing", "aria-hidden": "true" }, el("i"), el("i"), el("i")));
+  return el("p", { class: "bubble them thinking", role: "img", "aria-label": label }, el("span", { class: "typing", "aria-hidden": "true" }, el("i"), el("i"), el("i")));
 }
 
 function keepScroll(chat, key) {
@@ -334,27 +384,32 @@ function keepScroll(chat, key) {
 function composer(key, placeholder, onSubmit, hint) {
   const area = el("textarea", {
     rows: "1", placeholder, "data-focus": `compose:${key}`, "aria-label": placeholder,
-    value: drafts.get(key) || "",
+    value: drafts.get(key) || "", disabled: Boolean(hint.disabled),
     oninput: (e) => drafts.set(key, e.target.value),
     onkeydown: (e) => {
       // Enter sends and Shift+Enter starts a new line, as in Claude Code.
-      if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
+      // Safari reports the Enter that picks an IME candidate as keyCode 229.
+      if (e.key === "Enter" && !e.shiftKey && !e.isComposing && e.keyCode !== 229) {
         e.preventDefault();
         submit(true);
       }
     },
   });
-  const submit = (send) => {
+  const submit = async (send) => {
     const text = area.value.trim();
     if (!text) return;
     drafts.delete(key);
     area.value = "";
-    onSubmit(text, send);
+    if (!(await onSubmit(text, send))) {
+      drafts.set(key, text);
+      const now = document.querySelector(`[data-focus="${CSS.escape(`compose:${key}`)}"]`);
+      if (now && !now.value) now.value = text;
+    }
   };
   return el("div", { class: "composer" },
     area,
-    el("div", { class: "actions" }, hint.typeIn && el("button", { class: "button", onclick: () => submit(false) }, "Type in"),
-      el("button", { class: "button primary", onclick: () => submit(true) }, "Send")),
+    el("div", { class: "actions" }, hint.typeIn && el("button", { class: "button", "data-focus": `typein:${key}`, disabled: Boolean(hint.disabled), onclick: () => submit(false) }, "Type in"),
+      el("button", { class: "button primary", "data-focus": `send:${key}`, disabled: Boolean(hint.disabled), onclick: () => submit(true) }, hint.sendLabel || "Send")),
     el("p", { class: "composer-hint" }, hint.text),
   );
 }
@@ -366,15 +421,17 @@ function detailBody(s) {
     s.suggestion && el("div", { class: "suggested" },
       el("span", { class: "label" }, s.ready ? "Typed in, ready to send" : "deckk suggests"),
       el("div", { class: "actions" },
-        el("button", { class: "button", onclick: () => act("dismiss", { id: s.id }) }, "Dismiss"),
-        el("button", { class: "button primary", onclick: () => act("open", { id: s.id }, `${verb === "Open" ? "Opening" : "Resuming"} in deckk`) }, verb)),
+        el("button", { class: "button", "data-focus": `dismiss-s:${s.id}`, onclick: () => act("dismiss", { id: s.id }) }, "Dismiss"),
+        el("button", { class: "button primary", "data-focus": `open-s:${s.id}`, onclick: () => act("open", { id: s.id }, `${verb === "Open" ? "Opening" : "Resuming"} in deckk`) }, verb)),
       el("p", { class: `bubble ${s.ready ? "ready" : "draft"}` }, s.suggestion),
       s.why && el("p", { class: "why" }, s.why),
     ),
     conversation(s),
     composer(s.id, s.running ? "Write to this session" : "Resume and write to this session",
       (text, send) => act("prompt", { id: s.id, text, send }),
-      { typeIn: true, text: "Enter sends, Shift+Enter adds a line. Type in leaves it in the session's prompt for you to check in deckk." }),
+      s.running && !s.hosted
+        ? { typeIn: true, disabled: true, text: "This session runs in another terminal tab. Press m on it in deckk to move it in, then write to it here." }
+        : { typeIn: true, text: "Enter sends, Shift+Enter adds a line. Type in leaves it in the session's prompt for you to check in deckk." }),
     el("div", { class: "facts" },
       el("span", {}, s.folder),
       s.pr && safeLink(s.prUrl) && el("a", { href: s.prUrl, target: "_blank", rel: "noopener noreferrer" }, `PR ${s.pr}`),
@@ -383,22 +440,29 @@ function detailBody(s) {
       s.changed && el("span", {}, plural(s.changed, "uncommitted change")),
     ),
     renaming === s.id
-      ? el("form", { class: "rename", onsubmit: (e) => {
+      ? el("form", { class: "rename", onsubmit: async (e) => {
           e.preventDefault();
-          act("rename", { id: s.id, text: e.target.elements.name.value });
+          const name = e.target.elements.name.value;
           renaming = "";
+          drafts.delete(`rename:${s.id}`);
           render(true);
+          if (await act("rename", { id: s.id, text: name })) refreshSearch();
+          focusOn(`more:${s.id}`);
         } },
-          el("input", { name: "name", value: s.title, "aria-label": "New name", "data-focus": `rename:${s.id}` }),
+          el("input", { name: "name", value: drafts.get(`rename:${s.id}`) ?? s.title, "aria-label": "New name", "data-focus": `rename:${s.id}`,
+            oninput: (e) => drafts.set(`rename:${s.id}`, e.target.value),
+            onkeydown: (e) => { if (e.key === "Escape") { renaming = ""; drafts.delete(`rename:${s.id}`); render(true); focusOn(`more:${s.id}`); } } }),
           el("button", { class: "button primary", type: "submit" }, "Save"),
-          el("button", { class: "button", type: "button", onclick: () => { renaming = ""; render(true); } }, "Cancel"))
+          el("button", { class: "button", type: "button", onclick: () => { renaming = ""; drafts.delete(`rename:${s.id}`); render(true); focusOn(`more:${s.id}`); } }, "Cancel"))
       : el("div", { class: "actions" },
-          el("button", { class: "button primary", onclick: () => act("open", { id: s.id }, `${verb === "Open" ? "Opening" : "Resuming"} in deckk`) }, `${verb} in deckk`),
-          el("button", { class: "button quiet", onclick: () => act("pin", { id: s.id }, s.pinned ? "Unpinned" : "Pinned") }, s.pinned ? "Unpin" : "Pin"),
-          el("button", { class: "button quiet", onclick: () => { renaming = s.id; render(true); } }, "Rename"),
-          s.running && el("button", { class: "button quiet", title: "deckk sends its safe suggestions here without asking",
+          el("button", { class: "button primary", "data-focus": `go:${s.id}`, onclick: () => act("open", { id: s.id }, `${verb === "Open" ? "Opening" : "Resuming"} in deckk`) }, `${verb} in deckk`),
+          el("button", { class: "button quiet", "data-focus": `pin:${s.id}`, onclick: async () => { if (await act("pin", { id: s.id }, s.pinned ? "Unpinned" : "Pinned")) refreshSearch(); } }, s.pinned ? "Unpin" : "Pin"),
+          el("button", { class: "button quiet", "data-focus": `more:${s.id}`, onclick: () => { renaming = s.id; render(true); focusOn(`rename:${s.id}`, true); } }, "Rename"),
+          s.running && el("button", { class: "button quiet", "data-focus": `trust:${s.id}`, title: "deckk sends its safe suggestions here without asking",
             onclick: () => act("trust", { id: s.id }) }, s.trusted ? "Stop deckk sending" : "Let deckk send"),
-          !s.running && el("button", { class: "button quiet", onclick: () => act("archive", { id: s.id }, s.archived ? "Unarchived" : "Archived") }, s.archived ? "Unarchive" : "Archive")),
+          s.closable && el("button", { class: `button quiet${closing === s.id ? " danger" : ""}`, "data-focus": `close:${s.id}`,
+            onclick: () => closeSession(s) }, closing === s.id ? "Claude is working. Close anyway" : "Close"),
+          !s.running && el("button", { class: "button quiet", "data-focus": `archive:${s.id}`, onclick: async () => { if (await act("archive", { id: s.id }, s.archived ? "Unarchived" : "Archived")) refreshSearch(); } }, s.archived ? "Unarchive" : "Archive")),
   );
   return el("div", { class: "detail" }, el("div", { class: "detail-inner" }, body));
 }
@@ -409,6 +473,8 @@ function toggleRow(row, s) {
     open.delete(s.id);
     row.classList.remove("open");
     row.querySelector("button").setAttribute("aria-expanded", "false");
+    const detail = row.querySelector(".detail");
+    if (detail) detail.inert = true;
     return;
   }
   open.add(s.id);
@@ -418,6 +484,7 @@ function toggleRow(row, s) {
     detail = detailBody(s);
     row.append(detail);
   }
+  detail.inert = false;
   void detail.offsetHeight;
   row.classList.add("open");
   row.querySelector("button").setAttribute("aria-expanded", "true");
@@ -429,10 +496,10 @@ function sessionRow(s) {
   row.append(el("button", { "data-focus": `row:${s.id}`, "aria-expanded": isOpen ? "true" : "false", onclick: () => toggleRow(row, s) },
     el("span", { class: `dot ${s.state}`, "aria-hidden": "true" }),
     el("span", { class: "title" }, s.title,
-      s.pinned && el("span", { class: "pin", "aria-label": "pinned" }, "◆"),
-      s.trusted && el("span", { class: "pin", title: "deckk sends its safe suggestions here", "aria-label": "deckk sends here" }, "⇢"),
-      s.suggestion && el("span", { class: "mark", title: "deckk has a suggestion", "aria-label": "has a suggestion" }, "✦"),
-      s.clash && el("span", { class: "warn", title: s.clash, "aria-label": s.clash }, "⚠"),
+      s.pinned && el("span", { class: "pin", role: "img", "aria-label": "pinned" }, "◆"),
+      s.trusted && el("span", { class: "pin", role: "img", title: "deckk sends its safe suggestions here", "aria-label": "deckk sends here" }, "⇢"),
+      s.suggestion && el("span", { class: "mark", role: "img", title: "deckk has a suggestion", "aria-label": "has a suggestion" }, "✦"),
+      s.clash && el("span", { class: "warn", role: "img", title: s.clash, "aria-label": s.clash }, "⚠"),
     ),
     el("span", { class: `state ${s.state}` }, statusText(s)),
     el("span", { class: "where" }, s.project, s.branch && [" ", el("code", {}, `⎇ ${s.branch}`)], s.where && ` · ${s.where}`),
@@ -442,8 +509,11 @@ function sessionRow(s) {
   return row;
 }
 
-// Search results carry less than the live list, so they are shaped to fit.
+// Search results carry less than the live list, so they are shaped to fit,
+// unless the dashboard lists the session too.
 function fromSearch(f) {
+  const live = [...(state.groups || []), { sessions: state.background || [] }].flatMap((g) => g.sessions).find((x) => x.id === f.id);
+  if (live) return live;
   return {
     id: f.id, title: f.title, project: f.project, folder: f.folder, branch: f.branch, since: f.updated,
     state: f.running ? "other" : "stopped", status: f.running ? "Running" : "", lastPrompt: f.lastPrompt,
@@ -485,14 +555,93 @@ $("search").addEventListener("input", (e) => {
     render(true);
     return;
   }
-  searchTimer = setTimeout(async () => {
-    const asked = query;
-    const response = await api(`api/search?q=${encodeURIComponent(asked)}`).catch(() => null);
-    if (asked !== query) return;
-    found = response && response.ok ? await response.json() : [];
-    render(true);
-  }, 220);
+  searchTimer = setTimeout(runSearch, 220);
 });
+
+async function runSearch() {
+  const asked = query;
+  if (!asked) return;
+  const response = await api(`api/search?q=${encodeURIComponent(asked)}`).catch(() => null);
+  const results = response && response.ok ? await response.json() : [];
+  if (asked !== query) return;
+  found = results;
+  render(true);
+}
+
+// Pins, names and archiving change what a result shows, so it is asked again.
+function refreshSearch() {
+  if (found) setTimeout(runSearch, 300);
+}
+
+/* Starting and closing sessions. */
+
+function newSession() {
+  starting = true;
+  if (current() !== "sessions") location.hash = "sessions";
+  render(true);
+  focusOn("new-folder", true);
+}
+
+function renderNew(s) {
+  const panel = $("new-session");
+  panel.hidden = !starting;
+  $("new-button").setAttribute("aria-expanded", starting ? "true" : "false");
+  if (!starting) {
+    panel.replaceChildren();
+    return;
+  }
+  const folders = el("datalist", { id: "folders" }, (s.folders || []).map((f) => el("option", { value: f })));
+  const folder = el("input", {
+    name: "folder", list: "folders", placeholder: "~/dev/app", autocomplete: "off", spellcheck: "false",
+    "data-focus": "new-folder", "aria-label": "Folder", value: drafts.get("new-folder") || "",
+    oninput: (e) => drafts.set("new-folder", e.target.value),
+  });
+  const cancel = () => {
+    starting = false;
+    drafts.delete("new-folder");
+    drafts.delete("new-prompt");
+    render(true);
+    focusOn("new-button");
+  };
+  panel.replaceChildren(
+    el("h2", {}, "New session"),
+    el("label", { class: "field" }, el("span", {}, "Folder"), folder, folders),
+    el("p", { class: "composer-hint" }, "Pick a folder you've worked in, or type a new path to create it."),
+    composer("new-prompt", "First prompt (optional)", async (text) => start(text), {
+      typeIn: false, sendLabel: "Start", text: "Claude starts in deckk and gets this prompt once it's ready.",
+    }),
+    el("div", { class: "actions" },
+      el("button", { class: "button", "data-focus": "new-cancel", onclick: cancel }, "Cancel"),
+      el("button", { class: "button primary", "data-focus": "new-start", onclick: () => start("") }, "Start without a prompt")),
+  );
+  async function start(prompt) {
+    const dir = folder.value.trim();
+    if (!dir) {
+      toast("Pick a folder to start in", true);
+      folder.focus();
+      return false;
+    }
+    if (!(await act("new", { folder: dir, text: prompt, send: true }))) return false;
+    starting = false;
+    drafts.delete("new-folder");
+    drafts.delete("new-prompt");
+    render(true);
+    return true;
+  }
+}
+
+$("new-button").addEventListener("click", () => (starting ? (starting = false, render(true)) : newSession()));
+
+async function closeSession(s) {
+  if (s.state === "working" && closing !== s.id) {
+    closing = s.id;
+    render(true);
+    focusOn(`close:${s.id}`);
+    return;
+  }
+  closing = "";
+  await act("close", { id: s.id, confirm: s.state === "working" }, `Closed ${s.title}. It stays resumable`);
+}
 
 /* deckk: the chat with the deckk session, and the goals it keeps. */
 
@@ -504,8 +653,15 @@ async function loadChat(force) {
   if (!force && key === chatKey) return;
   chatKey = key;
   const response = await api(`api/history?id=${encodeURIComponent(state.deckk.id)}`).catch(() => null);
-  if (response && response.ok) chatTurns = await response.json();
-  render(true);
+  if (!response || !response.ok) {
+    chatKey = "";
+    return;
+  }
+  const turns = await response.json();
+  if (key !== chatKey) return;
+  chatTurns = turns;
+  if (pendingChat && turns.some((t) => t.prompt && t.prompt.trim() === pendingChat.text)) pendingChat = null;
+  render();
 }
 
 function renderChat(s) {
@@ -528,13 +684,20 @@ function renderChat(s) {
       t.reply && el("p", { class: "bubble them" }, t.reply),
     ];
   });
-  const chat = el("div", { class: "chat", tabindex: "0", role: "log", "data-chat": "deckk", "aria-label": "Conversation with deckk" },
-    turns.length ? turns : el("p", { class: "why" }, "Ask what needs you, where you left off, or what to do next."),
-    d.working && thinking("deckk is thinking"));
+  if (pendingChat && Date.now() - pendingChat.at > 120000) pendingChat = null;
+  const chat = el("div", { class: "chat", tabindex: "0", role: "region", "data-chat": "deckk", "aria-label": "Conversation with deckk" },
+    turns.length || pendingChat ? turns : chatTurns && el("p", { class: "why" }, "Ask what needs you, where you left off, or what to do next."),
+    pendingChat && el("p", { class: "bubble mine pending" }, pendingChat.text),
+    (d.working || pendingChat) && thinking("deckk is thinking"));
   keepScroll(chat, "deckk");
   card.replaceChildren(
     chat,
-    composer("deckk", "Ask deckk", (text) => act("chat", { text }), { typeIn: false, text: "Enter sends, Shift+Enter adds a line. deckk answers in its pane on the dashboard too." }),
+    composer("deckk", "Ask deckk", async (text) => {
+      if (!(await act("chat", { text }))) return false;
+      pendingChat = { text, at: Date.now() };
+      render(true);
+      return true;
+    }, { typeIn: false, text: "Enter sends, Shift+Enter adds a line. deckk answers in its pane on the dashboard too." }),
   );
 }
 
@@ -571,18 +734,21 @@ function markdown(text) {
 
 function renderGoals(goals) {
   const title = el("h2", {}, "Goals",
-    !editingGoals && el("button", { class: "button quiet", onclick: () => { editingGoals = true; render(true); } }, goals.trim() ? "Edit" : "Add"));
+    !editingGoals && el("button", { class: "button quiet", "data-focus": "goals-edit", onclick: () => { editingGoals = true; render(true); focusOn("goals-editor", true); } }, goals.trim() ? "Edit" : "Add"));
   if (editingGoals) {
     const editor = el("textarea", { class: "goals-editor", "data-focus": "goals-editor", "aria-label": "Goals",
       value: drafts.has("goals") ? drafts.get("goals") : goals, oninput: (e) => drafts.set("goals", e.target.value) });
     $("goals").replaceChildren(title, editor,
       el("div", { class: "actions" },
-        el("button", { class: "button primary", onclick: () => {
-          act("goals", { text: editor.value });
+        el("button", { class: "button primary", "data-focus": "goals-save", onclick: async () => {
+          if (!(await act("goals", { text: editor.value }))) return;
+          state.goals = editor.value;
           drafts.delete("goals");
           editingGoals = false;
+          render(true);
+          focusOn("goals-edit");
         } }, "Save"),
-        el("button", { class: "button", onclick: () => { drafts.delete("goals"); editingGoals = false; render(true); } }, "Cancel")));
+        el("button", { class: "button", "data-focus": "goals-cancel", onclick: () => { drafts.delete("goals"); editingGoals = false; render(true); focusOn("goals-edit"); } }, "Cancel")));
     return;
   }
   $("goals").replaceChildren(title,
@@ -593,17 +759,56 @@ function renderGoals(goals) {
 
 /* Drawing it all. */
 
+let selectedAt = 0;
 function selecting() {
   const selection = document.getSelection();
-  return Boolean(selection && !selection.isCollapsed && document.querySelector("main").contains(selection.anchorNode));
+  const now = Boolean(selection && !selection.isCollapsed && document.querySelector("main").contains(selection.anchorNode));
+  if (!now) selectedAt = 0;
+  else if (!selectedAt) selectedAt = Date.now();
+  // A selection left behind stops holding the page after a while.
+  return now && Date.now() - selectedAt < 20000;
 }
 
-// A redraw replaces the nodes, so it waits while the user selects text or
-// types, and puts focus and scroll positions back afterwards.
+let composing = false;
+document.addEventListener("compositionstart", () => { composing = true; });
+document.addEventListener("compositionend", () => { composing = false; });
+
+function typing() {
+  const active = document.activeElement;
+  if (!active || !["TEXTAREA", "INPUT"].includes(active.tagName) || active.id === "search") return false;
+  return composing || active.value !== "";
+}
+
+// A press that blurs a field must reach its button before a waiting redraw
+// replaces it, so redraws hold until the pointer is up.
+let pointerDown = false;
+document.addEventListener("pointerdown", () => { pointerDown = true; }, true);
+document.addEventListener("pointerup", () => {
+  pointerDown = false;
+  setTimeout(() => { if (deferred) render(); }, 0);
+}, true);
+document.addEventListener("pointercancel", () => { pointerDown = false; }, true);
+
+function focusOn(key, select = false) {
+  requestAnimationFrame(() => {
+    const node = document.querySelector(`[data-focus="${CSS.escape(key)}"]`);
+    if (!node) return;
+    node.focus({ preventScroll: true });
+    if (select && "select" in node && node.tagName === "INPUT") node.select();
+  });
+}
+
+function saveScroll(chat) {
+  // Hidden chats measure zero and would be saved as scrolled to the end.
+  if (!chat.clientHeight) return;
+  scrolled.set(chat.dataset.chat, { top: chat.scrollTop, atEnd: chat.scrollTop + chat.clientHeight >= chat.scrollHeight - 4 });
+}
+
+// A redraw replaces the nodes, so it waits while the user selects text,
+// types or presses, and puts focus and scroll positions back afterwards.
 function render(force = false) {
   if (!state || !state.counts) return;
-  const typing = document.activeElement && ["TEXTAREA", "INPUT"].includes(document.activeElement.tagName) && document.activeElement.id !== "search";
-  if (!force && (selecting() || typing)) {
+  if (!force && (selecting() || typing() || pointerDown)) {
     deferred = true;
     return;
   }
@@ -611,9 +816,8 @@ function render(force = false) {
   const active = document.activeElement;
   const focused = active && active.dataset.focus;
   const caret = active && "selectionStart" in active ? [active.selectionStart, active.selectionEnd] : null;
-  for (const chat of document.querySelectorAll("[data-chat]")) {
-    scrolled.set(chat.dataset.chat, { top: chat.scrollTop, atEnd: chat.scrollTop + chat.clientHeight >= chat.scrollHeight - 4 });
-  }
+  for (const chat of document.querySelectorAll("[data-chat]")) saveScroll(chat);
+  if (closing && !(state.groups || []).some((g) => g.sessions.some((x) => x.id === closing && x.state === "working"))) closing = "";
   const s = state;
   renderSidebar(s);
   renderHomeHead(s);
@@ -622,6 +826,7 @@ function render(force = false) {
   renderNow(s);
   renderToday(s.today || {});
   renderActivity(s.activity || []);
+  renderNew(s);
   renderGrouping();
   renderGroups(s);
   renderChat(s);
@@ -639,7 +844,7 @@ function render(force = false) {
 }
 
 document.addEventListener("selectionchange", () => { if (deferred && !selecting()) render(); });
-document.addEventListener("focusout", () => setTimeout(() => { if (deferred) render(); }, 0));
+document.addEventListener("focusout", () => setTimeout(() => { if (deferred && !pointerDown) render(); }, 0));
 
 function receive(data) {
   if (data === raw) return;
@@ -653,20 +858,32 @@ function receive(data) {
   if (current() === "deckk") loadChat(false);
 }
 
-function status(kind, text) {
+function status(kind, text, banner = "") {
   const live = $("live");
   live.dataset.state = kind;
   live.textContent = text;
+  const offline = $("offline");
+  offline.textContent = banner;
+  offline.hidden = !banner;
+  document.body.toggleAttribute("data-offline", kind === "lost" && Boolean(state));
 }
+
+const noToken = "Open this page from deckk: press w on the dashboard, or click Web ↗.";
 
 // The live stream is read with fetch rather than EventSource, so it can send
 // the token as a header like every other request.
+let streams = 0;
 async function stream() {
-  for (let wait = 1000; ; wait = Math.min(wait * 2, 15000)) {
+  const mine = ++streams;
+  for (let wait = 1000; mine === streams; wait = Math.min(wait * 2, 15000)) {
     const response = await api("api/stream").catch(() => null);
+    if (mine !== streams) {
+      if (response && response.body) response.body.cancel().catch(() => {});
+      return;
+    }
     if (response && response.status === 401) {
       try { localStorage.removeItem("deckk-token"); } catch {}
-      status("lost", "Press w in deckk to open this page");
+      status("lost", "Not connected", noToken);
       return;
     }
     if (response && response.ok) {
@@ -677,7 +894,7 @@ async function stream() {
       try {
         for (;;) {
           const { value, done } = await reader.read();
-          if (done) break;
+          if (done || mine !== streams) break;
           buffer += value;
           let end;
           while ((end = buffer.indexOf("\n\n")) >= 0) {
@@ -689,12 +906,14 @@ async function stream() {
         }
       } catch {}
     }
-    status("lost", response ? "Reconnecting" : "deckk isn't running");
+    if (mine !== streams) return;
+    status("lost", response ? "Reconnecting" : "deckk isn't running",
+      state ? "deckk isn't answering, so this page may be out of date. It reconnects on its own once deckk runs again." : "");
     await new Promise((resolve) => setTimeout(resolve, wait));
   }
 }
 
 showSection(false);
-if (!token) status("lost", "Press w in deckk to open this page");
+if (!token) status("lost", "Not connected", noToken);
 else stream();
 setInterval(() => render(), 30000);

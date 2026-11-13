@@ -31,5 +31,4 @@ state = {
 history.replaceState(null, "", "#home");
 showSection(false);
 render(true);
-document.getElementById("live").dataset.state = "live";
-document.getElementById("live").textContent = "Live";
+status("live", "Live");

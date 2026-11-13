@@ -37,6 +37,10 @@ type Action struct {
 	Text string `json:"text,omitempty"`
 	// Send presses Enter after a prompt instead of leaving it to review.
 	Send bool `json:"send,omitempty"`
+	// Folder is where a new session starts.
+	Folder string `json:"folder,omitempty"`
+	// Confirm closes a session even while Claude is working.
+	Confirm bool `json:"confirm,omitempty"`
 }
 
 const (
@@ -50,10 +54,12 @@ const (
 	Chat    = "chat"
 	Goals   = "goals"
 	Trust   = "trust"
+	New     = "new"
+	Close   = "close"
 )
 
 // Kinds are the actions the page may send.
-var Kinds = map[string]bool{Open: true, Dismiss: true, Talk: true, Pin: true, Archive: true, Rename: true, Prompt: true, Chat: true, Goals: true, Trust: true}
+var Kinds = map[string]bool{Open: true, Dismiss: true, Talk: true, Pin: true, Archive: true, Rename: true, Prompt: true, Chat: true, Goals: true, Trust: true, New: true, Close: true}
 
 // A Search finds sessions across everything Claude has kept, not only the
 // ones the dashboard lists.

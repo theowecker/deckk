@@ -34,6 +34,7 @@
     </nav>
 
     <main class="content">
+      <p class="offline" id="offline" role="status" hidden></p>
       <section class="page" id="page-home" aria-labelledby="home-title" hidden>
         <header class="page-head">
           <h1 id="home-title">Home</h1>
@@ -68,8 +69,10 @@
               <input id="search" type="search" placeholder="Search every session" autocomplete="off" spellcheck="false">
             </label>
             <div id="grouping"></div>
+            <button class="button primary" id="new-button" type="button" data-focus="new-button" aria-controls="new-session" aria-expanded="false">New session</button>
           </div>
         </header>
+        <section class="panel new-session" id="new-session" aria-label="New session" hidden></section>
         <div id="groups"></div>
       </section>
 

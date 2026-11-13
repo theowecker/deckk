@@ -3,7 +3,9 @@ package ui
 import (
 	"cmp"
 	"maps"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"slices"
 	"strings"
 	"time"
@@ -88,6 +90,8 @@ func (m *Model) webAction(a webActionMsg) tea.Cmd {
 		m.deckk.goals = a.Text
 		m.setFlash("Goals saved", nil)
 		return nil
+	case web.New:
+		return m.newFromWeb(a.Folder, a.Text, a.Send)
 	}
 	s, ok := m.sessionByID(a.ID)
 	if !ok {
@@ -112,8 +116,60 @@ func (m *Model) webAction(a webActionMsg) tea.Cmd {
 		return m.syncLabels()
 	case web.Prompt:
 		return m.promptFromWeb(s, a.Text, a.Send)
+	case web.Close:
+		return m.closeFromWeb(s, a.Confirm)
 	}
 	return nil
+}
+
+// newFromWeb starts Claude in a folder without taking the terminal away from
+// what it shows, and queues the first prompt for when Claude is up.
+func (m *Model) newFromWeb(folder, prompt string, send bool) tea.Cmd {
+	dir := filepath.Clean(expandHome(strings.TrimSpace(folder)))
+	if !filepath.IsAbs(dir) {
+		m.setFlash("Give the folder as a full path, like ~/dev/app", nil)
+		return nil
+	}
+	create := !isDir(dir)
+	if create && !isDir(filepath.Dir(dir)) {
+		m.setFlash(abbreviateHome(filepath.Dir(dir))+" doesn't exist", nil)
+		return nil
+	}
+	now := time.Now()
+	if strings.TrimSpace(prompt) != "" {
+		m.deckk.awaiting = append(m.deckk.awaiting, awaitingPrompt{key: "new:" + dir + now.Format(time.RFC3339Nano), dir: dir, after: now, prompt: prompt, send: send})
+	}
+	m.setFlash("Starting Claude in "+abbreviateHome(dir), nil)
+	return m.do(func() error {
+		if create {
+			if err := os.Mkdir(dir, 0o755); err != nil {
+				return err
+			}
+		}
+		return m.host.Open(dir, tabName(filepath.Base(dir)), m.claude(), false)
+	}, "")
+}
+
+// closeFromWeb closes a session the way x does. The page asks first when
+// Claude is working, so Confirm stands for the second press.
+func (m *Model) closeFromWeb(s claude.Session, confirm bool) tea.Cmd {
+	if !m.closable(s) {
+		m.setFlash(displayTitle(s)+" runs in another tab, so close it there", nil)
+		return nil
+	}
+	if deck.StateOf(s) == deck.Working && !confirm {
+		m.setFlash("Claude is still working in "+displayTitle(s)+". Close it again to stop it anyway", nil)
+		return nil
+	}
+	next, cmd := m.close(s, "x"+s.ID)
+	*m = next.(Model)
+	return cmd
+}
+
+func (m Model) closable(s claude.Session) bool {
+	_, hosted := m.window(s)
+	_, popped := m.poppedOut(s)
+	return hosted || popped
 }
 
 // promptFromWeb types a prompt the user wrote on the page into a session,
@@ -123,9 +179,10 @@ func (m *Model) promptFromWeb(s claude.Session, text string, send bool) tea.Cmd 
 		return nil
 	}
 	if !s.Running() {
-		m.deckk.awaiting = append(m.deckk.awaiting, awaitingPrompt{key: "web:" + s.ID, sessionID: s.ID, dir: s.Dir, after: time.Now(), prompt: text, send: send})
+		now := time.Now()
+		m.deckk.awaiting = append(m.deckk.awaiting, awaitingPrompt{key: "web:" + s.ID + now.Format(time.RFC3339Nano), sessionID: s.ID, dir: s.Dir, after: now, prompt: text, send: send})
 		m.setFlash("Resuming "+displayTitle(s)+"; your prompt goes in once Claude is ready", nil)
-		return m.open(s)
+		return m.do(func() error { return m.resume(s, false) }, "")
 	}
 	if _, hosted := m.window(s); !hosted {
 		m.setFlash(displayTitle(s)+" runs in another tab. Move it into deckk with m to write to it from here", nil)
@@ -145,9 +202,14 @@ func (m *Model) chat(text string) tea.Cmd {
 	}
 	if !m.deckk.open || !m.deckk.running {
 		m.setFlash("Starting the deckk session. Send your message again once it's ready", nil)
-		return m.do(func() error { return m.host.OpenHQ(false) }, "")
+		return m.do(func() error { return m.host.OpenHQ(*m.cfg, false) }, "")
 	}
-	return m.deliver(delivery{kind: chat, target: m.deckk.pane.ID, text: text, send: true})
+	d := delivery{kind: chat, target: m.deckk.pane.ID, text: text, send: true}
+	if m.deckk.inflight[d.slot()] {
+		m.setFlash("deckk is taking an update. Send your message again in a moment", nil)
+		return nil
+	}
+	return m.deliver(d)
 }
 
 func (m Model) sessionByID(id string) (claude.Session, bool) {
@@ -167,8 +229,11 @@ func (m Model) sessionByID(id string) (claude.Session, bool) {
 	if home == "" {
 		home = claude.Home()
 	}
-	if path := claude.TranscriptPath(home, id); path != "" && !strings.ContainsAny(id, "/.") {
-		if t, err := claude.ReadTranscript(path); err == nil {
+	if !claude.IsSessionID(id) {
+		return claude.Session{}, false
+	}
+	if path := claude.TranscriptPath(home, id); path != "" {
+		if t, err := claude.ReadTranscript(path); err == nil && !hq.Is(t.Session().Cwd) {
 			s := []claude.Session{t.Session()}
 			m.store.ApplyNames(s)
 			return s[0], true
@@ -187,7 +252,7 @@ func (m Model) openWeb() tea.Cmd {
 
 func (m Model) webState() web.State {
 	now := time.Now()
-	st := web.State{Clashes: []web.Clash{}, NextUp: []web.Next{}, Groups: []web.Group{}, Projects: []web.Group{}, Activity: []web.Event{}}
+	st := web.State{Clashes: []web.Clash{}, NextUp: []web.Next{}, Groups: []web.Group{}, Projects: []web.Group{}, Activity: []web.Event{}, Folders: abbreviated(m.folders, 300)}
 	sessions := slices.DeleteFunc(slices.Clone(m.sessions), func(s claude.Session) bool { return s.Background })
 
 	for _, s := range sessions {
@@ -260,11 +325,12 @@ func (m Model) webState() web.State {
 	}
 	st.Background = []web.Session{}
 	for _, s := range m.sessions {
-		if s.Background && len(st.Background) < 30 {
+		if s.Background {
 			st.Background = append(st.Background, m.webSession(s, now))
 		}
 	}
 	slices.SortFunc(st.Background, func(a, b web.Session) int { return b.Since.Compare(a.Since) })
+	st.Background = st.Background[:min(len(st.Background), 30)]
 	if m.flash != "" {
 		st.Notice = web.Notice{Text: m.flash, Error: m.flashErr, Seq: m.flashSeq}
 	}
@@ -307,6 +373,7 @@ func (m Model) webSession(s claude.Session, now time.Time) web.Session {
 		out.Suggested, out.Suggestion, out.Why, out.Ready = true, sg.Prompt, sg.Why, m.prefilled(s, sg)
 	}
 	_, out.Hosted = m.window(s)
+	out.Closable = m.closable(s)
 	out.Running, out.Archived, out.Trusted = s.Running(), m.store.Archived[s.ID], m.store.Trusted[s.ID]
 	if n, ok, stale := m.note(s); ok {
 		out.Summary, out.Stale = clipText(n.Text, 240), stale
@@ -359,4 +426,12 @@ func sentence(title string) string {
 	lower := []rune(strings.ToLower(title))
 	lower[0] = unicode.ToUpper(lower[0])
 	return string(lower)
+}
+
+func abbreviated(dirs []string, limit int) []string {
+	out := make([]string, 0, min(len(dirs), limit))
+	for _, d := range dirs[:min(len(dirs), limit)] {
+		out = append(out, abbreviateHome(d))
+	}
+	return out
 }

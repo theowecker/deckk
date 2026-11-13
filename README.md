@@ -157,8 +157,9 @@ It is the same deckk with room to spread out, and you can work from it:
   kept, group them by status or project, or look at background runs on their
   own. Open one to see deckk's suggestion for it and its recent conversation,
   and write to it: Enter sends, or Type in leaves the prompt for you to check
-  in deckk. A stopped session resumes first. Open, pin, rename and archive
-  from there too.
+  in deckk. A stopped session resumes first. Open, pin, rename, close and
+  archive from there too, or start a new session in any folder with its first
+  prompt.
 - **deckk** is a chat with the deckk session, and the goals it keeps with you,
   which you can edit.
 

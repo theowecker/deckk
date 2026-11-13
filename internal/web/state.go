@@ -22,6 +22,8 @@ type State struct {
 	// Notice is the dashboard's latest message, such as why a prompt
 	// couldn't be typed in.
 	Notice Notice `json:"notice"`
+	// Folders are where a new session can start, most recent first.
+	Folders []string `json:"folders"`
 }
 
 type Deckk struct {
@@ -100,6 +102,8 @@ type Session struct {
 	Archived   bool   `json:"archived,omitempty"`
 	// Hosted sessions can take a prompt from the page directly.
 	Hosted bool `json:"hosted,omitempty"`
+	// Closable sessions run in a window deckk can close.
+	Closable bool `json:"closable,omitempty"`
 	// Trusted sessions get deckk's safe suggestions sent without review.
 	Trusted bool `json:"trusted,omitempty"`
 }
