@@ -194,7 +194,11 @@ func (m Model) hints() []hint {
 		view = "by status"
 	}
 	// Least important last, since a narrow window cuts the end off.
-	hints = append(hints, hint{"n", "new"}, hint{"c", "ask deckk"}, hint{"?", "all keys"}, hint{"q", "quit"}, hint{"s", "settings"}, hint{"/", "find"})
+	hints = append(hints, hint{"n", "new"})
+	if m.cfg.HQOn() {
+		hints = append(hints, hint{"c", "ask deckk"})
+	}
+	hints = append(hints, hint{"?", "all keys"}, hint{"q", "quit"}, hint{"s", "settings"}, hint{"/", "find"})
 	if m.view != boardView {
 		hints = append(hints, hint{"v", view})
 	}

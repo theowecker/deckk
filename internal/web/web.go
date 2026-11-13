@@ -56,6 +56,7 @@ type Server struct {
 	url      string
 	onAction func(Action) error
 	history  History
+	server   *http.Server
 
 	mu      sync.Mutex
 	state   []byte
@@ -82,10 +83,13 @@ func Start(tokenPath string, onAction func(Action) error, history History) (*Ser
 	// browsers never send to a server; the page keeps it and clears it.
 	s.url = fmt.Sprintf("http://127.0.0.1:%d/#t=%s", port, token)
 	// No write timeout: the live stream stays open for as long as the page.
-	server := &http.Server{Handler: s.routes(port), ReadHeaderTimeout: 5 * time.Second}
-	go func() { _ = server.Serve(ln) }()
+	s.server = &http.Server{Handler: s.routes(port), ReadHeaderTimeout: 5 * time.Second}
+	go func() { _ = s.server.Serve(ln) }()
 	return s, nil
 }
+
+// Close stops serving at once, live streams included.
+func (s *Server) Close() error { return s.server.Close() }
 
 func newServer(token string, onAction func(Action) error) *Server {
 	return &Server{token: token, onAction: onAction, state: []byte("{}"), waiters: map[chan struct{}]bool{}}

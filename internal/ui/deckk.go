@@ -462,7 +462,11 @@ func (m Model) nextUpSessions() []claude.Session {
 	return list
 }
 
-func (m Model) openDeckk() tea.Cmd {
+func (m *Model) openDeckk() tea.Cmd {
+	if !m.cfg.HQOn() {
+		m.setFlash("The deckk session is off. Turn it on in settings, s", nil)
+		return nil
+	}
 	return m.do(func() error { return m.host.OpenHQ(true) }, "")
 }
 

@@ -61,7 +61,8 @@ func (m Model) updateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 	case "c":
-		return m, m.openDeckk()
+		cmd := m.openDeckk()
+		return m, cmd
 	case "w":
 		return m, m.openWeb()
 	case "d":

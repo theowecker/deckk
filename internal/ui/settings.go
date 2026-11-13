@@ -41,6 +41,14 @@ var settingEffects = map[string]func(m *Model, value string) tea.Cmd{
 	"tab_keys": func(m *Model, preset string) tea.Cmd {
 		return m.do(func() error { return m.host.SetTabKeys(preset) }, "")
 	},
+	"web_view": func(m *Model, value string) tea.Cmd {
+		if value == config.Off {
+			m.stopWeb()
+		} else {
+			m.startWeb()
+		}
+		return nil
+	},
 	"deckk_session": func(m *Model, value string) tea.Cmd {
 		if value == config.Off {
 			return m.do(m.host.CloseHQ, "")

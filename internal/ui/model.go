@@ -81,6 +81,7 @@ type Model struct {
 	clashes     map[string]map[string]bool
 	clashesSeen bool
 	web         Publisher
+	webStart    WebStarter
 	typingGap   time.Duration
 	lastLetter  time.Time
 

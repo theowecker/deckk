@@ -114,7 +114,7 @@ The page is served by the dashboard on `127.0.0.1:4747` and nowhere else.
 deckk's link carries a token, kept in `~/.config/deckk/web.token`, which the
 page trades for a cookie and drops from the address, so the bare page can be
 bookmarked and other pages in your browser can't use it. `web_view = "off"`
-turns it off.
+turns it off, and the server stops.
 
 ## Terminals
 
@@ -181,7 +181,10 @@ to every `claude` command deckk runs. `tab_keys` is empty for ⌘⇧← ⌘⇧�
 `brackets` for ⌘⇧[ ⌘⇧], `pageup` for ⌃PgUp ⌃PgDn or `off`. The ⌘ keys take
 over iTerm2's own use of them, but only in the deckk tab.
 
-`deckk_session = "off"` turns the deckk session off. `suggestions` is empty
+Both the deckk session and the web view are optional, and the settings screen
+(`s`) turns either on or off at once. `deckk_session = "off"` turns the
+deckk session off: its pane closes, and nothing is suggested, typed or sent
+for it. `suggestions` is empty
 to type suggestions in for you to send, `send` to also send the ones deckk
 marks as safe, or `list` to only list them under Next up. `updates = "off"`
 stops telling the deckk session about changes, so it only acts when you ask.

@@ -108,7 +108,7 @@ var Options = []Option{
 		Names: map[string]string{On: "sessions deckk starts can ask it what's next", Off: "off"},
 		field: func(c *Config) *string { return &c.Ask }},
 	{Key: "web_view", Label: "Web view", Deckk: true, Choices: onOff,
-		Names: map[string]string{On: "on localhost, press w to open it", Off: "off, from the next launch"},
+		Names: map[string]string{On: "on localhost, press w to open it", Off: "off"},
 		field: func(c *Config) *string { return &c.Web }},
 }
 

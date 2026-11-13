@@ -143,19 +143,17 @@ func dashboard(days int, cfg *config.Config, program string) error {
 	// The page's actions reach the dashboard like key presses, once the
 	// program that takes them exists.
 	var running atomic.Pointer[tea.Program]
-	if cfg.WebOn() {
-		tokenPath := filepath.Join(filepath.Dir(config.DefaultPath()), "web.token")
-		if server, err := web.Start(tokenPath, func(a web.Action) error {
+	tokenPath := filepath.Join(filepath.Dir(config.DefaultPath()), "web.token")
+	model = model.WithWeb(func() (ui.Publisher, error) {
+		return web.Start(tokenPath, func(a web.Action) error {
 			p := running.Load()
 			if p == nil {
 				return web.ErrNotReady
 			}
 			p.Send(ui.WebAction(a))
 			return nil
-		}, history); err == nil {
-			model = model.WithWeb(server)
-		}
-	}
+		}, history)
+	})
 	p := tea.NewProgram(model, tea.WithAltScreen(), tea.WithMouseAllMotion(), tea.WithReportFocus())
 	running.Store(p)
 	_, err = p.Run()

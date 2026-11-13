@@ -21,12 +21,44 @@ import (
 type Publisher interface {
 	Publish(state any)
 	URL() string
+	Close() error
 }
 
-// WithWeb has the dashboard publish to the page and take its actions.
-func (m Model) WithWeb(p Publisher) Model {
-	m.web = p
+// A WebStarter starts the page, so the setting can turn it on and off while
+// deckk runs.
+type WebStarter func() (Publisher, error)
+
+// WithWeb has the dashboard serve the page, when the setting allows, and take
+// its actions.
+func (m Model) WithWeb(start WebStarter) Model {
+	m.webStart = start
+	if m.cfg.WebOn() {
+		m.startWeb()
+	}
 	return m
+}
+
+func (m *Model) startWeb() {
+	if m.web != nil || m.webStart == nil {
+		return
+	}
+	web, err := m.webStart()
+	if err != nil {
+		m.setFlash("", err)
+		return
+	}
+	m.web = web
+	m.publish()
+}
+
+func (m *Model) stopWeb() {
+	if m.web == nil {
+		return
+	}
+	if err := m.web.Close(); err != nil {
+		m.setFlash("", err)
+	}
+	m.web = nil
 }
 
 type webActionMsg web.Action
