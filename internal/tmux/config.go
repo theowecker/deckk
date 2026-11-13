@@ -3,6 +3,7 @@ package tmux
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -67,7 +68,7 @@ const resetPointer = `{ if -F "#{client_tty}" { run-shell -b "printf '\\033]22;\
 
 var tmuxConf = `
 set -g default-terminal "tmux-256color"
-set -s terminal-features[90] "xterm*:RGB:extkeys:clipboard"
+set -s terminal-features[90] "xterm*:RGB:extkeys:clipboard:hyperlinks"
 set -g extended-keys on
 set -g escape-time 0
 set -g focus-events on
@@ -75,6 +76,12 @@ set -g allow-passthrough on
 set -g set-clipboard on
 set -g history-limit 50000
 set -g mouse on
+# Scrolled back or selecting, a terminal shows no line counter, no marked
+# line and no cursor. tmux can't hide its copy cursor, so it becomes a bar in
+# the terminal's background colour, which deckk reads when it attaches.
+setw -gq copy-mode-position-format ""
+setw -gq copy-mode-mark-style default
+set-hook -g pane-mode-changed { if -F "#{&&:#{pane_in_mode},#{@deckk_bg}}" { set -p cursor-style bar ; set -pF cursor-colour "#{@deckk_bg}" } { set -pu cursor-style ; set -pu cursor-colour } }
 # deckk never needs the prefix, and Claude uses Ctrl+B itself.
 set -g prefix None
 set -g prefix2 None
@@ -214,33 +221,80 @@ func toApp(otherwise string) string {
 	return `{ if -F "#{||:#{pane_in_mode},#{mouse_any_flag},#{==:#{@deckk_pane},dashboard}}" { send -M } { ` + otherwise + ` } }`
 }
 
-// Typing while text is selected leaves the selection and goes to the app, as
-// it would in iTerm2. Escape only clears, so it can't interrupt Claude.
+// Typing while text is selected or the pane is scrolled back leaves copy mode
+// and goes to the app, as it would in iTerm2. tmux can't pass on whatever key
+// arrived, so every key a terminal sends is bound by name. Escape only clears, so it can't interrupt Claude.
 func copyModeBindings(table string) string {
 	var b strings.Builder
 	bind := func(key, command string) {
 		fmt.Fprintf(&b, "bind -T %s %s %s\n", table, key, command)
 	}
 	bind("MouseDown1Pane", `{ select-pane ; if -F "#{scroll_position}" { send -X clear-selection } { send -X cancel } }`)
-	bind("MouseDragEnd1Pane", `{ send -X stop-selection }`)
-	bind("DoubleClick1Pane", `{ select-pane ; send -X select-word }`)
-	bind("TripleClick1Pane", `{ select-pane ; send -X select-line }`)
+	bind("MouseDragEnd1Pane", "{ "+outside("other-end", "set-mark", "other-end", "stop-selection")+" }")
+	bind("DoubleClick1Pane", `{ select-pane ; send -X select-word ; `+outside("other-end", "set-mark", "other-end")+` }`)
+	bind("TripleClick1Pane", `{ select-pane ; send -X select-line ; `+outside("other-end", "set-mark", "other-end")+` }`)
+	// Shift-click extends the selection to the click, from where the drag
+	// began, even after scrolling.
+	bind("S-MouseDown1Pane", `{ select-pane ; if -F "#{selection_present}" { send -X clear-selection ; `+
+		outside("jump-to-mark", "begin-selection", "jump-to-mark", "stop-selection")+` } }`)
 	bind("C-c", `{ if -F "#{selection_present}" `+copied+` { send -X cancel ; send-keys C-c } }`)
 	bind("Escape", `{ send -X cancel }`)
 	for c := '!'; c <= '~'; c++ {
 		key := quote(string(c))
 		bind(key, `{ send -X cancel ; send-keys -l `+key+` }`)
+		bind(quote("M-"+string(c)), `{ send -X cancel ; send-keys `+quote("M-"+string(c))+` }`)
 	}
-	for _, key := range []string{"Space", "Enter", "BSpace", "Tab", "BTab", "Up", "Down", "Left", "Right"} {
+	for _, key := range passedKeys() {
 		bind(key, `{ send -X cancel ; send-keys `+key+` }`)
 	}
 	return b.String()
 }
 
+// passedKeys are the named and modified keys a terminal sends, less the ones
+// deckk binds itself in every table.
+func passedKeys() []string {
+	var keys []string
+	for c := 'a'; c <= 'z'; c++ {
+		if !strings.ContainsRune("cim", c) {
+			keys = append(keys, "C-"+string(c))
+		}
+	}
+	named := []string{"Space", "Enter", "BSpace", "Tab", "BTab", "Up", "Down", "Left", "Right", "Home", "End", "PPage", "NPage", "IC", "DC"}
+	for n := 1; n <= 12; n++ {
+		named = append(named, fmt.Sprintf("F%d", n))
+	}
+	reserved := map[string]bool{"C-Space": true, "C-S-Up": true, "C-S-Down": true, "C-S-Left": true, "C-S-Right": true, "C-PPage": true, "C-NPage": true}
+	for _, mod := range []string{"", "S-", "C-", "M-", "C-S-", "M-S-", "C-M-"} {
+		for _, key := range named {
+			if !reserved[mod+key] && (mod == "" || key != "BTab") {
+				keys = append(keys, mod+key)
+			}
+		}
+	}
+	return keys
+}
+
+// tmuxBin runs copy-mode commands from outside a mouse binding, since inside
+// one tmux first moves the cursor to the pointer for every command.
+var tmuxBin = func() string {
+	if path, err := exec.LookPath("tmux"); err == nil {
+		return path
+	}
+	return "tmux"
+}()
+
+func outside(commands ...string) string {
+	sends := make([]string, len(commands))
+	for i, c := range commands {
+		sends[i] = "send -t '#{pane_id}' -X " + c
+	}
+	return `run -b "` + shellQuote(tmuxBin) + ` -S '#{socket_path}' ` + strings.Join(sends, ` \\; `) + `"`
+}
+
 // Single quotes, since tmux expands ~ even inside double quotes.
 func quote(s string) string {
-	if s == "'" {
-		return `"'"`
+	if strings.Contains(s, "'") {
+		return `"` + s + `"`
 	}
 	return "'" + s + "'"
 }

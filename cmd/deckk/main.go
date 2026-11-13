@@ -17,6 +17,8 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/muesli/termenv"
+
 	"github.com/theowecker/deckk/internal/claude"
 	"github.com/theowecker/deckk/internal/config"
 	"github.com/theowecker/deckk/internal/deck"
@@ -128,6 +130,11 @@ func launch(days int, cfg *config.Config) error {
 
 	if err := tmux.BindTabKeys(cfg.TabKeys); err != nil {
 		return err
+	}
+	if bg := termenv.NewOutput(os.Stdout).BackgroundColor(); bg != nil {
+		if _, none := bg.(termenv.NoColor); !none {
+			_ = tmux.SetBackground(termenv.ConvertToRGB(bg).Hex())
+		}
 	}
 	defer app.Setup(os.Stdout, cfg.TabKeys)()
 	return tmux.Attach(tmuxPath)

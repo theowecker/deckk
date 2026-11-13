@@ -318,3 +318,9 @@ func PlaceTabs() error {
 	_, err = run(args...)
 	return err
 }
+
+// SetBackground tells the config the terminal's background colour, as #rrggbb.
+func SetBackground(hex string) error {
+	_, err := run("set-option", "-g", "@deckk_bg", hex)
+	return err
+}

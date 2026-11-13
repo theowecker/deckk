@@ -69,7 +69,9 @@ ahead. Letters typed in a quick run never count as shortcuts, so a sentence
 meant for the deckk session can't rearrange your tabs.
 
 Drag over text to select it, or double-click a word, then press Ctrl+C to
-copy. In iTerm2, Cmd+C works too. Click anywhere to clear the selection.
+copy. In iTerm2, Cmd+C works too. To select more than a screen, scroll and
+shift-click where the selection should end. Click anywhere to clear it, or
+just type: keys go to Claude whether or not you've scrolled back.
 
 ## What the dashboard keeps track of
 
