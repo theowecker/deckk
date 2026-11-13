@@ -136,6 +136,11 @@ func OpenHQ(dir, command string, focus bool) error {
 		}
 		pane.ID = id
 	}
+	if window, err := dashboardWindow(); err == nil {
+		if err := titlePanes(window); err != nil {
+			return err
+		}
+	}
 	if !focus {
 		return nil
 	}
@@ -146,6 +151,31 @@ func OpenHQ(dir, command string, focus bool) error {
 	_, err = run("select-window", "-t", window, ";", "select-pane", "-t", pane.ID)
 	return err
 }
+
+// titlePanes names both panes along their top edge, the focused one in clay,
+// since a thin divider alone doesn't show which side has the keyboard. Only
+// the dashboard window gets this; session tabs stay one bare pane.
+func titlePanes(window string) error {
+	_, err := run(
+		"set-option", "-w", "-t", window, "pane-border-status", "top", ";",
+		"set-option", "-w", "-t", window, "pane-border-lines", "heavy", ";",
+		"set-option", "-w", "-t", window, "pane-border-style", "fg=#3A3A52", ";",
+		"set-option", "-w", "-t", window, "pane-active-border-style", "fg=#E8875B", ";",
+		"set-option", "-w", "-t", window, "pane-border-format", paneTitle)
+	return err
+}
+
+func untitlePanes() error {
+	window, err := dashboardWindow()
+	if err != nil {
+		return err
+	}
+	_, err = run("set-option", "-w", "-t", window, "pane-border-status", "off")
+	return err
+}
+
+const paneTitle = "#{?pane_active,#[fg=#E8875B bold] ● ,#[fg=#6B6B7B] ○ }" +
+	"#{?#{==:#{@deckk_pane},hq},deckk session,sessions} #[default]"
 
 func CloseHQ() error {
 	pane, open, err := HQ()

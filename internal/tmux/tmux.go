@@ -260,8 +260,16 @@ type Server struct{}
 func (Server) Windows() ([]Window, error) {
 	windows, err := Windows()
 	_ = PlaceTabs()
-	if pane, found, _ := findPane(dashboardPane); found && pane.InMode {
-		_ = leaveModes(pane.ID)
+	panes, _ := DashboardPanes()
+	for _, p := range panes {
+		if p.Role == dashboardPane && p.InMode {
+			_ = leaveModes(p.ID)
+		}
+	}
+	// The deckk session can exit on its own, leaving pane titles over a
+	// dashboard that is alone again.
+	if len(panes) == 1 {
+		_ = untitlePanes()
 	}
 	return windows, err
 }
