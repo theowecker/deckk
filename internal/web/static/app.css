@@ -492,3 +492,10 @@ div.empty-card { display: flex; align-items: center; justify-content: space-betw
 
 .group-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-right: 14px; }
 .group-head .link, .more .link { font-size: 12px; font-weight: 500; }
+
+.review { padding: 10px 14px; border-radius: 12px; background: var(--fill); font-size: 13px; }
+.review-head { color: var(--secondary); font-weight: 500; }
+.review.concerns { background: var(--amber-soft); }
+.review.concerns .review-head { color: var(--amber); }
+.review ul { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 3px; color: var(--label); }
+.flag { margin-left: 6px; color: var(--amber); font-size: 12px; }

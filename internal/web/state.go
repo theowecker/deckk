@@ -92,9 +92,14 @@ type Session struct {
 	Running    bool   `json:"running,omitempty"`
 	Archived   bool   `json:"archived,omitempty"`
 	// Hosted sessions can take a prompt from the page directly.
-	Hosted   bool `json:"hosted,omitempty"`
-	Closable bool `json:"closable,omitempty"`
-	Trusted  bool `json:"trusted,omitempty"`
+	Hosted    bool     `json:"hosted,omitempty"`
+	Closable  bool     `json:"closable,omitempty"`
+	Trusted   bool     `json:"trusted,omitempty"`
+	Review    *Verdict `json:"review,omitempty"`
+	Reviewing bool     `json:"reviewing,omitempty"`
+	// Changes says there is something to review: uncommitted work, commits
+	// ahead or a pull request.
+	Changes bool `json:"changes,omitempty"`
 }
 
 type Event struct {
@@ -107,4 +112,12 @@ type Today struct {
 	PRs      int    `json:"prs"`
 	Projects int    `json:"projects"`
 	Busiest  string `json:"busiest,omitempty"`
+}
+
+type Verdict struct {
+	OK       bool      `json:"ok"`
+	Concerns []string  `json:"concerns,omitempty"`
+	At       time.Time `json:"at"`
+	// Earlier says the session has moved on since the review.
+	Earlier bool `json:"earlier,omitempty"`
 }

@@ -53,9 +53,10 @@ const (
 	Trust   = "trust"
 	New     = "new"
 	Close   = "close"
+	Review  = "review"
 )
 
-var Kinds = map[string]bool{Open: true, Dismiss: true, Talk: true, Pin: true, Archive: true, Rename: true, Prompt: true, Chat: true, Goals: true, Trust: true, New: true, Close: true}
+var Kinds = map[string]bool{Open: true, Dismiss: true, Talk: true, Pin: true, Archive: true, Rename: true, Prompt: true, Chat: true, Goals: true, Trust: true, New: true, Close: true, Review: true}
 
 type Search func(query string) ([]Found, error)
 

@@ -26,10 +26,11 @@ type deckkState struct {
 	proposals   []hq.Proposal
 	awaiting    []awaitingPrompt
 	// given are sessions that already got a queued prompt.
-	given  map[string]bool
-	goals  string
-	recent []hq.Event
-	notes  map[string]hq.Note
+	given   map[string]bool
+	goals   string
+	recent  []hq.Event
+	notes   map[string]hq.Note
+	reviews map[string]hq.Review
 
 	states   map[string]deck.State
 	prs      map[string]string
@@ -46,7 +47,7 @@ type deckkState struct {
 func newDeckkState() deckkState {
 	return deckkState{
 		suggestions: map[string]hq.Suggestion{}, states: map[string]deck.State{}, prs: map[string]string{},
-		told: map[string]bool{}, inflight: map[string]bool{}, given: map[string]bool{},
+		told: map[string]bool{}, inflight: map[string]bool{}, given: map[string]bool{}, reviews: map[string]hq.Review{},
 	}
 }
 
@@ -57,6 +58,7 @@ type deckkSnapshot struct {
 	goals       string
 	recent      []hq.Event
 	notes       map[string]hq.Note
+	reviews     map[string]hq.Review
 	pane        tmux.Pane
 	open        bool
 }
@@ -69,6 +71,7 @@ func (m Model) snapshot() deckkSnapshot {
 	snap.goals, _ = hq.ReadGoals()
 	snap.recent, _ = hq.Recent(15)
 	snap.notes, _ = hq.LoadNotes()
+	snap.reviews, _ = hq.LoadReviews()
 	snap.pane, snap.open, _ = m.host.HQPane()
 	return snap
 }
@@ -99,6 +102,9 @@ func (m *Model) takeDeckk(sessions []claude.Session, snap deckkSnapshot) []claud
 	m.deckk.questions = snap.questions
 	m.deckk.proposals = snap.proposals
 	m.deckk.goals, m.deckk.recent, m.deckk.notes = snap.goals, snap.recent, snap.notes
+	if snap.reviews != nil {
+		m.deckk.reviews = snap.reviews
+	}
 	m.deckk.pane, m.deckk.open = snap.pane, snap.open
 	return sessions
 }

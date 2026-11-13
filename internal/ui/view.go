@@ -561,6 +561,9 @@ func (m Model) preview(s claude.Session) []string {
 	if sg, ok := m.suggestion(s); ok && sg.Why != "" {
 		lines = append(lines, pad()+indent+accent.Render(ansi.Truncate("✦ "+sg.Why, room, "…")))
 	}
+	if _, line, ok := m.reviewSummary(s); ok {
+		lines = append(lines, pad()+indent+ansi.Truncate(line, room, "…"))
+	}
 	if s.LastPrompt != "" {
 		lines = append(lines, pad()+indent+preview.Render(ansi.Truncate("› "+s.LastPrompt, room, "…")))
 	}
@@ -660,6 +663,7 @@ func helpBody(frame int) ([]string, []int) {
 			{"⌃⇧↑ ⌃⇧↓", "move between the list and the deckk session"},
 			{"d", "dismiss deckk's suggestion for a session"},
 			{"t", "let deckk send its safe suggestions to a session without asking"},
+			{"e", "review a session's changes against what it says it did"},
 			{"x", "close a session running in deckk. It stays resumable"},
 			{"o   O", "give this session, or every one, its own tab"},
 			{"m   M", "bring this session, or all of them, from other tabs into deckk"},

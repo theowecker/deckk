@@ -25,6 +25,7 @@ type Config struct {
 	Ask        string `toml:"sessions_ask"`
 	Web        string `toml:"web_view"`
 	Notify     string `toml:"notifications"`
+	Reviews    string `toml:"reviews"`
 	Days       int    `toml:"days"`
 
 	path string
@@ -71,6 +72,11 @@ func (c *Config) WebOn() bool { return c.Web != Off }
 
 func (c *Config) NotifyOn() bool { return c.Notify != Off }
 
+// AutoReview reviews a session's changes each time it finishes a turn.
+func (c *Config) AutoReview() bool { return c.Reviews == ReviewAuto }
+
+const ReviewAuto = "auto"
+
 var onOff = []string{On, Off}
 
 // An empty choice leaves it to Claude's own settings. Modes that skip
@@ -109,6 +115,9 @@ var Options = []Option{
 	{Key: "notifications", Label: "Notifications", Deckk: true, Choices: onOff,
 		Names: map[string]string{On: "when a session you aren't looking at waits on you", Off: "off"},
 		field: func(c *Config) *string { return &c.Notify }},
+	{Key: "reviews", Label: "Reviews", Deckk: true, Choices: []string{"", ReviewAuto},
+		Names: map[string]string{"": "when you ask, with e", ReviewAuto: "each time a session with changes finishes"},
+		field: func(c *Config) *string { return &c.Reviews }},
 	{Key: "web_view", Label: "Web view", Deckk: true, Choices: onOff,
 		Names: map[string]string{On: "on localhost, press w to open it", Off: "off"},
 		field: func(c *Config) *string { return &c.Web }},

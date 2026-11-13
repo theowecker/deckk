@@ -445,6 +445,7 @@ function detailBody(s) {
       s.running && !s.hosted
         ? { typeIn: true, disabled: true, suggestion: offer, text: "This session runs in another terminal tab. Press m on it in deckk to move it in, then write to it here." }
         : { typeIn: true, suggestion: offer, text: offer ? "Click the suggestion or press Tab to use it." : "Enter sends." }),
+    reviewBlock(s),
     el("div", { class: "facts" },
       el("span", {}, s.folder),
       s.pr && safeLink(s.prUrl) && el("a", { href: s.prUrl, target: "_blank", rel: "noopener noreferrer" }, `PR ${s.pr}`),
@@ -471,6 +472,9 @@ function detailBody(s) {
           el("button", { class: "button primary", "data-focus": `go:${s.id}`, onclick: () => act("open", { id: s.id }, `${verb === "Open" ? "Opening" : "Resuming"} in deckk`) }, `${verb} in deckk`),
           el("button", { class: "button quiet", "data-focus": `pin:${s.id}`, onclick: async () => { if (await act("pin", { id: s.id }, s.pinned ? "Unpinned" : "Pinned")) refreshSearch(); } }, s.pinned ? "Unpin" : "Pin"),
           el("button", { class: "button quiet", "data-focus": `more:${s.id}`, onclick: () => { renaming = s.id; render(true); focusOn(`rename:${s.id}`, true); } }, "Rename"),
+          (s.changes || s.review) && el("button", { class: "button quiet", "data-focus": `review:${s.id}`, disabled: Boolean(s.reviewing),
+            title: "A quick model checks the branch's changes against what the session says it did",
+            onclick: () => act("review", { id: s.id }) }, s.review ? "Review again" : "Review changes"),
           s.closable && el("button", { class: `button quiet${closing === s.id ? " danger" : ""}`, "data-focus": `close:${s.id}`,
             onclick: () => closeSession(s) }, closing === s.id ? "Claude is working. Close anyway" : "Close"),
           !s.running && el("button", { class: "button quiet", "data-focus": `archive:${s.id}`, onclick: async () => { if (await act("archive", { id: s.id }, s.archived ? "Unarchived" : "Archived")) refreshSearch(); } }, s.archived ? "Unarchive" : "Archive"),
@@ -481,6 +485,21 @@ function detailBody(s) {
           }, el("span", { class: "track", "aria-hidden": "true" }), "Auto-send deckk's suggestions")),
   );
   return el("div", { class: "detail" }, el("div", { class: "detail-inner" }, body));
+}
+
+function reviewBlock(s) {
+  if (s.reviewing) {
+    return el("div", { class: "review" }, el("p", { class: "review-head" }, "Reviewing the changes…"));
+  }
+  const r = s.review;
+  if (!r) return null;
+  const when = r.earlier ? " · from before its last turn" : "";
+  if (r.ok) {
+    return el("div", { class: "review ok" }, el("p", { class: "review-head" }, `✓ The review found nothing to flag${when}`));
+  }
+  return el("div", { class: "review concerns" },
+    el("p", { class: "review-head" }, `The review flagged ${plural((r.concerns || []).length || 1, "thing")}${when}`),
+    (r.concerns || []).length > 0 && el("ul", {}, r.concerns.map((c) => el("li", {}, c))));
 }
 
 // Opening a row animates the row in place; a full redraw would skip it.
@@ -516,6 +535,7 @@ function sessionRow(s) {
       s.trusted && el("span", { class: "pin", role: "img", title: "deckk sends its safe suggestions here", "aria-label": "deckk sends here" }, "⇢"),
       s.suggestion && el("span", { class: "mark", role: "img", title: "deckk has a suggestion", "aria-label": "has a suggestion" }, "✦"),
       s.clash && el("span", { class: "warn", role: "img", title: s.clash, "aria-label": s.clash }, "⚠"),
+      s.review && !s.review.ok && el("span", { class: "flag", role: "img", title: "The review found concerns", "aria-label": "review found concerns" }, "⚑"),
     ),
     el("span", { class: `state ${s.state}` }, statusText(s)),
     el("span", { class: "where" }, s.project, s.branch && [" ", el("code", {}, `⎇ ${s.branch}`)], s.where && ` · ${s.where}`),

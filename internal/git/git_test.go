@@ -2,7 +2,9 @@ package git
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -50,5 +52,40 @@ func TestRoot(t *testing.T) {
 	}
 	if got := Root(t.TempDir()); got != "" {
 		t.Fatalf("outside git got %q", got)
+	}
+}
+
+func TestDiffShowsWorkSinceTheDefaultBranch(t *testing.T) {
+	dir := t.TempDir()
+	run := func(args ...string) {
+		t.Helper()
+		cmd := exec.Command("git", append([]string{"-C", dir, "-c", "user.email=t@t", "-c", "user.name=t"}, args...)...)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("%v: %s", args, out)
+		}
+	}
+	run("init", "-q", "-b", "main")
+	if err := os.WriteFile(filepath.Join(dir, "a.txt"), []byte("one\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	run("add", ".")
+	run("commit", "-qm", "first")
+	if Diff(dir, 10000) != "" {
+		t.Fatal("a clean main checkout has nothing to review")
+	}
+	run("checkout", "-qb", "feature")
+	if err := os.WriteFile(filepath.Join(dir, "a.txt"), []byte("one\ntwo\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	run("commit", "-qam", "second")
+	if err := os.WriteFile(filepath.Join(dir, "b.txt"), []byte("new\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	d := Diff(dir, 10000)
+	if !strings.Contains(d, "+two") || !strings.Contains(d, "b.txt") {
+		t.Fatalf("diff %q", d)
+	}
+	if cut := Diff(dir, 20); !strings.HasSuffix(cut, "[diff cut short]") {
+		t.Fatalf("cut %q", cut)
 	}
 }

@@ -101,6 +101,8 @@ func (m *Model) webAction(a webActionMsg) tea.Cmd {
 		m.mark(m.store.ToggleArchive(s.ID))
 	case web.Trust:
 		m.toggleTrust(s)
+	case web.Review:
+		return m.review(s, false)
 	case web.Rename:
 		m.mark(m.store.Rename(s.ID, a.Text))
 		m.store.ApplyNames(m.sessions)
@@ -382,6 +384,11 @@ func (m Model) webSession(s claude.Session, now time.Time) web.Session {
 	if c, ok := m.clash(s); ok {
 		out.Clash = "also edited by " + displayTitle(c.Other(s.ID)) + ": " + fileList(c.Files, 3)
 	}
+	out.Reviewing = m.reviewing[s.ID]
+	if r, ok := m.deckk.reviews[s.ID]; ok {
+		out.Review = &web.Verdict{OK: r.OK, Concerns: concernLines(r.Text), At: r.At, Earlier: s.UpdatedAt.After(r.At)}
+	}
+	out.Changes = s.Git.Changed > 0 || s.Git.Ahead > 0 || s.PR != ""
 	return out
 }
 

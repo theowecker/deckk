@@ -75,8 +75,13 @@ func (m Model) boardRow(s claude.Session, selected bool, now time.Time, titles i
 	glyph, status := m.status(s, now)
 	room := m.rowRoom()
 	titles = min(titles, room*2/5)
-	title := ansi.Truncate(rowTitle(s), titles, "…")
-	line := titleStyle.Render(title) + strings.Repeat(" ", titles-lipgloss.Width(title))
+	title := ansi.Truncate(rowTitle(s), titles-2, "…")
+	line := titleStyle.Render(title) + strings.Repeat(" ", titles-2-lipgloss.Width(title))
+	if mark, _, ok := m.reviewSummary(s); ok {
+		line += " " + mark
+	} else {
+		line += "  "
+	}
 	about := ""
 	switch n, ok, stale := m.note(s); {
 	case ok && !stale:

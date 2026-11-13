@@ -200,3 +200,28 @@ func TestASettingChangedDuringALoadIsntUndoneByIt(t *testing.T) {
 		t.Fatalf("notifications went back to %q", got)
 	}
 }
+
+func TestAReviewShowsOnTheBoardAndThePage(t *testing.T) {
+	m, _ := newTestModel(t)
+	page := &fakePage{}
+	m = m.WithWeb(func() (Publisher, error) { return page, nil })
+	s, _ := m.sessionByID("dddddddd")
+	m.reviewing[s.ID] = true
+	tm, _ := m.Update(reviewDoneMsg{session: s, review: hq.Review{At: time.Now(), Text: "- debug print left in api.go\n- no test for retries"}})
+	m = tm.(Model)
+	if m.reviewing[s.ID] || !strings.Contains(m.flash, "found concerns") {
+		t.Fatalf("reviewing %v, flash %q", m.reviewing, m.flash)
+	}
+	mark, line, ok := m.reviewSummary(s)
+	if !ok || !strings.Contains(mark, "⚠") || !strings.Contains(line, "debug print left in api.go") || !strings.Contains(line, "+1 more") {
+		t.Fatalf("mark %q line %q", mark, line)
+	}
+	st := page.last.(web.State)
+	for _, g := range st.Groups {
+		for _, ws := range g.Sessions {
+			if ws.ID == s.ID && (ws.Review == nil || ws.Review.OK || len(ws.Review.Concerns) != 2) {
+				t.Fatalf("page review %+v", ws.Review)
+			}
+		}
+	}
+}

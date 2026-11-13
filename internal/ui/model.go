@@ -78,6 +78,7 @@ type Model struct {
 	trackedOnce bool
 	closing     map[string]bool
 	resuming    map[string]time.Time
+	reviewing   map[string]bool
 	lastSeen    map[string]time.Time
 	deckk       deckkState
 	collisions  []deck.Collision
@@ -115,7 +116,7 @@ func New(home string, since time.Time, st *store.Store, cfg *config.Config, host
 	return Model{
 		home: home, since: since, store: st, cfg: cfg, host: host, filter: ti,
 		labels: map[string]tmux.Label{}, seen: map[string]bool{}, startedAt: time.Now(),
-		wasRunning: map[string]bool{}, closing: map[string]bool{}, resuming: map[string]time.Time{}, lastSeen: map[string]time.Time{},
+		wasRunning: map[string]bool{}, closing: map[string]bool{}, resuming: map[string]time.Time{}, reviewing: map[string]bool{}, lastSeen: map[string]time.Time{},
 		typingGap: typingGap, notified: map[string]time.Time{},
 		deckk: newDeckkState(), clashes: map[string]map[string]bool{},
 	}
@@ -216,7 +217,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			events := m.trackEvents()
 			m.report(append(events, m.trackCollisions()...))
 			m.rearrange()
-			cmd = tea.Batch(m.syncLabels(), m.nudge(), m.prefill(), m.fillStarted(), m.startDeckk(), m.notify(events))
+			cmd = tea.Batch(m.syncLabels(), m.nudge(), m.prefill(), m.fillStarted(), m.startDeckk(), m.notify(events), m.autoReview(events))
 			m.publish()
 		}
 		if msg.scheduled {
@@ -284,6 +285,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.updateFind(msg)
 		}
 		return m.updateList(msg)
+
+	case reviewDoneMsg:
+		m.reviewed(msg)
+		m.publish()
+		return m, nil
 
 	case searchSoonMsg:
 		if m.view == findView && string(msg) == m.filter.Value() {

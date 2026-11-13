@@ -66,6 +66,13 @@ func parentTools() []mcp.Tool {
 			}),
 		},
 		{
+			Name: "review_session",
+			Description: "Give a session's work a quick sanity check: a small model reads what the session says it did and its branch's changes, and answers OK or lists concerns. " +
+				"The dashboard and the web page show the result. Unchanged work keeps its earlier review. Use it before suggesting a session commit, push or open a PR.",
+			Params: []mcp.Param{sessionParam},
+			Run:    reviewTool,
+		},
+		{
 			Name:        "read_inbox",
 			Description: "What changed since you last looked: sessions that finished a turn, opened a PR or closed, notes sessions left you, and questions sessions are waiting on you to answer.",
 			Run:         ignoringContext(inboxTool),
@@ -436,4 +443,27 @@ func clip(s string, n int) string {
 		return string(r)
 	}
 	return string(r[:n-1]) + "…"
+}
+
+func reviewTool(ctx context.Context, a mcp.Args) (string, error) {
+	id, err := resolve(a.String("session"))
+	if err != nil {
+		return "", err
+	}
+	t, err := claude.ReadTranscript(claude.TranscriptPath(claude.Home(), id))
+	if err != nil {
+		return "", err
+	}
+	notes, _ := LoadNotes()
+	r, err := ReviewSession(ctx, t.Session(), notes[id].Text)
+	if errors.Is(err, ErrNothingToReview) {
+		return "Nothing to review: the session's checkout has no changes.", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	if r.OK {
+		return strings.TrimSpace("OK\n" + r.Text), nil
+	}
+	return "CONCERNS\n" + r.Text, nil
 }

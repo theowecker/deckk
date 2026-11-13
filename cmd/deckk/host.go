@@ -90,7 +90,7 @@ func (host) CloseHQ() error { return tmux.CloseHQ() }
 func (h host) Notify(id, title, subtitle, body string) error {
 	n := terminal.Notification{Title: title, Subtitle: subtitle, Body: body, Group: "deckk-" + id}
 	if exe, err := os.Executable(); err == nil {
-		n.OnClick = shellQuote(exe) + " focus " + id
+		n.OnClick = shellQuote(exe) + " focus " + shellQuote(id)
 	}
 	return h.app.Notify(n)
 }

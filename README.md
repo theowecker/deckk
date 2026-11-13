@@ -51,6 +51,7 @@ place.
 | `c` | talk to the deckk session |
 | `d` | dismiss the deckk session's suggestion for a session |
 | `t` | let the deckk session send its safe suggestions to a session without asking |
+| `e` | review a session's changes against what it says it did |
 | `w` | open deckk in your browser |
 | `/` | find any session, ever: titles first, then folders and branches, then what was said, then anything in the whole conversation |
 | `tab` | switch between Sessions, Board, Background and Find |
@@ -127,6 +128,13 @@ It also works on its own:
   suggest which one should wait.
 - **Briefings.** When you open deckk after a few hours away, it gives you a
   short briefing on what's waiting and what to pick back up.
+- **Reviews.** `e` on a session, Review changes in the browser, or the deckk
+  session's `review_session` tool gives its work a quick sanity check: a
+  small model reads what the session says it did and its branch's changes
+  since main, and answers OK or lists what looks off. The result shows on the
+  Board, in the session's preview and in the browser. With `reviews = "auto"`
+  every session with changes is reviewed when it finishes a turn. Unchanged
+  work is never reviewed twice.
 - **Questions.** Sessions deckk starts can ask it what to do next with an
   `ask_deckk` tool and wait for its answer, or leave it a note with
   `tell_deckk`.
@@ -200,6 +208,7 @@ updates = ""
 sessions_ask = ""
 web_view = ""
 notifications = ""
+reviews = ""
 ```
 
 An empty value leaves it to your normal Claude settings, or to deckk's
@@ -216,6 +225,7 @@ default.
 | `sessions_ask` | `off` leaves the `ask_deckk` tools out of sessions deckk starts |
 | `web_view` | `off` stops the hub's server |
 | `notifications` | `off` stops the macOS notification when a session you aren't looking at starts waiting on you |
+| `reviews` | `auto` reviews a session's changes each time it finishes a turn; empty reviews only when you ask |
 
 The ⌘ keys for switching tabs take over iTerm2's own use of them, but only in
 the deckk tab.
