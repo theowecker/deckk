@@ -13,7 +13,6 @@ import (
 
 	"github.com/theowecker/deckk/internal/claude"
 	"github.com/theowecker/deckk/internal/deck"
-	"github.com/theowecker/deckk/internal/hq"
 	"github.com/theowecker/deckk/internal/web"
 )
 
@@ -84,7 +83,7 @@ func (m Model) openWeb() tea.Cmd {
 
 func (m Model) webState() web.State {
 	now := time.Now()
-	st := web.State{Updated: now, Clashes: []web.Clash{}, NextUp: []web.Next{}, Groups: []web.Group{}, Activity: []web.Event{}}
+	st := web.State{Clashes: []web.Clash{}, NextUp: []web.Next{}, Groups: []web.Group{}, Activity: []web.Event{}}
 	sessions := slices.DeleteFunc(slices.Clone(m.sessions), func(s claude.Session) bool { return s.Background })
 
 	for _, s := range sessions {
@@ -136,11 +135,9 @@ func (m Model) webState() web.State {
 		st.Groups = append(st.Groups, group)
 	}
 
-	st.Goals, _ = hq.ReadGoals()
-	if events, err := hq.Recent(15); err == nil {
-		for _, e := range events {
-			st.Activity = append(st.Activity, web.Event{At: e.At, Text: e.Title + " " + e.Kind})
-		}
+	st.Goals = m.deckk.goals
+	for _, e := range m.deckk.recent {
+		st.Activity = append(st.Activity, web.Event{At: e.At, Text: e.Title + " " + e.Kind})
 	}
 	st.Today = today(sessions, now)
 	st.DeckkState = m.deckkLabel()
@@ -161,9 +158,9 @@ func (m Model) webSession(s claude.Session, now time.Time) web.Session {
 	}
 	switch deck.StateOf(s) {
 	case deck.Working:
-		out.State, out.Since = "working", s.StatusAt
+		out.State, out.Since = "working", cmp.Or(s.StatusAt, s.UpdatedAt)
 	case deck.YourTurn:
-		out.State, out.Since = "waiting", s.StatusAt
+		out.State, out.Since = "waiting", cmp.Or(s.StatusAt, s.UpdatedAt)
 	case deck.Stopped:
 		out.State = "stopped"
 		if at, ok := m.store.Closed[s.ID]; ok && now.Sub(at) < deck.ClosedFor {

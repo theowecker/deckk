@@ -40,18 +40,23 @@ const (
 	Talk    = "talk"
 )
 
+// ErrNotReady means the dashboard can't take actions yet.
+var ErrNotReady = errors.New("the dashboard isn't ready")
+
+const cookieName = "deckk"
+
 type Server struct {
 	token    string
 	url      string
-	onAction func(Action)
+	onAction func(Action) error
 
 	mu      sync.Mutex
 	state   []byte
-	waiters []chan struct{}
+	waiters map[chan struct{}]bool
 }
 
 // Start listens on localhost and serves until the process ends.
-func Start(tokenPath string, onAction func(Action)) (*Server, error) {
+func Start(tokenPath string, onAction func(Action) error) (*Server, error) {
 	token, err := loadToken(tokenPath)
 	if err != nil {
 		return nil, err
@@ -62,16 +67,25 @@ func Start(tokenPath string, onAction func(Action)) (*Server, error) {
 			return nil, err
 		}
 	}
-	s := &Server{token: token, onAction: onAction, state: []byte("{}")}
-	s.url = fmt.Sprintf("http://localhost:%d/?t=%s", ln.Addr().(*net.TCPAddr).Port, token)
-	go func() { _ = http.Serve(ln, s.routes(ln.Addr().(*net.TCPAddr).Port)) }()
+	port := ln.Addr().(*net.TCPAddr).Port
+	s := newServer(token, onAction)
+	// 127.0.0.1 rather than localhost, which may resolve to an IPv6 address
+	// some other program is listening on.
+	s.url = fmt.Sprintf("http://127.0.0.1:%d/?t=%s", port, token)
+	// No write timeout: the live stream stays open for as long as the page.
+	server := &http.Server{Handler: s.routes(port), ReadHeaderTimeout: 5 * time.Second}
+	go func() { _ = server.Serve(ln) }()
 	return s, nil
 }
 
-// URL opens the page, carrying the token it needs.
+func newServer(token string, onAction func(Action) error) *Server {
+	return &Server{token: token, onAction: onAction, state: []byte("{}"), waiters: map[chan struct{}]bool{}}
+}
+
+// URL opens the page. The token in it is traded for a cookie on arrival.
 func (s *Server) URL() string { return s.url }
 
-// Publish replaces the state the page shows and wakes pages waiting on it.
+// Publish replaces the state the page shows and wakes the pages watching.
 func (s *Server) Publish(state any) {
 	data, err := json.Marshal(state)
 	if err != nil {
@@ -83,27 +97,42 @@ func (s *Server) Publish(state any) {
 		return
 	}
 	s.state = data
-	for _, w := range s.waiters {
+	for w := range s.waiters {
 		close(w)
 	}
-	s.waiters = nil
+	clear(s.waiters)
 }
 
-func (s *Server) snapshot() ([]byte, chan struct{}) {
+func (s *Server) current() []byte {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.state
+}
+
+// subscribe returns the state and a channel closed when it next changes.
+// Registering under the lock means no change slips by between the two.
+func (s *Server) subscribe() ([]byte, chan struct{}) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	changed := make(chan struct{})
-	s.waiters = append(s.waiters, changed)
+	s.waiters[changed] = true
 	return s.state, changed
+}
+
+func (s *Server) unsubscribe(changed chan struct{}) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.waiters, changed)
 }
 
 func (s *Server) routes(port int) http.Handler {
 	files, _ := fs.Sub(static, "static")
 	mux := http.NewServeMux()
-	mux.Handle("GET /", http.FileServerFS(files))
+	mux.Handle("GET /", s.arrive(http.FileServerFS(files)))
+	mux.HandleFunc("GET /api/token", s.authed(s.serveToken))
 	mux.HandleFunc("GET /api/state", s.authed(s.serveState))
 	mux.HandleFunc("GET /api/stream", s.authed(s.serveStream))
-	mux.HandleFunc("POST /api/action", s.authed(s.serveAction))
+	mux.HandleFunc("POST /api/action", s.authedByHeader(s.serveAction))
 	return localOnly(port, mux)
 }
 
@@ -120,20 +149,41 @@ func localOnly(port int, next http.Handler) http.Handler {
 			return
 		}
 		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("Referrer-Policy", "no-referrer")
 		w.Header().Set("Content-Security-Policy", "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'")
 		next.ServeHTTP(w, r)
 	})
 }
 
-// The token comes as a header, or in the query for EventSource, which can't
-// set headers.
+// arrive trades the token in deckk's link for a cookie and drops it from
+// the address, so it stays out of history and off the screen, and a
+// bookmark of the bare page keeps working.
+func (s *Server) arrive(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if given := r.URL.Query().Get("t"); given != "" {
+			if s.valid(given) {
+				http.SetCookie(w, &http.Cookie{
+					Name: cookieName, Value: s.token, Path: "/", MaxAge: 365 * 24 * 60 * 60,
+					HttpOnly: true, SameSite: http.SameSiteStrictMode,
+				})
+			}
+			http.Redirect(w, r, r.URL.Path, http.StatusSeeOther)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func (s *Server) valid(given string) bool {
+	return subtle.ConstantTimeCompare([]byte(given), []byte(s.token)) == 1
+}
+
+// authed accepts the cookie or the header. Reads are safe with the cookie
+// alone: other origins can't read the replies without CORS headers.
 func (s *Server) authed(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		given := r.Header.Get("X-Deckk-Token")
-		if given == "" {
-			given = r.URL.Query().Get("t")
-		}
-		if subtle.ConstantTimeCompare([]byte(given), []byte(s.token)) != 1 {
+		cookie, _ := r.Cookie(cookieName)
+		if !s.valid(r.Header.Get("X-Deckk-Token")) && (cookie == nil || !s.valid(cookie.Value)) {
 			http.Error(w, "open the page from deckk to get a working link", http.StatusUnauthorized)
 			return
 		}
@@ -141,10 +191,28 @@ func (s *Server) authed(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-func (s *Server) serveState(w http.ResponseWriter, _ *http.Request) {
-	state, _ := s.snapshot()
+// authedByHeader is for changes. Other pages on localhost count as the same
+// site, so a cookie alone could be sent along by them; a custom header can't
+// be, since it needs a CORS preflight deckk never grants.
+func (s *Server) authedByHeader(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if !s.valid(r.Header.Get("X-Deckk-Token")) {
+			http.Error(w, "missing token", http.StatusUnauthorized)
+			return
+		}
+		next(w, r)
+	}
+}
+
+func (s *Server) serveToken(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	_, _ = w.Write(state)
+	w.Header().Set("Cache-Control", "no-store")
+	_ = json.NewEncoder(w).Encode(map[string]string{"token": s.token})
+}
+
+func (s *Server) serveState(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	_, _ = w.Write(s.current())
 }
 
 // serveStream sends the state whenever it changes, with a comment every so
@@ -160,13 +228,14 @@ func (s *Server) serveStream(w http.ResponseWriter, r *http.Request) {
 	keepAlive := time.NewTicker(20 * time.Second)
 	defer keepAlive.Stop()
 	for {
-		state, changed := s.snapshot()
+		state, changed := s.subscribe()
 		fmt.Fprintf(w, "data: %s\n\n", state)
 		flusher.Flush()
 	wait:
 		for {
 			select {
 			case <-r.Context().Done():
+				s.unsubscribe(changed)
 				return
 			case <-changed:
 				break wait
@@ -186,19 +255,24 @@ func (s *Server) serveAction(w http.ResponseWriter, r *http.Request) {
 	}
 	switch a.Kind {
 	case Open, Dismiss, Talk:
-		s.onAction(a)
-		w.WriteHeader(http.StatusNoContent)
 	default:
 		http.Error(w, "unknown action", http.StatusBadRequest)
+		return
 	}
+	if err := s.onAction(a); err != nil {
+		http.Error(w, err.Error(), http.StatusServiceUnavailable)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
-// loadToken keeps one token per install, so a bookmarked link keeps working
-// across launches.
+// loadToken keeps one token per install, readable only by the user.
 func loadToken(path string) (string, error) {
-	if data, err := os.ReadFile(path); err == nil && len(strings.TrimSpace(string(data))) >= 32 {
-		return strings.TrimSpace(string(data)), nil
-	} else if err != nil && !errors.Is(err, fs.ErrNotExist) {
+	data, err := os.ReadFile(path)
+	if err == nil && len(strings.TrimSpace(string(data))) >= 32 {
+		return strings.TrimSpace(string(data)), os.Chmod(path, 0o600)
+	}
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return "", err
 	}
 	raw := make([]byte, 24)
@@ -209,5 +283,16 @@ func loadToken(path string) (string, error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return "", err
 	}
-	return token, os.WriteFile(path, []byte(token+"\n"), 0o600)
+	tmp, err := os.CreateTemp(filepath.Dir(path), ".web.token.*")
+	if err != nil {
+		return "", err
+	}
+	if _, err := tmp.WriteString(token + "\n"); err != nil {
+		_ = tmp.Close()
+		return "", err
+	}
+	if err := tmp.Close(); err != nil {
+		return "", err
+	}
+	return token, os.Rename(tmp.Name(), path)
 }

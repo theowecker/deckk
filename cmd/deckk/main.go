@@ -144,10 +144,13 @@ func dashboard(days int, cfg *config.Config, program string) error {
 	var running atomic.Pointer[tea.Program]
 	if cfg.WebOn() {
 		tokenPath := filepath.Join(filepath.Dir(config.DefaultPath()), "web.token")
-		if server, err := web.Start(tokenPath, func(a web.Action) {
-			if p := running.Load(); p != nil {
-				p.Send(ui.WebAction(a))
+		if server, err := web.Start(tokenPath, func(a web.Action) error {
+			p := running.Load()
+			if p == nil {
+				return web.ErrNotReady
 			}
+			p.Send(ui.WebAction(a))
+			return nil
 		}); err == nil {
 			model = model.WithWeb(server)
 		}

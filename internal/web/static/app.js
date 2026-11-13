@@ -1,11 +1,13 @@
 "use strict";
 
-const token = new URLSearchParams(location.search).get("t") || sessionStorage.getItem("deckk-token") || "";
-if (token) sessionStorage.setItem("deckk-token", token);
+// deckk's link sets a cookie; changes also need the token as a header, which
+// the page asks for with that cookie.
+let token = "";
 
 const $ = (id) => document.getElementById(id);
 const open = new Set();
 let state = null;
+let raw = "";
 
 function el(tag, attrs = {}, ...children) {
   const node = document.createElement(tag);
@@ -105,8 +107,8 @@ function renderNext(next) {
           el("div", { class: "kind" }, kinds[kind]),
         ),
         el("div", { class: "actions" },
-          el("button", { class: "button", onclick: () => act("dismiss", n.id, "Dismissed") }, "Dismiss"),
-          el("button", { class: "button primary", onclick: () => act("open", n.id, `${starting} in deckk`) }, start),
+          el("button", { class: "button", "data-focus": `dismiss:${n.id}`, onclick: () => act("dismiss", n.id, "Dismissed") }, "Dismiss"),
+          el("button", { class: "button primary", "data-focus": `open:${n.id}`, onclick: () => act("open", n.id, `${starting} in deckk`) }, start),
         ),
         el("div", { class: "said" },
           el("p", { class: `bubble ${kind === "ready" ? "ready" : "draft"}` }, n.prompt),
@@ -124,6 +126,7 @@ function sessionRow(s) {
   const row = el("li", { class: `row${open.has(key) ? " open" : ""}` });
   const status = s.state === "stopped" ? (s.status || ago(s.since)) : `${stateLabel[s.state] || s.status} ${ago(s.since) === "now" ? "" : ago(s.since)}`.trim();
   const toggle = el("button", {
+    "data-focus": `row:${key}`,
     "aria-expanded": open.has(key) ? "true" : "false",
     onclick: () => {
       open.has(key) ? open.delete(key) : open.add(key);
@@ -133,8 +136,8 @@ function sessionRow(s) {
   },
     el("span", { class: `dot ${s.state}`, "aria-hidden": "true" }),
     el("span", { class: "title" }, s.title,
-      s.suggested && el("span", { class: "mark", title: "Has a suggestion" }, "✦"),
-      s.clash && el("span", { class: "warn", title: s.clash }, "⚠"),
+      s.suggested && el("span", { class: "mark", title: "Has a suggestion", "aria-label": "has a suggestion" }, "✦"),
+      s.clash && el("span", { class: "warn", title: s.clash, "aria-label": s.clash }, "⚠"),
     ),
     el("span", { class: `state ${s.state}` }, status),
     el("span", { class: "where" }, s.project, s.branch && [" ", el("code", {}, `⎇ ${s.branch}`)], s.where && ` · ${s.where}`),
@@ -145,7 +148,7 @@ function sessionRow(s) {
   );
   const facts = el("div", { class: "facts" },
     el("span", {}, s.folder),
-    s.pr && el("a", { href: s.prUrl, target: "_blank", rel: "noopener" }, `PR ${s.pr}`),
+    s.pr && safeLink(s.prUrl) && el("a", { href: s.prUrl, target: "_blank", rel: "noopener noreferrer" }, `PR ${s.pr}`),
     s.model && el("span", {}, s.model),
     s.context && el("span", {}, `${Math.round(s.context / 1000)}k context`),
     s.changed && el("span", {}, plural(s.changed, "uncommitted change")),
@@ -155,7 +158,7 @@ function sessionRow(s) {
     s.clash && el("p", { class: "note" }, `⚠ ${s.clash}`),
     chat, facts,
     el("div", { class: "actions" },
-      el("button", { class: "button primary", onclick: () => act("open", s.id, s.state === "stopped" ? "Resuming in deckk" : "Opening in deckk") }, verb),
+      el("button", { class: "button primary", "data-focus": `go:${s.id}`, onclick: () => act("open", s.id, s.state === "stopped" ? "Resuming in deckk" : "Opening in deckk") }, verb),
     ),
   ));
   return row;
@@ -195,9 +198,9 @@ function markdown(text) {
     let last = 0;
     for (const m of line.matchAll(re)) {
       out.push(line.slice(last, m.index));
-      const token = m[0];
-      out.push(token.startsWith("**") ? el("strong", {}, token.slice(2, -2)) : el("code", {}, token.slice(1, -1)));
-      last = m.index + token.length;
+      const part = m[0];
+      out.push(part.startsWith("**") ? el("strong", {}, part.slice(2, -2)) : el("code", {}, part.slice(1, -1)));
+      last = m.index + part.length;
     }
     out.push(line.slice(last));
     return out;
@@ -239,8 +242,18 @@ function renderActivity(events) {
   );
 }
 
+function safeLink(url) {
+  try {
+    return new URL(url).protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+// Re-rendering replaces the nodes, so focus is put back by name.
 function render() {
   if (!state || !state.counts) return;
+  const focused = document.activeElement && document.activeElement.dataset.focus;
   renderTallies(state.counts);
   renderClashes(state.clashes || []);
   renderNext(state.nextUp || []);
@@ -248,23 +261,41 @@ function render() {
   renderToday(state.today || {});
   renderGoals(state.goals || "");
   renderActivity(state.activity || []);
+  if (focused) {
+    const again = document.querySelector(`[data-focus="${CSS.escape(focused)}"]`);
+    if (again) again.focus({ preventScroll: true });
+  }
 }
 
-function connect() {
+function receive(data) {
+  if (data === raw) return;
+  raw = data;
+  state = JSON.parse(data);
+  render();
+}
+
+function lost(text) {
   const live = $("live");
-  if (!token) {
-    live.dataset.state = "lost";
-    live.textContent = "Open this page from deckk";
+  live.dataset.state = "lost";
+  live.textContent = text;
+}
+
+async function connect() {
+  const live = $("live");
+  const reply = await fetch("api/token").catch(() => null);
+  if (!reply || !reply.ok) {
+    lost(reply ? "Press w in deckk to open this page" : "deckk isn't running");
     return;
   }
-  fetch("api/state", { headers: { "X-Deckk-Token": token } })
-    .then((r) => (r.ok ? r.json() : null))
-    .then((first) => { if (first && !state) { state = first; render(); } })
-    .catch(() => {});
-  const stream = new EventSource(`api/stream?t=${encodeURIComponent(token)}`);
+  token = (await reply.json()).token;
+  fetch("api/state").then((r) => r.text()).then((data) => { if (!raw) receive(data); }).catch(() => {});
+  const stream = new EventSource("api/stream");
   stream.onopen = () => { live.dataset.state = "live"; live.textContent = "Live"; };
-  stream.onmessage = (event) => { state = JSON.parse(event.data); render(); };
-  stream.onerror = () => { live.dataset.state = "lost"; live.textContent = "Reconnecting"; };
+  stream.onmessage = (event) => receive(event.data);
+  stream.onerror = () => {
+    if (stream.readyState === EventSource.CLOSED) lost("Press w in deckk to open this page");
+    else lost("Reconnecting");
+  };
 }
 
 setInterval(render, 30000);

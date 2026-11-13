@@ -18,7 +18,7 @@ func testServer(t *testing.T) (*Server, http.Handler, *[]Action) {
 		t.Fatal(err)
 	}
 	var got []Action
-	s := &Server{token: token, state: []byte("{}"), onAction: func(a Action) { got = append(got, a) }}
+	s := newServer(token, func(a Action) error { got = append(got, a); return nil })
 	return s, s.routes(4747), &got
 }
 
@@ -81,8 +81,9 @@ func TestTheStreamSendsEachChange(t *testing.T) {
 	defer srv.Close()
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
-	req, _ := http.NewRequestWithContext(ctx, "GET", srv.URL+"/api/stream?t="+s.token, nil)
+	req, _ := http.NewRequestWithContext(ctx, "GET", srv.URL+"/api/stream", nil)
 	req.Host = "localhost:4747"
+	req.Header.Set("X-Deckk-Token", s.token)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatal(err)
@@ -104,4 +105,71 @@ func TestTheStreamSendsEachChange(t *testing.T) {
 	if got := next(); got != `{"n":1}` {
 		t.Fatalf("after publish %q", got)
 	}
+}
+
+func TestTheLinkTradesItsTokenForACookie(t *testing.T) {
+	s, h, _ := testServer(t)
+	w := request(h, "GET", "/?t="+s.token, "", "")
+	if w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/" {
+		t.Fatalf("got %d to %q", w.Code, w.Header().Get("Location"))
+	}
+	cookies := w.Result().Cookies()
+	if len(cookies) != 1 || !cookies[0].HttpOnly || cookies[0].SameSite != http.SameSiteStrictMode {
+		t.Fatalf("cookies %v", cookies)
+	}
+	r := httptest.NewRequest("GET", "/api/state", nil)
+	r.Host = "localhost:4747"
+	r.AddCookie(cookies[0])
+	reads := httptest.NewRecorder()
+	h.ServeHTTP(reads, r)
+	if reads.Code != http.StatusOK {
+		t.Fatalf("the cookie should allow reads: %d", reads.Code)
+	}
+	r = httptest.NewRequest("POST", "/api/action", strings.NewReader(`{"kind":"open","id":"x"}`))
+	r.Host = "localhost:4747"
+	r.AddCookie(cookies[0])
+	changes := httptest.NewRecorder()
+	h.ServeHTTP(changes, r)
+	if changes.Code != http.StatusUnauthorized {
+		t.Fatalf("a cookie alone must not allow changes: %d", changes.Code)
+	}
+	if bad := request(h, "GET", "/?t=wrong", "", ""); len(bad.Result().Cookies()) != 0 {
+		t.Fatal("a wrong token should get no cookie")
+	}
+}
+
+func TestActionsWaitForTheDashboard(t *testing.T) {
+	s := newServer("0123456789abcdef0123456789abcdef", func(Action) error { return ErrNotReady })
+	w := request(s.routes(4747), "POST", "/api/action", s.token, `{"kind":"open","id":"x"}`)
+	if w.Code != http.StatusServiceUnavailable {
+		t.Fatalf("got %d", w.Code)
+	}
+}
+
+func TestClosedStreamsLeaveNothingBehind(t *testing.T) {
+	s, h, _ := testServer(t)
+	srv := httptest.NewServer(h)
+	defer srv.Close()
+	ctx, cancel := context.WithCancel(context.Background())
+	req, _ := http.NewRequestWithContext(ctx, "GET", srv.URL+"/api/stream", nil)
+	req.Host = "localhost:4747"
+	req.Header.Set("X-Deckk-Token", s.token)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _ = bufio.NewReader(resp.Body).ReadString('\n')
+	cancel()
+	_ = resp.Body.Close()
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		s.mu.Lock()
+		n := len(s.waiters)
+		s.mu.Unlock()
+		if n == 0 {
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	t.Fatal("a closed stream left its waiter registered")
 }

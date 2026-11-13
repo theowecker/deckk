@@ -9,13 +9,14 @@
   <link rel="stylesheet" href="app.css">
 </head>
 <body>
+  <h1 class="visually-hidden">deckk</h1>
   <header class="toolbar">
     <div class="brand">
       <img src="icon.svg" alt="" width="30" height="20">
       <span>deckk</span>
     </div>
     <p class="tallies" id="tallies"></p>
-    <p class="live" id="live" data-state="connecting">Connecting</p>
+    <p class="live" id="live" data-state="connecting" aria-live="polite">Connecting</p>
   </header>
 
   <main class="layout">

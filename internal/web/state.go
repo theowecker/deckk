@@ -3,16 +3,17 @@ package web
 import "time"
 
 // State is everything the page shows, as the dashboard last saw it.
+// It carries no timestamp of its own, so an unchanged dashboard publishes
+// identical bytes and the page isn't redrawn for nothing.
 type State struct {
-	Updated    time.Time `json:"updated"`
-	Counts     Counts    `json:"counts"`
-	NextUp     []Next    `json:"nextUp"`
-	Clashes    []Clash   `json:"clashes"`
-	Groups     []Group   `json:"groups"`
-	Goals      string    `json:"goals"`
-	Activity   []Event   `json:"activity"`
-	Today      Today     `json:"today"`
-	DeckkState string    `json:"deckkState"`
+	Counts     Counts  `json:"counts"`
+	NextUp     []Next  `json:"nextUp"`
+	Clashes    []Clash `json:"clashes"`
+	Groups     []Group `json:"groups"`
+	Goals      string  `json:"goals"`
+	Activity   []Event `json:"activity"`
+	Today      Today   `json:"today"`
+	DeckkState string  `json:"deckkState"`
 }
 
 type Counts struct {

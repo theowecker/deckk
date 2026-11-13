@@ -27,6 +27,8 @@ type deckkState struct {
 	questions   []hq.Question
 	proposals   []hq.Proposal
 	awaiting    []awaitingPrompt
+	goals       string
+	recent      []hq.Event
 
 	states   map[string]deck.State
 	prs      map[string]string
@@ -53,6 +55,8 @@ type deckkSnapshot struct {
 	suggestions map[string]hq.Suggestion
 	questions   []hq.Question
 	proposals   []hq.Proposal
+	goals       string
+	recent      []hq.Event
 	pane        tmux.Pane
 	open        bool
 }
@@ -62,6 +66,8 @@ func (m Model) snapshot() deckkSnapshot {
 	snap.suggestions, _ = hq.LoadSuggestions()
 	snap.questions, _ = hq.Questions()
 	snap.proposals, _ = hq.LoadProposals()
+	snap.goals, _ = hq.ReadGoals()
+	snap.recent, _ = hq.Recent(15)
 	snap.pane, snap.open, _ = m.host.HQPane()
 	return snap
 }
@@ -93,6 +99,7 @@ func (m *Model) takeDeckk(sessions []claude.Session, snap deckkSnapshot) []claud
 	}
 	m.deckk.questions = snap.questions
 	m.deckk.proposals = snap.proposals
+	m.deckk.goals, m.deckk.recent = snap.goals, snap.recent
 	m.deckk.pane, m.deckk.open = snap.pane, snap.open
 	return sessions
 }

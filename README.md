@@ -102,9 +102,11 @@ send, clashes, every session with its last exchange, your goals and recent
 activity. It updates live, and Open and Dismiss act in deckk the way `↵` and
 `d` do.
 
-The page is served by the dashboard on `localhost:4747` and nowhere else. Its
-link carries a token kept in `~/.config/deckk/web.token`, so other pages in
-your browser can't use it. `web_view = "off"` turns it off.
+The page is served by the dashboard on `127.0.0.1:4747` and nowhere else.
+deckk's link carries a token, kept in `~/.config/deckk/web.token`, which the
+page trades for a cookie and drops from the address, so the bare page can be
+bookmarked and other pages in your browser can't use it. `web_view = "off"`
+turns it off.
 
 ## Terminals
 
