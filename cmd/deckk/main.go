@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"cmp"
 	"errors"
 	"flag"
@@ -107,6 +108,9 @@ func launch(days int, cfg *config.Config) error {
 	}
 	if !term.IsTerminal(os.Stdin.Fd()) || !term.IsTerminal(os.Stdout.Fd()) {
 		return errors.New("deckk needs a terminal: run it in a terminal tab, not from a script or launcher that redirects its input or output")
+	}
+	if err := restartStaleServer(); err != nil {
+		return err
 	}
 
 	exe, err := os.Executable()
@@ -291,4 +295,22 @@ func shellQuote(s string) string {
 
 func since(days int) time.Time {
 	return time.Now().AddDate(0, 0, -days)
+}
+
+func restartStaleServer() error {
+	if !tmux.HasSession() {
+		return nil
+	}
+	server, installed, stale := tmux.Stale()
+	if !stale {
+		return nil
+	}
+	fmt.Printf("deckk's tmux server still runs tmux %s, but tmux %s is installed now, and the two can't talk.\n", server, installed)
+	fmt.Println("Restarting the server closes the Claude sessions inside deckk. They stay resumable, and R on the dashboard reopens them.")
+	fmt.Print("Restart it now? [y/N] ")
+	answer, _ := bufio.NewReader(os.Stdin).ReadString('\n')
+	if !strings.EqualFold(strings.TrimSpace(answer), "y") {
+		return errors.New("deckk can't attach until its tmux server restarts; run deckk again and answer y")
+	}
+	return tmux.KillServer()
 }

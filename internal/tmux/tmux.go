@@ -9,6 +9,8 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"syscall"
+	"time"
 
 	"github.com/charmbracelet/x/ansi"
 )
@@ -331,4 +333,42 @@ func PlaceTabs() error {
 func SetBackground(hex string) error {
 	_, err := run("set-option", "-g", "@deckk_bg", hex)
 	return err
+}
+
+// Homebrew upgrading tmux leaves deckk's server on the old version, and a
+// newer client can't attach to it: tmux only says "not a terminal".
+func Stale() (server, installed string, stale bool) {
+	server, err := run("display-message", "-p", "#{version}")
+	if err != nil || server == "" {
+		return "", "", false
+	}
+	out, err := exec.Command("tmux", "-V").Output()
+	if err != nil {
+		return server, "", false
+	}
+	installed = strings.TrimPrefix(strings.TrimSpace(string(out)), "tmux ")
+	return server, installed, installed != server
+}
+
+// KillServer signals the server rather than asking it, since a server of
+// another version may not understand kill-server.
+func KillServer() error {
+	pid, err := run("display-message", "-p", "#{pid}")
+	if err != nil {
+		return err
+	}
+	n, err := strconv.Atoi(pid)
+	if err != nil {
+		return err
+	}
+	if err := syscall.Kill(n, syscall.SIGTERM); err != nil {
+		return err
+	}
+	for range 30 {
+		if !HasSession() {
+			return nil
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	return errors.New("deckk's tmux server didn't stop")
 }
