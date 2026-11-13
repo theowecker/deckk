@@ -10,6 +10,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/theowecker/deckk/internal/claude"
+	"github.com/theowecker/deckk/internal/config"
 	"github.com/theowecker/deckk/internal/hq"
 )
 
@@ -64,14 +65,20 @@ func (m *Model) reviewed(msg reviewDoneMsg) {
 	}
 }
 
-// autoReview queues sessions with changes as they finish and reviews them one
+// autoReview queues sessions as they finish or open a PR and reviews them one
 // at a time, so a burst of finished sessions doesn't start a burst of reviews.
 func (m *Model) autoReview(events []hq.Event) tea.Cmd {
-	if !m.cfg.AutoReview() {
+	mode := m.cfg.Reviews
+	if mode == "" {
 		return nil
 	}
 	for _, e := range events {
-		if e.Kind == hq.Finished && !slices.Contains(m.reviewQueue, e.Session) {
+		worth := e.Kind == hq.OpenedPR
+		if e.Kind == hq.Finished {
+			s, _ := m.sessionByID(e.Session)
+			worth = mode == config.ReviewAuto || hq.SoundsDone(s.LastReply)
+		}
+		if worth && !slices.Contains(m.reviewQueue, e.Session) {
 			m.reviewQueue = append(m.reviewQueue, e.Session)
 		}
 	}
@@ -82,7 +89,7 @@ func (m *Model) nextReview() tea.Cmd {
 	for len(m.reviewQueue) > 0 && len(m.reviewing) == 0 {
 		id := m.reviewQueue[0]
 		m.reviewQueue = m.reviewQueue[1:]
-		if s, ok := m.sessionByID(id); ok && (s.Git.Changed > 0 || s.Git.Ahead > 0) {
+		if s, ok := m.sessionByID(id); ok && (s.Git.Changed > 0 || s.Git.Ahead > 0 || s.PR != "") {
 			return m.review(s, true)
 		}
 	}

@@ -14,3 +14,17 @@ func TestParseReview(t *testing.T) {
 		t.Fatalf("an answer without a verdict counts as a concern to read: %+v", r)
 	}
 }
+
+func TestSoundsDone(t *testing.T) {
+	for reply, want := range map[string]bool{
+		"Tests pass and the build is clean. Ready to commit when you are.": true,
+		"Committed as a1b2c3 and pushed to the branch.":                    true,
+		"Opened a PR: #212": true,
+		"Should the retry live in the client or the server?":     false,
+		"I read the handler; the bug is in how it parses dates.": false,
+	} {
+		if SoundsDone(reply) != want {
+			t.Errorf("%q: want %v", reply, want)
+		}
+	}
+}

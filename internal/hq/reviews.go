@@ -130,3 +130,22 @@ func clipText(s string, n int) string {
 	}
 	return s[:n] + "…"
 }
+
+var doneSignals = []string{
+	"ready to commit", "ready for review", "ready to merge", "ready to push", "ready to ship",
+	"committed", "pushed", "opened a pr", "opened pr", "pull request",
+	"tests pass", "tests are passing", "all green", "lint is clean",
+	"all done", "is done", "is complete", "is finished", "work is finished", "implemented",
+}
+
+// SoundsDone guesses from Claude's reply whether it considers the work
+// finished, which is when a review is worth its cost.
+func SoundsDone(reply string) bool {
+	reply = strings.ToLower(reply)
+	for _, signal := range doneSignals {
+		if strings.Contains(reply, signal) {
+			return true
+		}
+	}
+	return false
+}

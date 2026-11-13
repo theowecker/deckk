@@ -225,3 +225,22 @@ func TestAReviewShowsOnTheBoardAndThePage(t *testing.T) {
 		}
 	}
 }
+
+func TestReviewsInDoneModeWaitForTheWorkToSoundFinished(t *testing.T) {
+	m, _ := newTestModel(t)
+	m.cfg.Reviews = config.ReviewDone
+	s, _ := m.sessionByID("dddddddd")
+	i := slices.IndexFunc(m.sessions, func(x claude.Session) bool { return x.ID == s.ID })
+	m.sessions[i].Git.Changed = 3
+
+	m.sessions[i].LastReply = "Which of the two date formats should the parser accept?"
+	m.autoReview([]hq.Event{{Session: s.ID, Kind: hq.Finished}})
+	if m.reviewing[s.ID] || len(m.reviewQueue) != 0 {
+		t.Fatal("a question isn't finished work")
+	}
+	m.sessions[i].LastReply = "All tests pass. Ready to commit."
+	m.autoReview([]hq.Event{{Session: s.ID, Kind: hq.Finished}})
+	if !m.reviewing[s.ID] {
+		t.Fatal("finished work with changes should be reviewed")
+	}
+}
