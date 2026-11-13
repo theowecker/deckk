@@ -42,6 +42,16 @@ func Background(in, out *os.File, timeout time.Duration) (string, bool) {
 		}
 		reply = append(reply, buf[:n]...)
 	}
+	if !cursorReport.Match(reply) {
+		// A terminal answering late would type its answer into tmux.
+		for readable(fd, 100*time.Millisecond) {
+			n, err := unix.Read(fd, buf)
+			if err != nil || n == 0 {
+				break
+			}
+			reply = append(reply, buf[:n]...)
+		}
+	}
 	return parseBackground(reply)
 }
 

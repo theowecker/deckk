@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -63,18 +64,25 @@ func (m *Model) reviewed(msg reviewDoneMsg) {
 	}
 }
 
-// autoReview reviews sessions with changes as they finish, one at a time, so
-// a burst of finished sessions doesn't start a burst of reviews.
+// autoReview queues sessions with changes as they finish and reviews them one
+// at a time, so a burst of finished sessions doesn't start a burst of reviews.
 func (m *Model) autoReview(events []hq.Event) tea.Cmd {
-	if !m.cfg.AutoReview() || len(m.reviewing) > 0 {
+	if !m.cfg.AutoReview() {
 		return nil
 	}
 	for _, e := range events {
-		if e.Kind != hq.Finished {
-			continue
+		if e.Kind == hq.Finished && !slices.Contains(m.reviewQueue, e.Session) {
+			m.reviewQueue = append(m.reviewQueue, e.Session)
 		}
-		s, ok := m.sessionByID(e.Session)
-		if ok && (s.Git.Changed > 0 || s.Git.Ahead > 0) {
+	}
+	return m.nextReview()
+}
+
+func (m *Model) nextReview() tea.Cmd {
+	for len(m.reviewQueue) > 0 && len(m.reviewing) == 0 {
+		id := m.reviewQueue[0]
+		m.reviewQueue = m.reviewQueue[1:]
+		if s, ok := m.sessionByID(id); ok && (s.Git.Changed > 0 || s.Git.Ahead > 0) {
 			return m.review(s, true)
 		}
 	}

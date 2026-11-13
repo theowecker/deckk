@@ -70,7 +70,7 @@ func TestDiffShowsWorkSinceTheDefaultBranch(t *testing.T) {
 	}
 	run("add", ".")
 	run("commit", "-qm", "first")
-	if Diff(dir, 10000) != "" {
+	if d, _ := Diff(dir); d != "" {
 		t.Fatal("a clean main checkout has nothing to review")
 	}
 	run("checkout", "-qb", "feature")
@@ -81,11 +81,11 @@ func TestDiffShowsWorkSinceTheDefaultBranch(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "b.txt"), []byte("new\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	d := Diff(dir, 10000)
-	if !strings.Contains(d, "+two") || !strings.Contains(d, "b.txt") {
-		t.Fatalf("diff %q", d)
+	d, key := Diff(dir)
+	if !strings.Contains(d, "+two") || !strings.Contains(d, "b.txt") || key == "" {
+		t.Fatalf("diff %q key %q", d, key)
 	}
-	if cut := Diff(dir, 20); !strings.HasSuffix(cut, "[diff cut short]") {
-		t.Fatalf("cut %q", cut)
+	if cut := Cut("ab\u00e9cd", 3); cut != "ab\n[diff cut short]" {
+		t.Fatalf("a cut mustn't split é: %q", cut)
 	}
 }

@@ -2,6 +2,8 @@ package main
 
 import (
 	"os"
+	"os/exec"
+	"path/filepath"
 
 	"github.com/theowecker/deckk/internal/claude"
 	"github.com/theowecker/deckk/internal/config"
@@ -89,7 +91,7 @@ func (host) CloseHQ() error { return tmux.CloseHQ() }
 
 func (h host) Notify(id, title, subtitle, body string) error {
 	n := terminal.Notification{Title: title, Subtitle: subtitle, Body: body, Group: "deckk-" + id}
-	if exe, err := os.Executable(); err == nil {
+	if exe, err := stableExecutable(); err == nil {
 		n.OnClick = shellQuote(exe) + " focus " + shellQuote(id)
 	}
 	return h.app.Notify(n)
@@ -99,4 +101,15 @@ func (host) HQPane() (tmux.Pane, bool, error) { return tmux.HQ() }
 
 func (host) Deliver(target, text, replace string, send bool) (tmux.Delivery, error) {
 	return tmux.Deliver(target, text, replace, send)
+}
+
+// A notification can be clicked after an upgrade has removed the versioned
+// path deckk runs from, so it calls deckk through the PATH when it can.
+func stableExecutable() (string, error) {
+	if path, err := exec.LookPath("deckk"); err == nil {
+		if abs, err := filepath.Abs(path); err == nil {
+			return abs, nil
+		}
+	}
+	return os.Executable()
 }

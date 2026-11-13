@@ -79,6 +79,7 @@ type Model struct {
 	closing     map[string]bool
 	resuming    map[string]time.Time
 	reviewing   map[string]bool
+	reviewQueue []string
 	lastSeen    map[string]time.Time
 	deckk       deckkState
 	collisions  []deck.Collision
@@ -301,7 +302,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case reviewDoneMsg:
 		m.reviewed(msg)
 		m.publish()
-		return m, nil
+		return m, m.nextReview()
 
 	case searchSoonMsg:
 		if m.view == findView && string(msg) == m.filter.Value() {

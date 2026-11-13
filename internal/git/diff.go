@@ -2,18 +2,22 @@ package git
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"os/exec"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 // Diff is the checkout's work since it left its default branch, committed or
-// not, as a stat header, the names of new untracked files and the patch, cut
-// to limit bytes. It is empty when there is nothing to show.
-func Diff(dir string, limit int) string {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
+// not, as a stat header, the names of new untracked files and the patch. It
+// is empty when there is nothing to show. Key identifies all of it, including
+// what a caller cuts off before reading.
+func Diff(dir string) (diff, key string) {
 	git := func(args ...string) string {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
 		out, err := exec.CommandContext(ctx, "git", append([]string{"-C", dir}, args...)...).Output()
 		if err != nil {
 			return ""
@@ -33,7 +37,7 @@ func Diff(dir string, limit int) string {
 	stat := git("diff", "--stat", base)
 	untracked := git("ls-files", "--others", "--exclude-standard")
 	if stat == "" && untracked == "" {
-		return ""
+		return "", ""
 	}
 	var b strings.Builder
 	b.WriteString(stat)
@@ -41,9 +45,18 @@ func Diff(dir string, limit int) string {
 		b.WriteString("\n\nNew files not yet added:\n" + untracked)
 	}
 	b.WriteString("\n\n" + git("diff", "--no-color", base))
-	out := b.String()
-	if len(out) > limit {
-		out = out[:limit] + "\n[diff cut short]"
+	diff = b.String()
+	sum := sha256.Sum256([]byte(diff))
+	return diff, hex.EncodeToString(sum[:8])
+}
+
+// Cut keeps the first limit bytes of a diff without splitting a character.
+func Cut(diff string, limit int) string {
+	if len(diff) <= limit {
+		return diff
 	}
-	return out
+	for limit > 0 && !utf8.RuneStart(diff[limit]) {
+		limit--
+	}
+	return diff[:limit] + "\n[diff cut short]"
 }

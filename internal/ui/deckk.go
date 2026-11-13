@@ -102,8 +102,10 @@ func (m *Model) takeDeckk(sessions []claude.Session, snap deckkSnapshot) []claud
 	m.deckk.questions = snap.questions
 	m.deckk.proposals = snap.proposals
 	m.deckk.goals, m.deckk.recent, m.deckk.notes = snap.goals, snap.recent, snap.notes
-	if snap.reviews != nil {
-		m.deckk.reviews = snap.reviews
+	for id, r := range snap.reviews {
+		if r.At.After(m.deckk.reviews[id].At) {
+			m.deckk.reviews[id] = r
+		}
 	}
 	m.deckk.pane, m.deckk.open = snap.pane, snap.open
 	return sessions
