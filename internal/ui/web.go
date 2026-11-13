@@ -102,7 +102,8 @@ func (m *Model) webAction(a webActionMsg) tea.Cmd {
 	case web.Trust:
 		m.toggleTrust(s)
 	case web.Review:
-		return m.review(s, false)
+		_, again := m.deckk.reviews[s.ID]
+		return m.startReview(s, false, again)
 	case web.Rename:
 		m.mark(m.store.Rename(s.ID, a.Text))
 		m.store.ApplyNames(m.sessions)

@@ -65,7 +65,7 @@ func (m Model) updateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, cmd
 	case "e":
 		if s, ok := m.selected(); ok && !isProposal(s) {
-			cmd := m.review(s, false)
+			cmd := m.pressE(s)
 			return m, cmd
 		}
 	case "w":

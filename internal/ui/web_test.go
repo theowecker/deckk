@@ -250,3 +250,25 @@ func TestReviewsInDoneModeWaitForTheWorkToSoundFinished(t *testing.T) {
 		t.Fatal("finished work with changes should be reviewed")
 	}
 }
+
+func TestEShowsTheWholeReviewThenRunsAFreshOne(t *testing.T) {
+	m, _ := newTestModel(t)
+	m.width, m.height = 120, 40
+	m = selectID(m, "dddddddd")
+	s, _ := m.selected()
+	m.deckk.reviews[s.ID] = hq.Review{At: time.Now(), Text: "- debug print left in api.go\n- no test for retries\n- TODO in handler"}
+	m, cmd := press(m, "e")
+	if cmd != nil || m.reviewing[s.ID] {
+		t.Fatal("the first e should only show the review")
+	}
+	shown := strings.Join(m.preview(s), "\n")
+	for _, want := range []string{"The review flagged", "debug print left in api.go", "no test for retries", "TODO in handler", "e reviews again"} {
+		if !strings.Contains(shown, want) {
+			t.Fatalf("preview lacks %q:\n%s", want, shown)
+		}
+	}
+	m, cmd = press(m, "e")
+	if cmd == nil || !m.reviewing[s.ID] {
+		t.Fatal("the second e should run a fresh review")
+	}
+}

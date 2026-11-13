@@ -250,6 +250,25 @@ function renderNext(next) {
   })));
 }
 
+function renderLook(s) {
+  const flagged = (s.groups || []).flatMap((g) => g.sessions)
+    .filter((x) => x.review && !x.review.ok && !x.review.earlier)
+    .sort((a, b) => new Date(b.review.at) - new Date(a.review.at));
+  $("look-section").hidden = flagged.length === 0;
+  $("look").replaceChildren(flagged.length ? el("div", { class: "card" }, flagged.map((x) =>
+    el("article", { class: "offer" },
+      el("div", { class: "offer-head" },
+        badge(x.project),
+        el("div", { class: "who" }, el("strong", {}, x.title), el("span", { class: "kind" }, `Reviewed ${ago(x.review.at)} · ${x.project}`)),
+        el("div", { class: "actions" },
+          el("button", { class: "button", "data-focus": `look-again:${x.id}`, disabled: Boolean(x.reviewing), onclick: () => act("review", { id: x.id }) }, x.reviewing ? "Reviewing…" : "Review again"),
+          el("button", { class: "button primary", "data-focus": `look-open:${x.id}`, onclick: () => go("sessions", x.id) }, "Details"),
+        ),
+      ),
+      el("ul", { class: "concerns" }, (x.review.concerns || ["The review found concerns"]).map((c) => el("li", {}, c))),
+    ))) : "");
+}
+
 function liveSessions(s) {
   const all = (s.groups || []).flatMap((g) => g.sessions);
   const order = { waiting: 0, working: 1 };
@@ -871,6 +890,7 @@ function render(force = false) {
   renderHomeHead(s);
   renderClashes(s.clashes || []);
   renderNext(s.nextUp || []);
+  renderLook(s);
   renderNow(s);
   renderToday(s.today || {});
   renderActivity(s.activity || []);

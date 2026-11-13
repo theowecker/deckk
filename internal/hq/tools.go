@@ -455,7 +455,7 @@ func reviewTool(ctx context.Context, a mcp.Args) (string, error) {
 		return "", err
 	}
 	notes, _ := LoadNotes()
-	r, err := ReviewSession(ctx, t.Session(), notes[id].Text)
+	r, err := ReviewSession(ctx, t.Session(), notes[id].Text, false)
 	if errors.Is(err, ErrNothingToReview) {
 		return "Nothing to review: the session's checkout has no changes.", nil
 	}

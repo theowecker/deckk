@@ -59,14 +59,15 @@ var ErrNothingToReview = errors.New("no changes to review")
 const reviewDiffLimit = 60_000
 
 // ReviewSession checks what a session says it did against what its checkout
-// changed, with a quick model and no tools. Unchanged work keeps its review.
-func ReviewSession(ctx context.Context, s claude.Session, note string) (Review, error) {
+// changed, with a quick model and no tools. Unchanged work keeps its review
+// unless fresh asks for a new one.
+func ReviewSession(ctx context.Context, s claude.Session, note string, fresh bool) (Review, error) {
 	diff, key := git.Diff(s.Cwd)
 	if diff == "" {
 		return Review{}, ErrNothingToReview
 	}
 	diff = git.Cut(diff, reviewDiffLimit)
-	if all, err := LoadReviews(); err == nil && all[s.ID].Key == key {
+	if all, err := LoadReviews(); err == nil && all[s.ID].Key == key && !fresh {
 		return all[s.ID], nil
 	}
 

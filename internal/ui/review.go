@@ -6,11 +6,14 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/theowecker/deckk/internal/claude"
 	"github.com/theowecker/deckk/internal/config"
+	"github.com/theowecker/deckk/internal/deck"
 	"github.com/theowecker/deckk/internal/hq"
 )
 
@@ -21,7 +24,23 @@ type reviewDoneMsg struct {
 	quiet   bool
 }
 
-func (m *Model) review(s claude.Session, quiet bool) tea.Cmd {
+func (m *Model) review(s claude.Session, quiet bool) tea.Cmd { return m.startReview(s, quiet, false) }
+
+// pressE shows a session's current review in full, and runs a fresh one when
+// it is already showing or there is none to show.
+func (m *Model) pressE(s claude.Session) tea.Cmd {
+	r, ok := m.deckk.reviews[s.ID]
+	current := ok && !s.UpdatedAt.After(r.At)
+	if current && m.reviewOpen != s.ID {
+		m.reviewOpen = s.ID
+		m.setFlash("Press e again to run a fresh review", nil)
+		return nil
+	}
+	m.reviewOpen = s.ID
+	return m.startReview(s, false, current)
+}
+
+func (m *Model) startReview(s claude.Session, quiet, fresh bool) tea.Cmd {
 	if m.reviewing[s.ID] {
 		if !quiet {
 			m.setFlash("Already reviewing "+displayTitle(s), nil)
@@ -34,7 +53,7 @@ func (m *Model) review(s claude.Session, quiet bool) tea.Cmd {
 	}
 	note, _, _ := m.note(s)
 	return func() tea.Msg {
-		r, err := hq.ReviewSession(context.Background(), s, note.Text)
+		r, err := hq.ReviewSession(context.Background(), s, note.Text, fresh)
 		return reviewDoneMsg{s, r, err, quiet}
 	}
 }
@@ -166,4 +185,24 @@ func concernLines(text string) []string {
 		}
 	}
 	return out
+}
+
+// reviewLines are the selected session's review in full, once e opened it.
+func (m Model) reviewLines(s claude.Session, room int) []string {
+	r, ok := m.deckk.reviews[s.ID]
+	if m.reviewOpen != s.ID || !ok || m.reviewing[s.ID] {
+		return nil
+	}
+	when := "reviewed " + deck.Ago(r.At, time.Now()) + " ago"
+	if s.UpdatedAt.After(r.At) {
+		when += ", before its last turn"
+	}
+	if r.OK {
+		return []string{dim.Render("✓ Nothing to flag") + ghost.Render(" · "+when+" · e reviews again")}
+	}
+	lines := []string{warn.Render("⚑ The review flagged") + ghost.Render(" · "+when+" · e reviews again")}
+	for _, c := range concernLines(r.Text) {
+		lines = append(lines, "  "+soft.Render(ansi.Truncate("• "+c, room-2, "…")))
+	}
+	return lines
 }

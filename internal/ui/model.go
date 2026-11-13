@@ -80,6 +80,7 @@ type Model struct {
 	resuming    map[string]time.Time
 	reviewing   map[string]bool
 	reviewQueue []string
+	reviewOpen  string
 	lastSeen    map[string]time.Time
 	deckk       deckkState
 	collisions  []deck.Collision

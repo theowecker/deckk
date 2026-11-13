@@ -133,7 +133,8 @@ It also works on its own:
   suggest which one should wait.
 - **Briefings.** When you open deckk after a few hours away, it gives you a
   short briefing on what's waiting and what to pick back up.
-- **Reviews.** `e` on a session, Review changes in the browser, or the deckk
+- **Reviews.** `e` on a session shows its latest review in full, and `e`
+  again runs a fresh one. Review changes in the browser, or the deckk
   session's `review_session` tool gives its work a quick sanity check: a
   small model reads what the session says it did and its branch's changes
   since main, and answers OK or lists what looks off. The result shows on the
@@ -176,8 +177,9 @@ Press `w`, or click Web ↗ next to the view tabs, to open deckk in your browser
 It is the same deckk with room to spread out, and you can work from it:
 
 - **Home** says what needs you. Next up shows each suggested prompt as the
-  message you'd send, Right now has a card for every session that is waiting
-  or working, and clashes, today's work and recent activity sit alongside.
+  message you'd send, Needs a look lists what reviews flagged, Right now has a
+  card for every session that is waiting or working, and clashes, today's
+  work and recent activity sit alongside.
 - **Sessions** finds and keeps your sessions. Search every session Claude has
   kept, group them by status or project, or look at background runs on their
   own. Open one to see its recent conversation and write to it. deckk's

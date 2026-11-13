@@ -567,7 +567,11 @@ func (m Model) preview(s claude.Session) []string {
 	if sg, ok := m.suggestion(s); ok && sg.Why != "" {
 		lines = append(lines, pad()+indent+accent.Render(ansi.Truncate("✦ "+sg.Why, room, "…")))
 	}
-	if _, line, ok := m.reviewSummary(s); ok {
+	if full := m.reviewLines(s, room); full != nil {
+		for _, line := range full {
+			lines = append(lines, pad()+indent+line)
+		}
+	} else if _, line, ok := m.reviewSummary(s); ok {
 		lines = append(lines, pad()+indent+ansi.Truncate(line, room, "…"))
 	}
 	if s.LastPrompt != "" {
