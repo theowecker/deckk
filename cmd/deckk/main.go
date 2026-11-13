@@ -42,6 +42,7 @@ Usage:
   deckk ls            list sessions
   deckk stop          close deckk and every session running inside it
   deckk focus ID      switch to a running session, wherever its tab is
+  deckk doctor        check what deckk needs and how to fix what's missing
   deckk version
 
 Inside deckk, Ctrl+Space switches between the dashboard and your last session.
@@ -63,6 +64,12 @@ func run(args []string) error {
 	flags := flag.NewFlagSet("deckk", flag.ContinueOnError)
 	flags.Usage = func() { fmt.Fprint(os.Stderr, usage) }
 	cfg, err := config.Load(config.DefaultPath())
+	if cmd == "doctor" {
+		if !doctor(os.Stdout, cfg, err) {
+			os.Exit(1)
+		}
+		return nil
+	}
 	if err != nil {
 		return err
 	}

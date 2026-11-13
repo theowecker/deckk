@@ -30,9 +30,11 @@ will load them, which is what the middle line does.
 Then run `deckk`. It needs macOS and uses tmux, which Homebrew installs for
 you. deckk runs its own tmux server with its own config, so it won't touch any
 tmux setup you already have. To upgrade, run `brew update`, then
-`brew upgrade --cask deckk`. When Homebrew upgrades tmux itself, deckk's tmux
-server keeps running the old version, which the new tmux can't attach to;
-the next time you run `deckk` it offers to restart the server.
+`brew upgrade --cask deckk`. When Homebrew upgrades tmux itself, deckk's
+tmux server keeps running the old version, which the new tmux can't attach
+to; the next time you run `deckk` it offers to restart the server. If
+something seems off, `deckk doctor` checks what deckk depends on and says
+how to fix what's missing.
 
 ## Use
 
