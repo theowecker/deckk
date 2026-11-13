@@ -1,6 +1,7 @@
 package main
 
 import (
+	"cmp"
 	"errors"
 	"flag"
 	"fmt"
@@ -157,7 +158,7 @@ func dashboard(days int, cfg *config.Config, program string) error {
 			}
 			p.Send(ui.WebAction(a))
 			return nil
-		}, history)
+		}, history, search(st))
 	})
 	p := tea.NewProgram(model, tea.WithAltScreen(), tea.WithMouseAllMotion(), tea.WithReportFocus())
 	running.Store(p)
@@ -189,6 +190,42 @@ func list(days int) error {
 		}
 	}
 	return w.Flush()
+}
+
+// searchLimit keeps a broad search quick to send and to read.
+const searchLimit = 80
+
+// search looks through every session Claude has kept, the way Find does:
+// your own sessions first, newest first, then background runs.
+func search(st *store.Store) web.Search {
+	return func(query string) ([]web.Found, error) {
+		sessions, err := claude.Load(claude.Home(), time.Time{}, st.Pinned)
+		if err != nil {
+			return nil, err
+		}
+		st.ApplyNames(sessions)
+		sessions = slices.DeleteFunc(sessions, func(s claude.Session) bool {
+			return hq.Is(s.Cwd) || !deck.Matches(s, query)
+		})
+		slices.SortFunc(sessions, func(a, b claude.Session) int {
+			if a.Background != b.Background {
+				if a.Background {
+					return 1
+				}
+				return -1
+			}
+			return b.UpdatedAt.Compare(a.UpdatedAt)
+		})
+		found := make([]web.Found, 0, min(len(sessions), searchLimit))
+		for _, s := range sessions[:min(len(sessions), searchLimit)] {
+			found = append(found, web.Found{
+				ID: s.ID, Title: cmp.Or(s.Title, "new session"), Project: s.Project(), Folder: s.Cwd, Branch: s.Branch,
+				Updated: s.UpdatedAt, LastPrompt: clip(s.LastPrompt, 200), Running: s.Running(), Background: s.Background,
+				Pinned: st.Pinned[s.ID], Archived: st.Archived[s.ID],
+			})
+		}
+		return found, nil
+	}
 }
 
 // sessionID is the shape of Claude's session IDs; anything else is refused

@@ -13,6 +13,7 @@ import (
 
 	"github.com/theowecker/deckk/internal/claude"
 	"github.com/theowecker/deckk/internal/deck"
+	"github.com/theowecker/deckk/internal/hq"
 	"github.com/theowecker/deckk/internal/web"
 )
 
@@ -74,8 +75,19 @@ func (m Model) publish() {
 
 // webAction does what the page asked, the same way the keys would.
 func (m *Model) webAction(a webActionMsg) tea.Cmd {
-	if a.Kind == web.Talk {
+	switch a.Kind {
+	case web.Talk:
 		return m.openDeckk()
+	case web.Chat:
+		return m.chat(a.Text)
+	case web.Goals:
+		if err := hq.WriteGoals(a.Text); err != nil {
+			m.setFlash("", err)
+			return nil
+		}
+		m.deckk.goals = a.Text
+		m.setFlash("Goals saved", nil)
+		return nil
 	}
 	s, ok := m.sessionByID(a.ID)
 	if !ok {
@@ -87,8 +99,53 @@ func (m *Model) webAction(a webActionMsg) tea.Cmd {
 		return m.openWithSuggestion(s)
 	case web.Dismiss:
 		return m.dismiss(s)
+	case web.Pin:
+		m.mark(m.store.TogglePin(s.ID))
+	case web.Archive:
+		m.mark(m.store.ToggleArchive(s.ID))
+	case web.Rename:
+		m.mark(m.store.Rename(s.ID, a.Text))
+		m.store.ApplyNames(m.sessions)
+		m.rearrange()
+		return m.syncLabels()
+	case web.Prompt:
+		return m.promptFromWeb(s, a.Text, a.Send)
 	}
 	return nil
+}
+
+// promptFromWeb types a prompt the user wrote on the page into a session,
+// resuming it first when it isn't running.
+func (m *Model) promptFromWeb(s claude.Session, text string, send bool) tea.Cmd {
+	if strings.TrimSpace(text) == "" {
+		return nil
+	}
+	if !s.Running() {
+		m.deckk.awaiting = append(m.deckk.awaiting, awaitingPrompt{key: "web:" + s.ID, sessionID: s.ID, dir: s.Dir, after: time.Now(), prompt: text, send: send})
+		m.setFlash("Resuming "+displayTitle(s)+"; your prompt goes in once Claude is ready", nil)
+		return m.open(s)
+	}
+	if _, hosted := m.window(s); !hosted {
+		m.setFlash(displayTitle(s)+" runs in another tab. Move it into deckk with m to write to it from here", nil)
+		return nil
+	}
+	return m.deliver(delivery{kind: typed, key: s.ID, target: s.TTY, text: text, send: send})
+}
+
+// chat sends the user's message from the page to the deckk session.
+func (m *Model) chat(text string) tea.Cmd {
+	if strings.TrimSpace(text) == "" {
+		return nil
+	}
+	if !m.cfg.HQOn() {
+		m.setFlash("The deckk session is off. Turn it on in settings", nil)
+		return nil
+	}
+	if !m.deckk.open || !m.deckk.running {
+		m.setFlash("Starting the deckk session. Send your message again once it's ready", nil)
+		return m.do(func() error { return m.host.OpenHQ(false) }, "")
+	}
+	return m.deliver(delivery{kind: chat, target: m.deckk.pane.ID, text: text, send: true})
 }
 
 func (m Model) sessionByID(id string) (claude.Session, bool) {
@@ -100,6 +157,19 @@ func (m Model) sessionByID(id string) (claude.Session, bool) {
 	for _, s := range m.openProposals() {
 		if s.ID == id {
 			return s, true
+		}
+	}
+	// Search reaches sessions older than the dashboard lists, so those
+	// come from their transcript.
+	home := m.home
+	if home == "" {
+		home = claude.Home()
+	}
+	if path := claude.TranscriptPath(home, id); path != "" && !strings.ContainsAny(id, "/.") {
+		if t, err := claude.ReadTranscript(path); err == nil {
+			s := []claude.Session{t.Session()}
+			m.store.ApplyNames(s)
+			return s[0], true
 		}
 	}
 	return claude.Session{}, false
@@ -182,6 +252,20 @@ func (m Model) webState() web.State {
 	}
 	st.Today = today(sessions, now)
 	st.DeckkState = m.deckkLabel()
+	st.Deckk = web.Deckk{On: m.cfg.HQOn(), Running: m.deckk.running && m.deckk.open, Working: deck.StateOf(m.deckk.session) == deck.Working}
+	if st.Deckk.Running {
+		st.Deckk.ID = m.deckk.session.ID
+	}
+	st.Background = []web.Session{}
+	for _, s := range m.sessions {
+		if s.Background && len(st.Background) < 30 {
+			st.Background = append(st.Background, m.webSession(s, now))
+		}
+	}
+	slices.SortFunc(st.Background, func(a, b web.Session) int { return b.Since.Compare(a.Since) })
+	if m.flash != "" {
+		st.Notice = web.Notice{Text: m.flash, Error: m.flashErr, Seq: m.flashSeq}
+	}
 	return st
 }
 
@@ -217,7 +301,11 @@ func (m Model) webSession(s claude.Session, now time.Time) web.Session {
 	case !m.inDeckk(s):
 		out.Where = "another tab"
 	}
-	_, out.Suggested = m.suggestion(s)
+	if sg, ok := m.suggestion(s); ok {
+		out.Suggested, out.Suggestion, out.Why, out.Ready = true, sg.Prompt, sg.Why, m.prefilled(s, sg)
+	}
+	_, out.Hosted = m.window(s)
+	out.Running, out.Archived = s.Running(), m.store.Archived[s.ID]
 	if n, ok, stale := m.note(s); ok {
 		out.Summary, out.Stale = clipText(n.Text, 240), stale
 	}

@@ -15,6 +15,27 @@ type State struct {
 	Activity   []Event `json:"activity"`
 	Today      Today   `json:"today"`
 	DeckkState string  `json:"deckkState"`
+	// Deckk is the deckk session itself, for the chat.
+	Deckk Deckk `json:"deckk"`
+	// Background are recent runs nobody typed into, kept apart.
+	Background []Session `json:"background"`
+	// Notice is the dashboard's latest message, such as why a prompt
+	// couldn't be typed in.
+	Notice Notice `json:"notice"`
+}
+
+type Deckk struct {
+	On      bool   `json:"on"`
+	Running bool   `json:"running"`
+	Working bool   `json:"working"`
+	ID      string `json:"id,omitempty"`
+}
+
+type Notice struct {
+	Text  string `json:"text,omitempty"`
+	Error bool   `json:"error,omitempty"`
+	// Seq changes with every notice, so the same words twice still show.
+	Seq int `json:"seq,omitempty"`
 }
 
 type Counts struct {
@@ -71,6 +92,14 @@ type Session struct {
 	// session has moved on since it was written.
 	Summary string `json:"summary,omitempty"`
 	Stale   bool   `json:"stale,omitempty"`
+	// The deckk session's suggestion for this session, if it has one.
+	Suggestion string `json:"suggestion,omitempty"`
+	Why        string `json:"why,omitempty"`
+	Ready      bool   `json:"ready,omitempty"`
+	Running    bool   `json:"running,omitempty"`
+	Archived   bool   `json:"archived,omitempty"`
+	// Hosted sessions can take a prompt from the page directly.
+	Hosted bool `json:"hosted,omitempty"`
 }
 
 type Event struct {

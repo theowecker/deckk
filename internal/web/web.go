@@ -31,14 +31,47 @@ const Port = 4747
 // An Action is something the page asks the dashboard to do.
 type Action struct {
 	Kind string `json:"kind"`
-	ID   string `json:"id"`
+	ID   string `json:"id,omitempty"`
+	// Text is a prompt, a message for the deckk session, a new name or the
+	// goals, depending on the kind.
+	Text string `json:"text,omitempty"`
+	// Send presses Enter after a prompt instead of leaving it to review.
+	Send bool `json:"send,omitempty"`
 }
 
 const (
 	Open    = "open"
 	Dismiss = "dismiss"
 	Talk    = "talk"
+	Pin     = "pin"
+	Archive = "archive"
+	Rename  = "rename"
+	Prompt  = "prompt"
+	Chat    = "chat"
+	Goals   = "goals"
 )
+
+// Kinds are the actions the page may send.
+var Kinds = map[string]bool{Open: true, Dismiss: true, Talk: true, Pin: true, Archive: true, Rename: true, Prompt: true, Chat: true, Goals: true}
+
+// A Search finds sessions across everything Claude has kept, not only the
+// ones the dashboard lists.
+type Search func(query string) ([]Found, error)
+
+// Found is a search result: enough to recognise a session and open it.
+type Found struct {
+	ID         string    `json:"id"`
+	Title      string    `json:"title"`
+	Project    string    `json:"project"`
+	Folder     string    `json:"folder"`
+	Branch     string    `json:"branch,omitempty"`
+	Updated    time.Time `json:"updated"`
+	LastPrompt string    `json:"lastPrompt,omitempty"`
+	Running    bool      `json:"running,omitempty"`
+	Background bool      `json:"background,omitempty"`
+	Pinned     bool      `json:"pinned,omitempty"`
+	Archived   bool      `json:"archived,omitempty"`
+}
 
 // ErrNotReady means the dashboard can't take actions yet.
 var ErrNotReady = errors.New("the dashboard isn't ready")
@@ -56,6 +89,7 @@ type Server struct {
 	url      string
 	onAction func(Action) error
 	history  History
+	search   Search
 	server   *http.Server
 
 	mu      sync.Mutex
@@ -64,7 +98,7 @@ type Server struct {
 }
 
 // Start listens on localhost and serves until the process ends.
-func Start(tokenPath string, onAction func(Action) error, history History) (*Server, error) {
+func Start(tokenPath string, onAction func(Action) error, history History, search Search) (*Server, error) {
 	token, err := loadToken(tokenPath)
 	if err != nil {
 		return nil, err
@@ -77,7 +111,7 @@ func Start(tokenPath string, onAction func(Action) error, history History) (*Ser
 	}
 	port := ln.Addr().(*net.TCPAddr).Port
 	s := newServer(token, onAction)
-	s.history = history
+	s.history, s.search = history, search
 	// 127.0.0.1 rather than localhost, which may resolve to an IPv6 address
 	// some other program is listening on. The token goes after #, which
 	// browsers never send to a server; the page keeps it and clears it.
@@ -145,6 +179,7 @@ func (s *Server) routes(port int) http.Handler {
 	mux.HandleFunc("GET /api/state", s.authed(s.serveState))
 	mux.HandleFunc("GET /api/stream", s.authed(s.serveStream))
 	mux.HandleFunc("GET /api/history", s.authed(s.serveHistory))
+	mux.HandleFunc("GET /api/search", s.authed(s.serveSearch))
 	mux.HandleFunc("POST /api/action", s.authed(s.serveAction))
 	return localOnly(port, mux)
 }
@@ -240,15 +275,30 @@ func (s *Server) serveHistory(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(turns)
 }
 
+func (s *Server) serveSearch(w http.ResponseWriter, r *http.Request) {
+	if s.search == nil {
+		http.Error(w, "no search here", http.StatusNotFound)
+		return
+	}
+	found, err := s.search(r.URL.Query().Get("q"))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if found == nil {
+		found = []Found{}
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(found)
+}
+
 func (s *Server) serveAction(w http.ResponseWriter, r *http.Request) {
 	var a Action
-	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4<<10)).Decode(&a); err != nil {
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 64<<10)).Decode(&a); err != nil {
 		http.Error(w, "bad action", http.StatusBadRequest)
 		return
 	}
-	switch a.Kind {
-	case Open, Dismiss, Talk:
-	default:
+	if !Kinds[a.Kind] {
 		http.Error(w, "unknown action", http.StatusBadRequest)
 		return
 	}

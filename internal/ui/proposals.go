@@ -59,6 +59,7 @@ type awaitingPrompt struct {
 	dir       string
 	after     time.Time
 	prompt    string
+	send      bool
 }
 
 const awaitFor = 2 * time.Minute
@@ -111,7 +112,7 @@ func (m *Model) fillStarted() tea.Cmd {
 			continue
 		}
 		if _, hosted := m.window(m.sessions[i]); hosted {
-			cmds = append(cmds, m.deliver(delivery{kind: opening, key: w.key, target: m.sessions[i].TTY, text: w.prompt}))
+			cmds = append(cmds, m.deliver(delivery{kind: opening, key: w.key, target: m.sessions[i].TTY, text: w.prompt, send: w.send}))
 		}
 	}
 	return tea.Batch(cmds...)

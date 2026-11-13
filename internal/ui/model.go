@@ -82,6 +82,7 @@ type Model struct {
 	clashes     map[string]map[string]bool
 	clashesSeen bool
 	web         Publisher
+	flashSeq    int
 	webStart    WebStarter
 	typingGap   time.Duration
 	lastLetter  time.Time
@@ -332,6 +333,9 @@ func (m *Model) setFlash(text string, err error) {
 		text = err.Error()
 	}
 	m.flash = text
+	if text != "" {
+		m.flashSeq++
+	}
 }
 
 func (m Model) marks() deck.Marks {

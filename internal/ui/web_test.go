@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -93,5 +94,41 @@ func TestAConfigChangedElsewhereIsPickedUp(t *testing.T) {
 	tm, _ := m.Update(loadedMsg{sessions: m.sessions, windows: host.windows, started: time.Now(), cfg: m.changedConfig()})
 	if tm.(Model).cfg.HQOn() {
 		t.Fatal("the dashboard should see the deckk session turned off")
+	}
+}
+
+func TestThePageCanWriteToSessionsAndToDeckk(t *testing.T) {
+	m, host := withDeckk(t)
+	m = load(t, m, host, append(slices.Clone(m.sessions), deckkSession()))
+	m = refresh(t, m, host, waiting)
+	host.delivered = nil
+	act := func(a web.Action) {
+		tm, cmd := m.Update(WebAction(a))
+		m = tm.(Model)
+		for _, msg := range run(cmd) {
+			if _, ok := msg.(deliveredMsg); ok {
+				tm, _ = m.Update(msg)
+				m = tm.(Model)
+			}
+		}
+	}
+	act(web.Action{Kind: web.Prompt, ID: "dddddddd", Text: "run the tests", Send: true})
+	act(web.Action{Kind: web.Chat, Text: "what needs me?"})
+	if len(host.delivered) != 2 || host.delivered[0] != (typing{"/dev/ttys101", "run the tests", "", true}) || host.delivered[1].target != "%9" || !host.delivered[1].send {
+		t.Fatalf("delivered %v", host.delivered)
+	}
+	host.prompts["/dev/ttys101"] = "my own draft"
+	act(web.Action{Kind: web.Prompt, ID: "dddddddd", Text: "another"})
+	if !strings.Contains(m.flash, "already has text") {
+		t.Fatalf("flash %q", m.flash)
+	}
+	act(web.Action{Kind: web.Goals, Text: "# Ship it"})
+	if goals, _ := hq.ReadGoals(); goals != "# Ship it" {
+		t.Fatalf("goals %q", goals)
+	}
+	act(web.Action{Kind: web.Pin, ID: "aaaaaaaa"})
+	act(web.Action{Kind: web.Rename, ID: "aaaaaaaa", Text: "Renamed"})
+	if !m.store.Pinned["aaaaaaaa"] || m.store.Names["aaaaaaaa"] != "Renamed" {
+		t.Fatal("pin and rename should reach the store")
 	}
 }

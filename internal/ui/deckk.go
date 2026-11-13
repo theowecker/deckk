@@ -185,12 +185,17 @@ const (
 	suggestion
 	// opening types the first prompt into a session that just started.
 	opening
+	// typed is a prompt the user wrote on the web page for a session.
+	typed
+	// chat is a message the user wrote on the web page for the deckk
+	// session.
+	chat
 )
 
 // slot is what can only have one delivery in flight at a time: the deckk
 // session's prompt, or one session's.
 func (d delivery) slot() string {
-	if d.kind == news || d.kind == briefing {
+	if d.kind == news || d.kind == briefing || d.kind == chat {
 		return "deckk"
 	}
 	return strconv.Itoa(int(d.kind)) + ":" + d.key
@@ -221,6 +226,9 @@ func (m *Model) delivered(msg deliveredMsg) {
 		return
 	}
 	if msg.result != tmux.Delivered {
+		if msg.kind == typed || msg.kind == chat {
+			m.setFlash(heldBack(msg.result), nil)
+		}
 		return
 	}
 	switch msg.kind {
@@ -235,6 +243,13 @@ func (m *Model) delivered(msg deliveredMsg) {
 		for _, id := range msg.questions {
 			d.told[id] = true
 		}
+	case typed:
+		m.setFlash("Typed into the prompt", nil)
+		if msg.send {
+			m.setFlash("Sent", nil)
+		}
+	case chat:
+		m.setFlash("Sent to the deckk session", nil)
 	case suggestion:
 		if msg.text == "" {
 			m.mark(m.store.ForgetPrefill(msg.key))
@@ -530,5 +545,17 @@ func (m Model) checkFocus() tea.Cmd {
 			return nil
 		}
 		return focusCheckMsg{pane, open}
+	}
+}
+
+// heldBack says why something from the page wasn't typed in.
+func heldBack(result tmux.Delivery) string {
+	switch result {
+	case tmux.Busy:
+		return "That prompt already has text in it, so nothing was typed. Send or clear it first"
+	case tmux.Scrolled:
+		return "That pane is scrolled back. Scroll to the bottom and try again"
+	default:
+		return "Claude is asking something there, so nothing was typed. Answer it first"
 	}
 }
