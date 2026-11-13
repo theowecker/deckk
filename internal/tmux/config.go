@@ -80,8 +80,9 @@ unbind C-b
 set -g copy-command "pbcopy"
 set -s user-keys[0] "` + strings.ReplaceAll(terminal.CopySequence, "\x1b", `\e`) + `"
 bind -n User0 { if -F "#{pane_in_mode}" ` + copyIfSelected + ` }
-bind -n DoubleClick1Pane ` + toApp(`select-pane -t = ; copy-mode -H ; send -X select-word`) + `
-bind -n TripleClick1Pane ` + toApp(`select-pane -t = ; copy-mode -H ; send -X select-line`) + `
+bind -n MouseDown1Pane { ` + noteClick + ` ; select-pane -t = ; send -M }
+bind -n DoubleClick1Pane ` + sameClick(toApp(`select-pane -t = ; copy-mode -H ; send -X select-word`)) + `
+bind -n TripleClick1Pane ` + sameClick(toApp(`select-pane -t = ; copy-mode -H ; send -X select-line`)) + `
 bind -n MouseDrag1Pane ` + toApp(`copy-mode -M`) + `
 # Only the dashboard window splits, for the deckk session, so the mouse can
 # resize that split but never makes or moves panes.
@@ -212,10 +213,10 @@ func copyModeBindings(table string) string {
 	bind := func(key, command string) {
 		fmt.Fprintf(&b, "bind -T %s %s %s\n", table, key, command)
 	}
-	bind("MouseDown1Pane", `{ select-pane ; if -F "#{scroll_position}" { send -X clear-selection } { send -X cancel } }`)
+	bind("MouseDown1Pane", `{ `+noteClick+` ; select-pane ; if -F "#{scroll_position}" { send -X clear-selection } { send -X cancel } }`)
 	bind("MouseDragEnd1Pane", "{ "+outside("other-end", "set-mark", "other-end", "stop-selection")+" }")
-	bind("DoubleClick1Pane", `{ select-pane ; send -X select-word ; `+outside("other-end", "set-mark", "other-end", "stop-selection")+` }`)
-	bind("TripleClick1Pane", `{ select-pane ; send -X select-line ; `+outside("other-end", "set-mark", "other-end", "stop-selection")+` }`)
+	bind("DoubleClick1Pane", sameClick(`{ select-pane ; send -X select-word ; `+outside("other-end", "set-mark", "other-end", "stop-selection")+` }`))
+	bind("TripleClick1Pane", sameClick(`{ select-pane ; send -X select-line ; `+outside("other-end", "set-mark", "other-end", "stop-selection")+` }`))
 	// Anchored at the mark the drag left, since tmux re-anchors at the cursor,
 	// which moves when scrolling.
 	bind("S-MouseDown1Pane", `{ select-pane ; if -F "#{selection_present}" { send -X clear-selection ; `+
@@ -285,4 +286,14 @@ func quote(s string) string {
 
 func otherPane(key string) string {
 	return `{ if -F "#{&&:#{@deckk_dashboard},#{e|>:#{window_panes},1}}" { select-pane -t :.+ } { send-keys ` + key + ` } }`
+}
+
+// tmux sends a double-click a moment after the second press, to whatever pane
+// is showing by then. When that press opened another tab, it would start a
+// selection there, so double- and triple-clicks only act on the pane that
+// took the press.
+const noteClick = `set -gF @deckk_click "#{pane_id}"`
+
+func sameClick(command string) string {
+	return `{ if -F "#{==:#{pane_id},#{@deckk_click}}" ` + command + ` }`
 }
