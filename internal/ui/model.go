@@ -205,6 +205,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.sessions = m.takeDeckk(msg.sessions, msg.deckk)
 			m.store.ApplyNames(m.sessions)
 			m.windows, m.popped = byTTY(msg.windows)
+			for _, s := range msg.sessions {
+				if s.Running() {
+					delete(m.resuming, s.ID)
+				}
+			}
 			if msg.folders != nil {
 				m.folders = msg.folders
 			}
@@ -285,6 +290,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.updateFind(msg)
 		}
 		return m.updateList(msg)
+
+	case resumeFailedMsg:
+		for _, id := range msg.ids {
+			delete(m.resuming, id)
+		}
+		m.setFlash("", msg.err)
+		return m, nil
 
 	case reviewDoneMsg:
 		m.reviewed(msg)

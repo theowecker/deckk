@@ -199,13 +199,17 @@ func TestResumeRefusesAMissingFolder(t *testing.T) {
 	m.flat[m.cursor].Dir = "/nonexistent/deckk-test"
 	m, cmd := press(m, "enter")
 	for _, msg := range run(cmd) {
-		if f, ok := msg.(flashMsg); ok {
-			tm, _ := m.Update(f)
-			m = tm.(Model)
-		}
+		tm, _ := m.Update(msg)
+		m = tm.(Model)
 	}
 	if len(host.opened) != 0 || !m.flashErr {
 		t.Fatalf("opened %v, flash %q", host.opened, m.flash)
+	}
+	m.flat[m.cursor].Dir = t.TempDir()
+	m, cmd = press(m, "enter")
+	run(cmd)
+	if len(host.opened) != 1 {
+		t.Fatalf("a resume that failed should be free to try again, opened %v, flash %q", host.opened, m.flash)
 	}
 }
 

@@ -177,7 +177,7 @@ func (m *Model) promptFromWeb(s claude.Session, text string, send bool) tea.Cmd 
 		if !m.claimResume(s.ID) {
 			return nil
 		}
-		return m.do(func() error { return m.resume(s, false) }, "")
+		return m.resuming1(s, false)
 	}
 	if _, hosted := m.window(s); !hosted {
 		m.setFlash(displayTitle(s)+" runs in another tab. Move it into deckk with m to write to it from here", nil)

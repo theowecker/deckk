@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"os"
@@ -41,7 +42,23 @@ func (m Model) open(s claude.Session) tea.Cmd {
 	if !m.claimResume(s.ID) {
 		return func() tea.Msg { return flashMsg{text: displayTitle(s) + " is already resuming"} }
 	}
-	return leaving(m.do(func() error { return m.resume(s, true) }, ""))
+	return leaving(m.resuming1(s, true))
+}
+
+// resumeFailedMsg gives back the claims on sessions that didn't resume, so
+// trying again isn't refused as already resuming.
+type resumeFailedMsg struct {
+	ids []string
+	err error
+}
+
+func (m Model) resuming1(s claude.Session, focus bool) tea.Cmd {
+	return func() tea.Msg {
+		if err := m.resume(s, focus); err != nil {
+			return resumeFailedMsg{[]string{s.ID}, err}
+		}
+		return nil
+	}
 }
 
 func leaving(cmd tea.Cmd) tea.Cmd {
@@ -221,14 +238,20 @@ func (m Model) restore(sessions []claude.Session) tea.Cmd {
 	if len(sessions) == 0 {
 		return func() tea.Msg { return flashMsg{text: "Everything is already open or on its way"} }
 	}
-	return m.do(func() error {
+	return func() tea.Msg {
+		var failed []string
+		var first error
 		for _, s := range sessions {
 			if err := m.resume(s, false); err != nil {
-				return err
+				failed = append(failed, s.ID)
+				first = cmp.Or(first, err)
 			}
 		}
-		return nil
-	}, fmt.Sprintf("Reopened %d sessions", len(sessions)))
+		if first != nil {
+			return resumeFailedMsg{failed, first}
+		}
+		return flashMsg{text: fmt.Sprintf("Reopened %d sessions", len(sessions))}
+	}
 }
 
 func (m Model) detach() tea.Cmd {
