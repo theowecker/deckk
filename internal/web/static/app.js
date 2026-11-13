@@ -114,8 +114,11 @@ function current() {
 
 function showSection(animate) {
   const name = current();
+  // Pages are named page-home and so on, not home, so the address never
+  // makes the browser scroll to them.
+  if (animate) window.scrollTo({ top: 0 });
   for (const s of sections) {
-    const page = $(s);
+    const page = $(`page-${s}`);
     page.hidden = s !== name;
     if (s === name && animate) {
       page.classList.remove("entering");

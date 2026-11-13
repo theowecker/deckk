@@ -12,8 +12,9 @@ the ones that are running, and a way to bring everything back after a reboot.
 
 Beside the dashboard runs the deckk session, a Claude whose job is the other
 sessions. It sees what each one is doing, keeps your goals, suggests the next
-prompt for each and types it in for you to send. The same dashboard also opens
-as a page in your browser.
+prompt for each and types it in for you to send. In the browser, deckk becomes
+a hub where you can follow, find and write to every session and talk to the
+deckk session.
 
 ## Install
 
@@ -47,7 +48,7 @@ place.
 | `m` / `M` | bring one session, or all of them, back into deckk |
 | `c` | talk to the deckk session |
 | `d` | dismiss the deckk session's suggestion for a session |
-| `w` | open the dashboard in your browser |
+| `w` | open deckk in your browser |
 | `/` | find any session, ever |
 | `tab` | switch between Sessions, Board, Background and Find |
 | `v` | group by status or by project |
@@ -135,20 +136,31 @@ arrive at most every 90 seconds, batched. Its files, including `goals.md` and
 a `CLAUDE.md` you can add to, are in `~/.config/deckk/hq`. The first time it
 starts, Claude asks you to trust that folder.
 
-## In the browser
+## Your hub in the browser
 
-Press `w`, or click Web ↗ next to the view tabs, to open the same dashboard as
-a page. It shows Next up with each suggested prompt drawn as the message you'd
-send, clashes, and every session by status or by project with the deckk
-session's note. Open a session to read its recent conversation. Your goals and
-recent activity sit alongside. The page updates live, and Open and Dismiss act
-in deckk the way `↵` and `d` do.
+![deckk in the browser](docs/hub.png)
 
-The page is served by the dashboard on `127.0.0.1:4747` and nowhere else.
-deckk's link carries a token, kept in `~/.config/deckk/web.token`, after the
-`#`, where browsers never send it to a server. The page keeps it for later
-visits and drops it from the address, so the bare page can be bookmarked and
-other pages in your browser can't use it.
+Press `w`, or click Web ↗ next to the view tabs, to open deckk in your browser.
+It is the same deckk with room to spread out, and you can work from it:
+
+- **Home** says what needs you. Next up shows each suggested prompt as the
+  message you'd send, Right now has a card for every session that is waiting
+  or working, and clashes, today's work and recent activity sit alongside.
+- **Sessions** finds and keeps your sessions. Search every session Claude has
+  kept, group them by status or project, or look at background runs on their
+  own. Open one to see deckk's suggestion for it and its recent conversation,
+  and write to it: Enter sends, or Type in leaves the prompt for you to check
+  in deckk. A stopped session resumes first. Open, pin, rename and archive
+  from there too.
+- **deckk** is a chat with the deckk session, and the goals it keeps with you,
+  which you can edit.
+
+The page updates live, and what you do there happens in deckk the same way
+the keys do. It answers only on `127.0.0.1:4747`. deckk's link carries a
+token, kept in `~/.config/deckk/web.token`, after the `#`, where browsers
+never send it to a server. The page keeps it for later visits and drops it
+from the address, so the bare page can be bookmarked and other pages in your
+browser can't use it.
 
 ## Settings
 
@@ -221,7 +233,7 @@ config. Suggestions, proposals, notes, the inbox and questions are plain files
 in `~/.config/deckk/hq`. deckk types into a session's prompt only after
 reading the pane to check the prompt is empty or still holds its own text.
 
-The web page is plain HTML, CSS and JavaScript built into the binary and
+The browser hub is plain HTML, CSS and JavaScript built into the binary and
 served with Go's own HTTP server, in `internal/web`.
 
 Each terminal deckk can drive is a few lines of AppleScript in
@@ -243,7 +255,7 @@ and later.
 go test ./...
 golangci-lint run
 go build -o bin/deckk ./cmd/deckk && bin/deckk
-script/screenshot   # rebuild docs/screenshot.png
+script/screenshot   # rebuild docs/screenshot.png and docs/hub.png
 ```
 
 `DECKK_SOCKET=deckk-dev` runs a second deckk on its own tmux server beside

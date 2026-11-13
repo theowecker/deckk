@@ -1,14 +1,30 @@
 #!/usr/bin/env bash
-# Regenerates docs/screenshot.png from demo data. Needs Google Chrome.
+# Regenerates docs/screenshot.png and docs/hub.png from demo data. Needs
+# Google Chrome.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
+shoot() {
+  # The terminal shot waits for its web font; the hub's live page never
+  # finishes loading, so it gets a fixed time instead.
+  local wait="--timeout=4000"
+  [ "${4:-}" = font ] && wait="--virtual-time-budget=5000"
+  # Headless Chrome sometimes never exits after writing the image. A fresh
+  # profile each time keeps one shot's window state out of the next.
+  rm -rf "$tmp/chrome"
+  perl -e 'alarm 60; exec @ARGV' "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --disable-gpu --mute-audio \
+    --hide-scrollbars --default-background-color=00000000 --force-device-scale-factor=2 \
+    "$wait" --user-data-dir="$tmp/chrome" --window-size="$2" \
+    --screenshot="$PWD/$3" "file://$1" >/dev/null 2>&1
+  echo "wrote $3"
+}
+
 DECKK_SCREENSHOT="$tmp/shot.html" go test ./internal/ui -run TestScreenshot -count=1 >/dev/null
-# Headless Chrome sometimes never exits after writing the image.
-perl -e 'alarm 60; exec @ARGV' "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --disable-gpu --mute-audio \
-  --hide-scrollbars --default-background-color=00000000 --force-device-scale-factor=2 \
-  --virtual-time-budget=5000 --user-data-dir="$tmp/chrome" --window-size="${1:-1072},${2:-620}" \
-  --screenshot="${OUT:-$PWD/docs/screenshot.png}" "file://$tmp/shot.html" >/dev/null 2>&1
-echo "wrote ${OUT:-docs/screenshot.png}"
+shoot "$tmp/shot.html" 1072,620 docs/screenshot.png font
+
+mkdir "$tmp/hub"
+cp internal/web/static/* script/web-demo.js "$tmp/hub/"
+sed 's|<script src="app.js"></script>|<script src="app.js"></script><script src="web-demo.js"></script>|' internal/web/static/index.html > "$tmp/hub/index.html"
+shoot "$tmp/hub/index.html" 1280,820 docs/hub.png
