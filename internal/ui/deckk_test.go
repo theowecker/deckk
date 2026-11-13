@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/charmbracelet/x/ansi"
+
 	"github.com/theowecker/deckk/internal/claude"
 	"github.com/theowecker/deckk/internal/config"
 	"github.com/theowecker/deckk/internal/deck"
@@ -404,5 +406,17 @@ func TestABriefingKeepsTheNewsForLater(t *testing.T) {
 	m = refresh(t, m, host, nil)
 	if len(m.deckk.pending) != 1 {
 		t.Fatalf("the briefing dropped news it never mentioned: %v", m.deckk.pending)
+	}
+}
+
+func TestTheDeckkSessionsNoteShowsInThePreview(t *testing.T) {
+	m, host := newTestModel(t)
+	if err := hq.Remember("dddddddd", "cart fix, waiting on review"); err != nil {
+		t.Fatal(err)
+	}
+	m = refresh(t, m, host, nil)
+	preview := ansi.Strip(strings.Join(m.preview(*inside(m.sessions)), "\n"))
+	if !strings.Contains(preview, "◆ cart fix, waiting on review") || strings.Contains(preview, "from before") {
+		t.Fatalf("preview %q", preview)
 	}
 }

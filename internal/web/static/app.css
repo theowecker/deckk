@@ -253,6 +253,8 @@ h3 {
 .title .warn { color: var(--amber); margin-left: 6px; }
 .where { grid-column: 2; color: var(--secondary); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .where code { font-family: var(--mono); font-size: 12px; }
+.summary { grid-column: 2; margin-top: 3px; font-size: 13px; color: var(--label); opacity: 0.85; }
+.summary.stale { color: var(--secondary); opacity: 1; }
 .state { grid-column: 3; grid-row: 1 / span 2; text-align: right; font-size: 13px; color: var(--secondary); white-space: nowrap; }
 .state.waiting { color: var(--clay); }
 .state.working { color: var(--blue); }

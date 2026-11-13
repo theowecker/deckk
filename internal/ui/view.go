@@ -520,6 +520,13 @@ func (m Model) preview(s claude.Session) []string {
 	const indent = "    "
 	room := m.width - gutter*2 - len(indent)
 	var lines []string
+	if n, ok, stale := m.note(s); ok {
+		line := accent.Render("◆ ") + soft.Render(n.Text)
+		if stale {
+			line += ghost.Render(" · from before its last turn")
+		}
+		lines = append(lines, pad()+indent+ansi.Truncate(line, room, "…"))
+	}
 	if isProposal(s) {
 		lines = append(lines, pad()+indent+dim.Render("in "+abbreviateHome(s.Dir)))
 	}

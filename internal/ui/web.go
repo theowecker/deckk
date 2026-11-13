@@ -177,6 +177,9 @@ func (m Model) webSession(s claude.Session, now time.Time) web.Session {
 		out.Where = "another tab"
 	}
 	_, out.Suggested = m.suggestion(s)
+	if n, ok, stale := m.note(s); ok {
+		out.Summary, out.Stale = n.Text, stale
+	}
 	if c, ok := m.clash(s); ok {
 		out.Clash = "also edited by " + displayTitle(c.Other(s.ID)) + ": " + fileList(c.Files, 3)
 	}

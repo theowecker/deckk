@@ -31,6 +31,7 @@ type deckkState struct {
 	given  map[string]bool
 	goals  string
 	recent []hq.Event
+	notes  map[string]hq.Note
 
 	states   map[string]deck.State
 	prs      map[string]string
@@ -59,6 +60,7 @@ type deckkSnapshot struct {
 	proposals   []hq.Proposal
 	goals       string
 	recent      []hq.Event
+	notes       map[string]hq.Note
 	pane        tmux.Pane
 	open        bool
 }
@@ -70,6 +72,7 @@ func (m Model) snapshot() deckkSnapshot {
 	snap.proposals, _ = hq.LoadProposals()
 	snap.goals, _ = hq.ReadGoals()
 	snap.recent, _ = hq.Recent(15)
+	snap.notes, _ = hq.LoadNotes()
 	snap.pane, snap.open, _ = m.host.HQPane()
 	return snap
 }
@@ -101,7 +104,7 @@ func (m *Model) takeDeckk(sessions []claude.Session, snap deckkSnapshot) []claud
 	}
 	m.deckk.questions = snap.questions
 	m.deckk.proposals = snap.proposals
-	m.deckk.goals, m.deckk.recent = snap.goals, snap.recent
+	m.deckk.goals, m.deckk.recent, m.deckk.notes = snap.goals, snap.recent, snap.notes
 	m.deckk.pane, m.deckk.open = snap.pane, snap.open
 	return sessions
 }
@@ -297,6 +300,16 @@ func (m *Model) nudge() tea.Cmd {
 		text: "[deckk] " + clipText(strings.Join(lines, "; "), 400) + ". Check read_inbox.",
 		at:   newest, questions: asked,
 	})
+}
+
+// note is what the deckk session last wrote about a session, and whether
+// the session has moved on since.
+func (m Model) note(s claude.Session) (note hq.Note, ok, stale bool) {
+	note, ok = m.deckk.notes[s.ID]
+	if !ok || !m.cfg.HQOn() {
+		return hq.Note{}, false, false
+	}
+	return note, true, s.UpdatedAt.After(note.At.Add(time.Minute))
 }
 
 func (m Model) briefing() string {

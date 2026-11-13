@@ -66,6 +66,10 @@ type Session struct {
 	Pinned     bool      `json:"pinned,omitempty"`
 	Suggested  bool      `json:"suggested,omitempty"`
 	Clash      string    `json:"clash,omitempty"`
+	// Summary is the deckk session's note on the session; Stale says the
+	// session has moved on since it was written.
+	Summary string `json:"summary,omitempty"`
+	Stale   bool   `json:"stale,omitempty"`
 }
 
 type Event struct {

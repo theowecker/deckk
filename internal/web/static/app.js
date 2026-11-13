@@ -141,6 +141,7 @@ function sessionRow(s) {
     ),
     el("span", { class: `state ${s.state}` }, status),
     el("span", { class: "where" }, s.project, s.branch && [" ", el("code", {}, `⎇ ${s.branch}`)], s.where && ` · ${s.where}`),
+    s.summary && el("span", { class: `summary${s.stale ? " stale" : ""}`, title: s.stale ? "Written before the session's last turn" : null }, s.summary),
   );
   const chat = el("div", { class: "chat" },
     s.lastPrompt && el("p", { class: "bubble mine" }, s.lastPrompt),
