@@ -139,6 +139,10 @@ bind -n MouseDragEnd1Status ` + dropTab + `
 # A tab dropped below the strip goes nowhere.
 bind -n MouseDragEnd1Pane { if -F "#{@deckk_drag}" { set -gu @deckk_drag } { send -M } }
 bind -n C-Space if -F "#{!=:#{session_name},deckk}" "" { if -F "#{@deckk_dashboard}" "last-window" "select-window -t :0" }
+# Ctrl+Shift+Up and Down move between the list and the deckk session beside
+# it, the way Left and Right move between tabs. Elsewhere they reach the app.
+bind -n C-S-Up ` + otherPane("C-S-Up") + `
+bind -n C-S-Down ` + otherPane("C-S-Down") + `
 
 set-hook -g session-window-changed ` + resetPointer + `
 set-hook -g client-detached ` + resetPointer + `
@@ -237,4 +241,8 @@ func quote(s string) string {
 		return `"'"`
 	}
 	return "'" + s + "'"
+}
+
+func otherPane(key string) string {
+	return `{ if -F "#{&&:#{@deckk_dashboard},#{e|>:#{window_panes},1}}" { select-pane -t :.+ } { send-keys ` + key + ` } }`
 }

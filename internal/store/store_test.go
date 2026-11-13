@@ -3,6 +3,7 @@ package store
 import (
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/theowecker/deckk/internal/claude"
 )
@@ -79,5 +80,20 @@ func TestPinAndArchiveAreExclusiveAndPersist(t *testing.T) {
 	}
 	if reopened.Pinned["b"] {
 		t.Fatal("second toggle should unpin")
+	}
+}
+
+func TestOldSuggestionMarksArePruned(t *testing.T) {
+	s, err := Open(filepath.Join(t.TempDir(), "state.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now()
+	_ = s.Dismiss("old", now.Add(-30*24*time.Hour))
+	if err := s.MarkPrefilled("new", now); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := s.Dismissed["old"]; ok || s.Prefilled["new"].IsZero() {
+		t.Fatalf("dismissed %v prefilled %v", s.Dismissed, s.Prefilled)
 	}
 }

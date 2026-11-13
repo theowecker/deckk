@@ -37,6 +37,7 @@ place.
 | drag a tab | drop it on another tab to move it there |
 | `n` | start Claude in a folder |
 | `c` | talk to the deckk session |
+| `⌃⇧↑` / `⌃⇧↓` | move between the list and the deckk session |
 | `d` | dismiss deckk's suggestion for a session |
 | `x` | close a session (it stays resumable) |
 | `o` / `O` | give one session, or all of them, its own iTerm2 tab |

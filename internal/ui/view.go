@@ -567,6 +567,7 @@ func helpBody(frame int) ([]string, []int) {
 			{"↵  or double-click", "switch to a session, jump to its tab, or resume it here"},
 			{"n", "start Claude in a folder, or type a new path to create one"},
 			{"c", "talk to the deckk session beside the list, or start it"},
+			{"⌃⇧↑ ⌃⇧↓", "move between the list and the deckk session"},
 			{"d", "dismiss deckk's suggestion for a session"},
 			{"x", "close a session running in deckk. It stays resumable"},
 			{"o   O", "give this session, or every one, its own tab"},

@@ -113,7 +113,8 @@ func (m Model) updateFind(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "enter":
 		if s, ok := m.selected(); ok {
-			return m, m.open(s)
+			cmd := m.openWithSuggestion(s)
+			return m, cmd
 		}
 		return m, nil
 	case "ctrl+c":

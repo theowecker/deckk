@@ -143,11 +143,22 @@ func (s *Store) SetRunning(running map[string]bool) error {
 
 func (s *Store) MarkPrefilled(id string, at time.Time) error {
 	s.Prefilled[id] = at
-	return s.save()
+	return s.saveSuggestions(at)
 }
 
 func (s *Store) Dismiss(id string, at time.Time) error {
 	s.Dismissed[id] = at
+	return s.saveSuggestions(at)
+}
+
+// A suggestion goes stale once its session takes another turn, so marks on
+// week-old ones only take up room.
+const suggestionsFor = 7 * 24 * time.Hour
+
+func (s *Store) saveSuggestions(now time.Time) error {
+	for _, marks := range []map[string]time.Time{s.Prefilled, s.Dismissed} {
+		maps.DeleteFunc(marks, func(_ string, at time.Time) bool { return now.Sub(at) > suggestionsFor })
+	}
 	return s.save()
 }
 
