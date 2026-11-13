@@ -3,6 +3,7 @@ package hq
 import (
 	"context"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -151,5 +152,28 @@ func TestNotesAreKeptAndForgotten(t *testing.T) {
 	_ = Remember("s1", "")
 	if notes, _ := LoadNotes(); len(notes) != 0 {
 		t.Fatalf("an empty note should forget: %v", notes)
+	}
+}
+
+func TestAnswersOnlyTakeRealQuestionIDs(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	if err := Answer("../../etc/x", "hi"); err == nil {
+		t.Fatal("a path should not be accepted as a question ID")
+	}
+}
+
+func TestIsSeesThroughSymlinks(t *testing.T) {
+	real := t.TempDir()
+	link := filepath.Join(t.TempDir(), "config")
+	if err := os.Symlink(real, link); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("XDG_CONFIG_HOME", link)
+	if err := os.MkdirAll(Dir(), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	resolved, _ := filepath.EvalSymlinks(Dir())
+	if !Is(Dir()) || !Is(resolved) || Is(filepath.Dir(resolved)) {
+		t.Fatalf("Is %q", resolved)
 	}
 }

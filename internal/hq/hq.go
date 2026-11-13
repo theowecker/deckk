@@ -22,8 +22,21 @@ func Dir() string {
 
 func path(name string) string { return filepath.Join(Dir(), name) }
 
-// Is reports whether a session is the deckk session itself.
-func Is(cwd string) bool { return cwd != "" && filepath.Clean(cwd) == Dir() }
+// Is reports whether a session is the deckk session itself. Claude may
+// report the folder with symlinks resolved, as when ~/.config is a link.
+func Is(cwd string) bool {
+	if cwd == "" {
+		return false
+	}
+	if filepath.Clean(cwd) == Dir() {
+		return true
+	}
+	if filepath.Base(cwd) != filepath.Base(Dir()) {
+		return false
+	}
+	resolved, err := filepath.EvalSymlinks(Dir())
+	return err == nil && filepath.Clean(cwd) == resolved
+}
 
 // Setup writes the deckk session's role and tool config. CLAUDE.md is the
 // user's to edit, so it is only created; role.md belongs to deckk and is

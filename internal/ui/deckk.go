@@ -27,8 +27,10 @@ type deckkState struct {
 	questions   []hq.Question
 	proposals   []hq.Proposal
 	awaiting    []awaitingPrompt
-	goals       string
-	recent      []hq.Event
+	// given are sessions that already got a queued prompt.
+	given  map[string]bool
+	goals  string
+	recent []hq.Event
 
 	states   map[string]deck.State
 	prs      map[string]string
@@ -47,7 +49,7 @@ type deckkState struct {
 func newDeckkState() deckkState {
 	return deckkState{
 		suggestions: map[string]hq.Suggestion{}, states: map[string]deck.State{}, prs: map[string]string{},
-		told: map[string]bool{}, inflight: map[string]bool{},
+		told: map[string]bool{}, inflight: map[string]bool{}, given: map[string]bool{},
 	}
 }
 
@@ -151,25 +153,45 @@ func (m *Model) report(events []hq.Event) {
 	}
 }
 
-// A delivery is text deckk types into a prompt: news for the deckk session,
-// or a suggestion for a session. Every one goes through deliver and
-// delivered, so none can be lost or sent twice.
+// A delivery is text deckk types into a prompt. Every one goes through
+// deliver and delivered, so none can be lost or typed twice.
 type delivery struct {
-	// key is nudgeKey or the ID of the session the suggestion is for.
+	kind deliveryKind
+	// key is what the delivery is for within its kind: a session ID, or
+	// the session a queued prompt waits on.
 	key     string
 	target  string
 	text    string
 	replace string
 	send    bool
-
-	// What a delivery covers, for once it lands.
+	// at is when the suggestion was made, or for news, the newest event it
+	// covers.
 	at        time.Time
-	events    int
 	questions []string
-	brief     bool
 }
 
-const nudgeKey = "deckk"
+type deliveryKind int
+
+const (
+	// news tells the deckk session what changed.
+	news deliveryKind = iota
+	// briefing asks the deckk session to brief the user on opening.
+	briefing
+	// suggestion types the deckk session's next prompt into a session, or
+	// takes it back out when text is empty.
+	suggestion
+	// opening types the first prompt into a session that just started.
+	opening
+)
+
+// slot is what can only have one delivery in flight at a time: the deckk
+// session's prompt, or one session's.
+func (d delivery) slot() string {
+	if d.kind == news || d.kind == briefing {
+		return "deckk"
+	}
+	return strconv.Itoa(int(d.kind)) + ":" + d.key
+}
 
 type deliveredMsg struct {
 	delivery
@@ -178,10 +200,10 @@ type deliveredMsg struct {
 }
 
 func (m *Model) deliver(d delivery) tea.Cmd {
-	if m.deckk.inflight[d.key] {
+	if m.deckk.inflight[d.slot()] {
 		return nil
 	}
-	m.deckk.inflight[d.key] = true
+	m.deckk.inflight[d.slot()] = true
 	return func() tea.Msg {
 		result, err := m.host.Deliver(d.target, d.text, d.replace, d.send)
 		return deliveredMsg{d, result, err}
@@ -189,28 +211,33 @@ func (m *Model) deliver(d delivery) tea.Cmd {
 }
 
 func (m *Model) delivered(msg deliveredMsg) {
-	delete(m.deckk.inflight, msg.key)
-	switch {
-	case msg.err != nil:
+	d := &m.deckk
+	delete(d.inflight, msg.slot())
+	if msg.err != nil {
 		m.setFlash("", msg.err)
-	case msg.result != tmux.Delivered:
-	case strings.HasPrefix(msg.key, openPrefix):
+		return
+	}
+	if msg.result != tmux.Delivered {
+		return
+	}
+	switch msg.kind {
+	case opening:
 		m.filled(msg.key)
-	case msg.key == nudgeKey:
-		d := &m.deckk
+	case briefing:
+		d.nudgedAt, d.briefed = time.Now(), true
+		m.mark(m.store.SetBriefed(d.nudgedAt))
+	case news:
 		d.nudgedAt = time.Now()
-		if msg.brief {
-			d.briefed = true
-			m.mark(m.store.SetBriefed(d.nudgedAt))
-		}
-		d.pending = d.pending[min(msg.events, len(d.pending)):]
+		d.pending = slices.DeleteFunc(d.pending, func(e hq.Event) bool { return !e.At.After(msg.at) })
 		for _, id := range msg.questions {
 			d.told[id] = true
 		}
-	case msg.text == "":
-		m.mark(m.store.ForgetPrefill(msg.key))
-	default:
-		m.mark(m.store.MarkPrefilled(msg.key, store.Prefill{At: msg.at, Text: msg.text}))
+	case suggestion:
+		if msg.text == "" {
+			m.mark(m.store.ForgetPrefill(msg.key))
+		} else {
+			m.mark(m.store.MarkPrefilled(msg.key, store.Prefill{At: msg.at, Text: msg.text}))
+		}
 	}
 }
 
@@ -220,22 +247,24 @@ const briefEvery = 3 * time.Hour
 
 // nudge tells the deckk session there is news, when it is idle and nobody is
 // typing to it. It reads the details itself with read_inbox. The first nudge
-// after a break asks it to brief the user instead.
+// after a break asks it to brief the user instead. With updates off, only
+// sessions waiting on an answer get through, since they are blocked.
 func (m *Model) nudge() tea.Cmd {
 	d := &m.deckk
-	if !m.cfg.Nudge() || !d.open || !d.running || d.pane.Seen || deck.StateOf(d.session) != deck.YourTurn {
+	if !m.cfg.HQOn() || !d.open || !d.running || d.pane.Seen || deck.StateOf(d.session) != deck.YourTurn {
 		return nil
 	}
-	if !d.briefed {
+	updates := m.cfg.Nudge()
+	if updates && !d.briefed {
 		if time.Since(m.store.Briefed) < briefEvery {
 			d.briefed = true
 		} else {
-			return m.deliver(delivery{key: nudgeKey, target: d.pane.ID, send: true, text: m.briefing(), events: len(d.pending), brief: true})
+			return m.deliver(delivery{kind: briefing, target: d.pane.ID, send: true, text: m.briefing()})
 		}
 	}
 	var asked, lines []string
 	for _, q := range d.questions {
-		if d.told[q.ID] {
+		if d.told[q.ID] || !q.Wait && !updates {
 			continue
 		}
 		verb := "notes"
@@ -245,20 +274,28 @@ func (m *Model) nudge() tea.Cmd {
 		asked = append(asked, q.ID)
 		lines = append(lines, q.Title+" "+verb+": "+clipText(q.Text, 120))
 	}
+	var pending []hq.Event
+	if updates {
+		pending = d.pending
+	}
 	every := nudgeEvery
 	if len(asked) > 0 {
 		every = questionEvery
 	}
-	if len(d.pending)+len(asked) == 0 || time.Since(d.nudgedAt) < every {
+	if len(pending)+len(asked) == 0 || time.Since(d.nudgedAt) < every {
 		return nil
 	}
-	for _, e := range d.pending {
+	var newest time.Time
+	for _, e := range pending {
 		lines = append(lines, e.Title+" "+e.Kind)
+		if e.At.After(newest) {
+			newest = e.At
+		}
 	}
 	return m.deliver(delivery{
-		key: nudgeKey, target: d.pane.ID, send: true,
-		text:   "[deckk] " + clipText(strings.Join(lines, "; "), 400) + ". Check read_inbox.",
-		events: len(d.pending), questions: asked,
+		kind: news, target: d.pane.ID, send: true,
+		text: "[deckk] " + clipText(strings.Join(lines, "; "), 400) + ". Check read_inbox.",
+		at:   newest, questions: asked,
 	})
 }
 
@@ -349,9 +386,9 @@ func (m *Model) syncPrompt(s claude.Session, maySend bool) tea.Cmd {
 	prev, typed := m.typedIn(s)
 	switch {
 	case suggested && !m.prefilled(s, sg):
-		return m.deliver(delivery{key: s.ID, target: s.TTY, text: sg.Prompt, replace: prev.Text, send: maySend && sg.Safe, at: sg.At})
+		return m.deliver(delivery{kind: suggestion, key: s.ID, target: s.TTY, text: sg.Prompt, replace: prev.Text, send: maySend && sg.Safe, at: sg.At})
 	case !suggested && typed:
-		return m.deliver(delivery{key: s.ID, target: s.TTY, replace: prev.Text})
+		return m.deliver(delivery{kind: suggestion, key: s.ID, target: s.TTY, replace: prev.Text})
 	}
 	if _, kept := m.store.Prefilled[s.ID]; kept && !typed {
 		m.mark(m.store.ForgetPrefill(s.ID))
@@ -378,6 +415,9 @@ func (m *Model) dismiss(s claude.Session) tea.Cmd {
 		return nil
 	}
 	m.mark(m.store.Dismiss(s.ID, sg.At))
+	if p, ok := m.proposal(s); ok {
+		return withdraw(p.ID)
+	}
 	if _, hosted := m.window(s); hosted && m.cfg.Prefill() {
 		return m.syncPrompt(s, false)
 	}

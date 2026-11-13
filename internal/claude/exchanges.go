@@ -54,14 +54,11 @@ func Exchanges(path string, n int) ([]Exchange, error) {
 	if err != nil {
 		return nil, err
 	}
-	chunk, whole, err := readTail(f, info.Size(), 2<<20)
+	chunk, _, err := readTail(f, info.Size(), 2<<20)
 	if err != nil {
 		return nil, err
 	}
 	lines := bytes.Split(chunk, []byte{'\n'})
-	if !whole && len(lines) > 0 {
-		lines = lines[1:]
-	}
 	var turns []Exchange
 	for _, line := range lines {
 		var e entry
@@ -97,22 +94,16 @@ type editsEntry struct {
 	files []string
 }
 
-// Sessions without a start time count edits from this long ago.
-const editsFor = 6 * time.Hour
-
 // EditsOf reads which files each running session has edited since it
-// started, by session ID.
+// started, by session ID. A session with no start time is left out, since
+// without one there's no telling which edits are this run's.
 func EditsOf(sessions []Session) map[string][]string {
 	edits := map[string][]string{}
 	for _, s := range sessions {
-		if !s.Running() || s.Path == "" {
+		if !s.Running() || s.Path == "" || s.StartedAt.IsZero() {
 			continue
 		}
-		since := s.StartedAt
-		if since.IsZero() {
-			since = time.Now().Add(-editsFor)
-		}
-		if files, err := EditedFiles(s.Path, since); err == nil {
+		if files, err := EditedFiles(s.Path, s.StartedAt); err == nil {
 			edits[s.ID] = files
 		}
 	}
@@ -144,6 +135,10 @@ func EditedFiles(path string, since time.Time) ([]string, error) {
 	}
 	files = mergeNewest(files, older)
 	edits.Lock()
+	// Transcripts of sessions long gone would pile up otherwise.
+	if len(edits.byPath) > 500 {
+		clear(edits.byPath)
+	}
 	edits.byPath[path] = editsEntry{read, since, files}
 	edits.Unlock()
 	return files, nil

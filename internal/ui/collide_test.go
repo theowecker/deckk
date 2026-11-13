@@ -70,3 +70,19 @@ func TestSharingACheckoutIsOnlyANote(t *testing.T) {
 		t.Fatalf("banner %v, lines %v", m.clashBanner(), lines)
 	}
 }
+
+func TestAClashIsOnlyNewsWhenItSpreads(t *testing.T) {
+	m, host := clashing(t)
+	before, _ := hq.Unread()
+	host.edits["dddddddd"] = []string{"/shop/tax.go", "/shop/cart.go"}
+	m = refresh(t, m, host, nil)
+	if again, _ := hq.Unread(); len(again) != 0 {
+		t.Fatalf("editing the same files again is not news: %v (first %v)", again, before)
+	}
+	host.edits["dddddddd"] = append(host.edits["dddddddd"], "/shop/order.go")
+	host.edits["ffffffff"] = append(host.edits["ffffffff"], "/shop/order.go")
+	refresh(t, m, host, nil)
+	if spread, _ := hq.Unread(); len(spread) != 1 || !strings.Contains(spread[0].Detail, "order.go") {
+		t.Fatalf("a newly shared file is news: %v", spread)
+	}
+}

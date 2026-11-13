@@ -381,3 +381,28 @@ func TestNoBriefingRightAfterTheLastOne(t *testing.T) {
 		t.Fatalf("delivered %v", host.delivered)
 	}
 }
+
+func TestAWaitingQuestionGetsThroughWithUpdatesOff(t *testing.T) {
+	m, host := withDeckk(t)
+	m.cfg.Updates = config.Off
+	m = load(t, m, host, append(slices.Clone(m.sessions), deckkSession()))
+	if err := hq.Post(hq.Question{ID: "q2", Title: "Checkout", Text: "what next?", Wait: true, At: time.Now()}); err != nil {
+		t.Fatal(err)
+	}
+	refresh(t, m, host, nil)
+	if len(host.delivered) != 1 || !strings.Contains(host.delivered[0].text, "Checkout asks") {
+		t.Fatalf("delivered %v", host.delivered)
+	}
+}
+
+func TestABriefingKeepsTheNewsForLater(t *testing.T) {
+	m, host := withDeckk(t)
+	_ = m.store.SetBriefed(time.Now().Add(-5 * time.Hour))
+	m = load(t, m, host, append(slices.Clone(m.sessions), deckkSession()))
+	m.deckk.briefed = false
+	m.deckk.pending = []hq.Event{{At: time.Now(), Title: "Checkout", Kind: hq.Finished}}
+	m = refresh(t, m, host, nil)
+	if len(m.deckk.pending) != 1 {
+		t.Fatalf("the briefing dropped news it never mentioned: %v", m.deckk.pending)
+	}
+}

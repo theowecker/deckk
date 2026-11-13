@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/charmbracelet/x/ansi"
 )
@@ -76,17 +77,27 @@ func typedText(line string, first bool) []string {
 	return strings.Fields(b.String())
 }
 
+// applyDim follows the dim attribute through one SGR sequence. Colour codes
+// carry numbers of their own, as in 38;2;r;g;b or 38;5;n, which are skipped
+// so a 2 or 0 inside a colour isn't read as dim or reset.
 func applyDim(dim bool, sgr string) bool {
 	params := strings.TrimSuffix(strings.TrimPrefix(sgr, "\x1b["), "m")
 	if params == "" {
 		return false
 	}
-	for code := range strings.SplitSeq(params, ";") {
-		switch n, _ := strconv.Atoi(code); n {
+	codes := strings.FieldsFunc(params, func(r rune) bool { return r == ';' || r == ':' })
+	for i := 0; i < len(codes); i++ {
+		switch n, _ := strconv.Atoi(codes[i]); n {
 		case 0, 22:
 			dim = false
 		case 2:
 			dim = true
+		case 38, 48, 58:
+			if i+1 < len(codes) && codes[i+1] == "5" {
+				i += 2
+			} else if i+1 < len(codes) && codes[i+1] == "2" {
+				i += 4
+			}
 		}
 	}
 	return dim
@@ -135,7 +146,7 @@ func Deliver(target, text, replace string, send bool) (Delivery, error) {
 	switch {
 	case !found:
 		return NoPrompt, nil
-	case typed != "" && typed != oneLine(replace):
+	case typed != "" && !sameText(typed, replace):
 		return Busy, nil
 	case typed != "":
 		if _, err := run("send-keys", "-t", target, "C-u"); err != nil {
@@ -147,17 +158,43 @@ func Deliver(target, text, replace string, send bool) (Delivery, error) {
 			return 0, err
 		}
 	}
-	if send && text != "" {
+	if send && text != "" && !commandLike(text) {
 		time.Sleep(enterAfter)
 		if _, err := run("send-keys", "-t", target, "Enter"); err != nil {
+			// Left in the prompt, the text would read as the user's own
+			// and block every later delivery.
+			_, _ = run("send-keys", "-t", target, "C-u")
 			return 0, err
 		}
 	}
 	return Delivered, nil
 }
 
-// Newlines would submit early, so text always goes in as one line.
-func oneLine(s string) string { return strings.Join(strings.Fields(s), " ") }
+// oneLine makes text safe to type: newlines would submit early, and control
+// characters would reach Claude as keys such as Escape or Ctrl+C.
+func oneLine(s string) string {
+	s = strings.Map(func(r rune) rune {
+		if unicode.IsControl(r) {
+			return ' '
+		}
+		return r
+	}, s)
+	return strings.Join(strings.Fields(s), " ")
+}
+
+// A leading / or ! makes Claude run a command or a shell line, so text like
+// that is typed in for the user to read but never sent on its own.
+func commandLike(text string) bool {
+	return strings.HasPrefix(text, "/") || strings.HasPrefix(text, "!")
+}
+
+// sameText compares a prompt as read off the screen with text deckk typed.
+// Claude wraps long words at the edge, and reading the lines back adds a
+// space there, so spacing is ignored.
+func sameText(screen, typed string) bool {
+	squash := func(s string) string { return strings.Join(strings.Fields(s), "") }
+	return squash(screen) == squash(oneLine(typed))
+}
 
 // tmux reads an argument ending in ; as the end of a command, even inside
 // send-keys -l, unless the ; is escaped.

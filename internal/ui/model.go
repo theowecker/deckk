@@ -78,7 +78,8 @@ type Model struct {
 	lastSeen    map[string]time.Time
 	deckk       deckkState
 	collisions  []deck.Collision
-	clashes     map[string]bool
+	clashes     map[string]map[string]bool
+	clashesSeen bool
 	web         Publisher
 	blurred     bool
 
@@ -105,7 +106,7 @@ func New(home string, since time.Time, st *store.Store, cfg *config.Config, host
 		home: home, since: since, store: st, cfg: cfg, host: host, filter: ti,
 		labels: map[string]tmux.Label{}, seen: map[string]bool{}, startedAt: time.Now(),
 		wasRunning: map[string]bool{}, closing: map[string]bool{}, lastSeen: map[string]time.Time{},
-		deckk: newDeckkState(), clashes: map[string]bool{},
+		deckk: newDeckkState(), clashes: map[string]map[string]bool{},
 	}
 }
 

@@ -39,3 +39,26 @@ func TestTmuxArgEscapesATrailingSemicolon(t *testing.T) {
 		t.Fatalf("got %q", got)
 	}
 }
+
+func TestColoursAreNotReadAsDim(t *testing.T) {
+	typed := rule + "\x1b[39m❯\u00a0\x1b[38;2;200;200;200mfix the cart\x1b[39m\n" + rule
+	if got, _ := promptText(typed); got != "fix the cart" {
+		t.Fatalf("truecolour text read as %q", got)
+	}
+	ghost := rule + "\x1b[39m❯\u00a0\x1b[2;38;5;0mtry this\x1b[0m\n" + rule
+	if got, _ := promptText(ghost); got != "" {
+		t.Fatalf("dim text with a colour read as %q", got)
+	}
+}
+
+func TestTextIsMadeSafeToType(t *testing.T) {
+	if got := oneLine("run\x1b the\x03 tests\n now"); got != "run the tests now" {
+		t.Fatalf("got %q", got)
+	}
+	if !commandLike("/exit") || !commandLike("!rm -rf x") || commandLike("run /tests") {
+		t.Fatal("commands are the ones starting with / or !")
+	}
+	if !sameText("https://example.com/a-very-long- path", "https://example.com/a-very-long-path") {
+		t.Fatal("a wrapped long word should still match")
+	}
+}

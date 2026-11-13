@@ -13,18 +13,28 @@ import (
 )
 
 // trackCollisions turns clashes the deckk session hasn't heard of into
-// events. Sharing a checkout is often on purpose, so only clashes count.
+// events. A pair is news when it first clashes and again only when it shares
+// a file it didn't before, so two sessions working on through a clash don't
+// cost a turn per refresh. Sharing a checkout is often on purpose, so only
+// clashes count, and the ones already there when deckk opens are known.
 func (m *Model) trackCollisions() []hq.Event {
 	now := time.Now()
-	current := map[string]bool{}
+	current := map[string]map[string]bool{}
 	var events []hq.Event
 	for _, c := range m.collisions {
 		if !c.Clash() {
 			continue
 		}
-		key := c.A.ID + c.B.ID + strings.Join(c.Files, ",")
-		current[key] = true
-		if !m.clashes[key] {
+		pair := c.A.ID + "+" + c.B.ID
+		known := m.clashes[pair]
+		files := map[string]bool{}
+		fresh := false
+		for _, f := range c.Files {
+			files[f] = true
+			fresh = fresh || !known[f]
+		}
+		current[pair] = files
+		if fresh && m.clashesSeen {
 			events = append(events, hq.Event{
 				At: now, Session: c.A.ID, Title: displayTitle(c.A),
 				Kind:   "edited the same files as " + displayTitle(c.B) + " [" + claude.ShortID(c.B.ID) + "]",
@@ -32,7 +42,7 @@ func (m *Model) trackCollisions() []hq.Event {
 			})
 		}
 	}
-	m.clashes = current
+	m.clashes, m.clashesSeen = current, true
 	return events
 }
 

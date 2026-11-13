@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strconv"
 	"time"
@@ -59,7 +60,14 @@ func Await(ctx context.Context, id string) (string, bool) {
 	}
 }
 
+// Question IDs end up in file names, so only ones deckk could have made are
+// accepted.
+var validID = regexp.MustCompile(`^[a-z0-9]{1,32}$`)
+
 func Answer(id, text string) error {
+	if !validID.MatchString(id) {
+		return fmt.Errorf("%q is not a question ID", id)
+	}
 	if _, err := os.Stat(questionPath(id)); errors.Is(err, fs.ErrNotExist) {
 		return fmt.Errorf("question %s is no longer waiting", id)
 	}
