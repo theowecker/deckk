@@ -24,8 +24,27 @@ type Store struct {
 	Running map[string]bool `json:"running"`
 	// Suggestions from the deckk session that were typed in or dismissed,
 	// by the time each suggestion was made, so neither happens twice.
-	Prefilled map[string]time.Time `json:"prefilled,omitempty"`
+	Prefilled map[string]Prefill   `json:"prefilled,omitempty"`
 	Dismissed map[string]time.Time `json:"dismissed,omitempty"`
+}
+
+// A Prefill is a suggestion deckk typed into a session's prompt. The text is
+// kept so deckk can tell its own words from the user's when it replaces or
+// withdraws them.
+type Prefill struct {
+	At   time.Time `json:"at"`
+	Text string    `json:"text"`
+}
+
+// The first version stored only the time, so a bare time still reads.
+func (p *Prefill) UnmarshalJSON(data []byte) error {
+	var at time.Time
+	if json.Unmarshal(data, &at) == nil {
+		*p = Prefill{At: at}
+		return nil
+	}
+	type plain Prefill
+	return json.Unmarshal(data, (*plain)(p))
 }
 
 func DefaultPath() string {
@@ -39,7 +58,7 @@ func DefaultPath() string {
 
 func Open(path string) (*Store, error) {
 	s := &Store{path: path, Pinned: map[string]bool{}, Archived: map[string]bool{}, Open: map[string]bool{}, Names: map[string]string{}, Closed: map[string]time.Time{}, Running: map[string]bool{},
-		Prefilled: map[string]time.Time{}, Dismissed: map[string]time.Time{}}
+		Prefilled: map[string]Prefill{}, Dismissed: map[string]time.Time{}}
 	data, err := os.ReadFile(path)
 	if errors.Is(err, fs.ErrNotExist) {
 		return s, nil
@@ -68,7 +87,7 @@ func Open(path string) (*Store, error) {
 		s.Running = map[string]bool{}
 	}
 	if s.Prefilled == nil {
-		s.Prefilled = map[string]time.Time{}
+		s.Prefilled = map[string]Prefill{}
 	}
 	if s.Dismissed == nil {
 		s.Dismissed = map[string]time.Time{}
@@ -141,9 +160,17 @@ func (s *Store) SetRunning(running map[string]bool) error {
 	return s.save()
 }
 
-func (s *Store) MarkPrefilled(id string, at time.Time) error {
-	s.Prefilled[id] = at
-	return s.saveSuggestions(at)
+func (s *Store) MarkPrefilled(id string, p Prefill) error {
+	s.Prefilled[id] = p
+	return s.saveSuggestions(p.At)
+}
+
+func (s *Store) ForgetPrefill(id string) error {
+	if _, ok := s.Prefilled[id]; !ok {
+		return nil
+	}
+	delete(s.Prefilled, id)
+	return s.save()
 }
 
 func (s *Store) Dismiss(id string, at time.Time) error {
@@ -156,9 +183,8 @@ func (s *Store) Dismiss(id string, at time.Time) error {
 const suggestionsFor = 7 * 24 * time.Hour
 
 func (s *Store) saveSuggestions(now time.Time) error {
-	for _, marks := range []map[string]time.Time{s.Prefilled, s.Dismissed} {
-		maps.DeleteFunc(marks, func(_ string, at time.Time) bool { return now.Sub(at) > suggestionsFor })
-	}
+	maps.DeleteFunc(s.Prefilled, func(_ string, p Prefill) bool { return now.Sub(p.At) > suggestionsFor })
+	maps.DeleteFunc(s.Dismissed, func(_ string, at time.Time) bool { return now.Sub(at) > suggestionsFor })
 	return s.save()
 }
 

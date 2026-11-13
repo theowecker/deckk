@@ -58,6 +58,7 @@ func run(args []string) error {
 	}
 	days := flags.Int("days", cfg.Days, "show sessions active in the last N days")
 	program := flags.String("terminal", "", "the $TERM_PROGRAM deckk was started from")
+	role := flags.String("role", hq.RoleChild, "which tools deckk mcp serves")
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
@@ -70,8 +71,7 @@ func run(args []string) error {
 	case "ls":
 		return list(*days)
 	case "mcp":
-		cwd, _ := os.Getwd()
-		return mcp.Serve(os.Stdin, os.Stdout, "deckk", version, hq.Tools(cwd))
+		return mcp.Serve(os.Stdin, os.Stdout, "deckk", version, hq.Tools(*role))
 	case "stop":
 		return tmux.Kill()
 	case "version":

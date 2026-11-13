@@ -34,9 +34,9 @@ type Host interface {
 	OpenHQ(focus bool) error
 	CloseHQ() error
 	HQPane() (tmux.Pane, bool, error)
-	// Deliver types text into a pane's prompt if nothing is typed there yet,
-	// and reports whether it did.
-	Deliver(target, text string, send bool) (bool, error)
+	// Deliver types text into a Claude prompt, given by pane ID or tty, if it
+	// is empty or still holds exactly replace.
+	Deliver(target, text, replace string, send bool) (tmux.Delivery, error)
 }
 
 type Model struct {
@@ -176,9 +176,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.trackWorkspace()
 			m.trackClosed()
 			m.trackSeen()
-			events := m.trackEvents()
+			m.recordEvents(m.trackEvents())
 			m.rearrange()
-			cmd = tea.Batch(m.syncLabels(), m.recordEvents(events), m.nudge(), m.prefill(), m.startDeckk())
+			cmd = tea.Batch(m.syncLabels(), m.nudge(), m.prefill(), m.startDeckk())
 		}
 		if msg.scheduled {
 			return m, tea.Batch(cmd, tick())
@@ -205,12 +205,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.deckkStarted(msg)
 		return m, nil
 
-	case nudgedMsg:
-		m.nudged(msg)
-		return m, nil
-
-	case prefilledMsg:
-		m.donePrefill(msg)
+	case deliveredMsg:
+		m.delivered(msg)
 		return m, nil
 
 	case pinTabMsg:

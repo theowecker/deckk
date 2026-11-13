@@ -50,7 +50,8 @@ func (m Model) updateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, m.openDeckk()
 	case "d":
 		if s, ok := m.selected(); ok {
-			m.dismiss(s)
+			cmd := m.dismiss(s)
+			return m, cmd
 		}
 	case "x":
 		if s, ok := m.selected(); ok {

@@ -1,6 +1,7 @@
 package hq
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -39,18 +40,23 @@ func Post(q Question) error {
 	return writeAtomic(questionPath(q.ID), data)
 }
 
-// Await polls for the deckk session's answer and cleans up either way.
-func Await(id string, timeout time.Duration) (string, bool) {
+// Await polls for the deckk session's answer until ctx ends, and cleans up
+// either way.
+func Await(ctx context.Context, id string) (string, bool) {
 	defer func() { _ = os.Remove(questionPath(id)) }()
-	deadline := time.Now().Add(timeout)
-	for time.Now().Before(deadline) {
+	tick := time.NewTicker(time.Second)
+	defer tick.Stop()
+	for {
 		if data, err := os.ReadFile(answerPath(id)); err == nil {
 			_ = os.Remove(answerPath(id))
 			return string(data), true
 		}
-		time.Sleep(time.Second)
+		select {
+		case <-ctx.Done():
+			return "", false
+		case <-tick.C:
+		}
 	}
-	return "", false
 }
 
 func Answer(id, text string) error {
@@ -76,12 +82,34 @@ func Questions() ([]Question, error) {
 			continue
 		}
 		var q Question
-		if json.Unmarshal(data, &q) == nil {
-			all = append(all, q)
+		if json.Unmarshal(data, &q) != nil || q.expired(time.Now()) {
+			_ = os.Remove(p)
+			continue
 		}
+		all = append(all, q)
 	}
+	sweepAnswers()
 	slices.SortFunc(all, func(a, b Question) int { return a.At.Compare(b.At) })
 	return all, nil
+}
+
+// A question outlives its asker only if that process was killed, and a note
+// nobody read in a day is old news.
+func (q Question) expired(now time.Time) bool {
+	if q.Wait {
+		return now.Sub(q.At) > askTimeout+time.Minute
+	}
+	return now.Sub(q.At) > 24*time.Hour
+}
+
+// Answers nobody collected belong to questions whose askers are gone.
+func sweepAnswers() {
+	paths, _ := filepath.Glob(filepath.Join(Dir(), "answers", "*.txt"))
+	for _, p := range paths {
+		if info, err := os.Stat(p); err == nil && time.Since(info.ModTime()) > askTimeout {
+			_ = os.Remove(p)
+		}
+	}
 }
 
 // Delivered removes notes once read; waiting questions stay until answered.

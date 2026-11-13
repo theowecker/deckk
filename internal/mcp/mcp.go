@@ -4,6 +4,7 @@ package mcp
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -11,16 +12,32 @@ import (
 )
 
 // Serve speaks MCP: one JSON-RPC message per line. Calls run concurrently,
-// so a tool may block for a long time without holding up the others.
+// so a tool may block for a long time without holding up the others. A
+// call's context ends when the client cancels it or the input closes.
 func Serve(in io.Reader, out io.Writer, name, version string, tools []Tool) error {
-	s := &server{out: out, tools: tools, name: name, version: version}
+	ctx, stop := context.WithCancel(context.Background())
+	defer stop()
+	s := &server{out: out, tools: tools, name: name, version: version, calls: map[string]context.CancelFunc{}}
 	scanner := bufio.NewScanner(in)
 	scanner.Buffer(make([]byte, 64<<10), 8<<20)
 	var wg sync.WaitGroup
 	for scanner.Scan() {
-		line := append([]byte(nil), scanner.Bytes()...)
-		wg.Go(func() { s.handle(line) })
+		var req request
+		if json.Unmarshal(scanner.Bytes(), &req) != nil {
+			continue
+		}
+		if req.ID == nil {
+			s.notified(req)
+			continue
+		}
+		callCtx, cancel := context.WithCancel(ctx)
+		s.track(string(req.ID), cancel)
+		wg.Go(func() {
+			defer s.untrack(string(req.ID))
+			s.handle(callCtx, req)
+		})
 	}
+	stop()
 	wg.Wait()
 	return scanner.Err()
 }
@@ -31,6 +48,7 @@ type server struct {
 	tools   []Tool
 	name    string
 	version string
+	calls   map[string]context.CancelFunc
 }
 
 type request struct {
@@ -44,25 +62,61 @@ type rpcError struct {
 	Message string `json:"message"`
 }
 
-func (s *server) handle(line []byte) {
-	var req request
-	if json.Unmarshal(line, &req) != nil || req.ID == nil {
+func (s *server) track(id string, cancel context.CancelFunc) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.calls[id] = cancel
+}
+
+func (s *server) untrack(id string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if cancel, ok := s.calls[id]; ok {
+		cancel()
+		delete(s.calls, id)
+	}
+}
+
+func (s *server) notified(req request) {
+	if req.Method != "notifications/cancelled" {
 		return
 	}
-	result, err := s.dispatch(req)
+	var p struct {
+		RequestID json.RawMessage `json:"requestId"`
+	}
+	if json.Unmarshal(req.Params, &p) == nil {
+		s.untrack(string(p.RequestID))
+	}
+}
+
+func (s *server) handle(ctx context.Context, req request) {
+	result, rerr := s.safeDispatch(ctx, req)
 	reply := map[string]any{"jsonrpc": "2.0", "id": req.ID}
-	if err != nil {
-		reply["error"] = err
+	if rerr != nil {
+		reply["error"] = rerr
 	} else {
 		reply["result"] = result
 	}
-	data, _ := json.Marshal(reply)
+	data, err := json.Marshal(reply)
+	if err != nil {
+		data, _ = json.Marshal(map[string]any{"jsonrpc": "2.0", "id": req.ID, "error": rpcError{-32603, err.Error()}})
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	_, _ = s.out.Write(append(data, '\n'))
 }
 
-func (s *server) dispatch(req request) (any, *rpcError) {
+// A panicking tool fails its own call, not every call in flight.
+func (s *server) safeDispatch(ctx context.Context, req request) (result any, rerr *rpcError) {
+	defer func() {
+		if r := recover(); r != nil {
+			result, rerr = nil, &rpcError{-32603, fmt.Sprint("internal error: ", r)}
+		}
+	}()
+	return s.dispatch(ctx, req)
+}
+
+func (s *server) dispatch(ctx context.Context, req request) (any, *rpcError) {
 	switch req.Method {
 	case "initialize":
 		var p struct {
@@ -97,7 +151,7 @@ func (s *server) dispatch(req request) (any, *rpcError) {
 			if t.Name == p.Name {
 				var a Args
 				_ = json.Unmarshal(p.Arguments, &a)
-				text, err := t.Run(a)
+				text, err := t.Run(ctx, a)
 				if err != nil {
 					return toolResult(err.Error(), true), nil
 				}
@@ -145,7 +199,7 @@ type Param struct {
 type Tool struct {
 	Name, Description string
 	Params            []Param
-	Run               func(Args) (string, error)
+	Run               func(context.Context, Args) (string, error)
 }
 
 func (t Tool) schema() map[string]any {

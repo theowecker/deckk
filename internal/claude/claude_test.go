@@ -3,6 +3,7 @@ package claude
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -141,5 +142,16 @@ func assertEqual(t *testing.T, what, got, want string) {
 	t.Helper()
 	if got != want {
 		t.Errorf("%s: got %q, want %q", what, got, want)
+	}
+}
+
+func TestProjectDirs(t *testing.T) {
+	got := ProjectDirs("/h", "/Users/me/dev/slow_down")
+	want := []string{"/h/projects/-Users-me-dev-slow_down", "/h/projects/-Users-me-dev-slow-down"}
+	if !slices.Equal(got, want) {
+		t.Fatalf("got %v", got)
+	}
+	if got := ProjectDirs("/h", "/Users/me/.config/deckk/hq"); len(got) != 1 || got[0] != "/h/projects/-Users-me--config-deckk-hq" {
+		t.Fatalf("got %v", got)
 	}
 }

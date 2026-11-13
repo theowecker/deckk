@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"errors"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -38,8 +39,7 @@ func refresh(t *testing.T, m Model, host *fakeHost, change func([]claude.Session
 	}
 	tm, cmd := m.Update(loadedMsg{sessions: sessions, windows: host.windows, started: time.Now(), deckk: m.snapshot()})
 	for _, msg := range run(cmd) {
-		switch msg.(type) {
-		case nudgedMsg, prefilledMsg:
+		if _, ok := msg.(deliveredMsg); ok {
 			tm, _ = tm.Update(msg)
 		}
 	}
@@ -114,7 +114,7 @@ func TestASuggestionIsTypedIntoAWaitingSessionOnce(t *testing.T) {
 	m = refresh(t, m, host, waiting)
 	suggestInside(t, hq.Suggestion{Prompt: "run the tests again", Why: "the API merged", At: time.Now(), Safe: true})
 	m = refresh(t, m, host, waiting)
-	if len(host.delivered) != 1 || host.delivered[0] != (delivery{"@1", "run the tests again", false}) {
+	if len(host.delivered) != 1 || host.delivered[0] != (typing{"/dev/ttys101", "run the tests again", "", false}) {
 		t.Fatalf("delivered %v", host.delivered)
 	}
 	if len(m.groups) == 0 || m.groups[0].Section != deck.NextUp || m.groups[0].Sessions[0].ID != "dddddddd" {
@@ -131,7 +131,7 @@ func TestASuggestionIsTypedIntoAWaitingSessionOnce(t *testing.T) {
 
 func TestASuggestionWaitsForAnEmptyPrompt(t *testing.T) {
 	m, host := newTestModel(t)
-	host.typed = "something of mine"
+	host.prompts = map[string]string{"/dev/ttys101": "something of mine"}
 	suggestInside(t, hq.Suggestion{Prompt: "run the tests", At: time.Now()})
 	m = refresh(t, m, host, waiting)
 	if len(host.delivered) != 0 || m.prefilled(*inside(m.sessions), m.deckk.suggestions["dddddddd"]) {
@@ -211,10 +211,13 @@ func TestDismissingASuggestion(t *testing.T) {
 func TestSessionsDeckkStartsCanAskIt(t *testing.T) {
 	m, host := newTestModel(t)
 	m.cfg.Ask = config.On
+	if err := hq.Setup("/bin/deckk"); err != nil {
+		t.Fatal(err)
+	}
 	m = selectID(m, "aaaaaaaa")
 	_, cmd := press(m, "enter")
 	run(cmd)
-	if len(host.opened) != 1 || !strings.Contains(host.opened[0], "--mcp-config "+filepath.Join(hq.Dir(), "mcp.json")) {
+	if len(host.opened) != 1 || !strings.Contains(host.opened[0], "--mcp-config="+filepath.Join(hq.Dir(), "mcp.json")) {
 		t.Fatalf("opened %v", host.opened)
 	}
 }
@@ -265,5 +268,76 @@ func TestAQuestionReachesTheDeckkSessionRightAway(t *testing.T) {
 	refresh(t, m, host, nil)
 	if len(host.delivered) != 1 {
 		t.Fatal("a question should only be passed on once")
+	}
+}
+
+func TestANewerSuggestionReplacesTheOneTypedIn(t *testing.T) {
+	m, host := newTestModel(t)
+	suggestInside(t, hq.Suggestion{Prompt: "run the tests", At: time.Now()})
+	m = refresh(t, m, host, waiting)
+	suggestInside(t, hq.Suggestion{Prompt: "open the PR", At: time.Now().Add(time.Second)})
+	refresh(t, m, host, waiting)
+	if len(host.delivered) != 2 || host.delivered[1].replace != "run the tests" || host.prompts["/dev/ttys101"] != "open the PR" {
+		t.Fatalf("delivered %v, prompt %q", host.delivered, host.prompts["/dev/ttys101"])
+	}
+}
+
+func TestAWithdrawnSuggestionIsTakenBackOut(t *testing.T) {
+	m, host := newTestModel(t)
+	suggestInside(t, hq.Suggestion{Prompt: "run the tests", At: time.Now()})
+	m = refresh(t, m, host, waiting)
+	if err := hq.ClearSuggestion("dddddddd"); err != nil {
+		t.Fatal(err)
+	}
+	m = refresh(t, m, host, waiting)
+	if host.prompts["/dev/ttys101"] != "" {
+		t.Fatalf("prompt still holds %q", host.prompts["/dev/ttys101"])
+	}
+	if _, kept := m.store.Prefilled["dddddddd"]; kept {
+		t.Fatal("a withdrawn suggestion should be forgotten")
+	}
+}
+
+func TestDismissingTakesTheSuggestionOutOfThePrompt(t *testing.T) {
+	m, host := newTestModel(t)
+	suggestInside(t, hq.Suggestion{Prompt: "run the tests", At: time.Now()})
+	m = refresh(t, m, host, waiting)
+	m = selectID(m, "dddddddd")
+	_, cmd := press(m, "d")
+	run(cmd)
+	if host.prompts["/dev/ttys101"] != "" {
+		t.Fatalf("prompt still holds %q", host.prompts["/dev/ttys101"])
+	}
+}
+
+func TestEditedSuggestionsAreLeftAlone(t *testing.T) {
+	m, host := newTestModel(t)
+	suggestInside(t, hq.Suggestion{Prompt: "run the tests", At: time.Now()})
+	m = refresh(t, m, host, waiting)
+	host.prompts["/dev/ttys101"] = "run the tests and the linter"
+	_ = hq.ClearSuggestion("dddddddd")
+	refresh(t, m, host, waiting)
+	if host.prompts["/dev/ttys101"] != "run the tests and the linter" {
+		t.Fatal("deckk should never clear text the user changed")
+	}
+}
+
+func TestAFailedDeliveryIsTriedAgain(t *testing.T) {
+	m, host := newTestModel(t)
+	suggestInside(t, hq.Suggestion{Prompt: "run the tests", At: time.Now()})
+	m.deckk.inflight["dddddddd"] = true
+	tm, _ := m.Update(deliveredMsg{delivery: delivery{key: "dddddddd"}, err: errors.New("pane gone")})
+	refresh(t, tm.(Model), host, waiting)
+	if len(host.delivered) != 1 {
+		t.Fatalf("a failed delivery should not block the next: %v", host.delivered)
+	}
+}
+
+func TestNoBacklogWhileUpdatesAreOff(t *testing.T) {
+	m, host := withDeckk(t)
+	m.cfg.Updates = config.Off
+	m = refresh(t, m, host, func(s []claude.Session) { inside(s).Status = "idle" })
+	if len(m.deckk.pending) != 0 {
+		t.Fatalf("pending %v", m.deckk.pending)
 	}
 }

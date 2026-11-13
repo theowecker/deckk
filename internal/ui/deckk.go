@@ -11,6 +11,7 @@ import (
 	"github.com/theowecker/deckk/internal/claude"
 	"github.com/theowecker/deckk/internal/deck"
 	"github.com/theowecker/deckk/internal/hq"
+	"github.com/theowecker/deckk/internal/store"
 	"github.com/theowecker/deckk/internal/tmux"
 )
 
@@ -62,6 +63,8 @@ func (m Model) snapshot() deckkSnapshot {
 const (
 	nudgeEvery    = 90 * time.Second
 	questionEvery = 15 * time.Second
+	// Past this the oldest news is dropped; read_inbox still has it.
+	maxPending = 30
 )
 
 // takeDeckk pulls the deckk session out of the list, since it isn't one of
@@ -114,26 +117,76 @@ func (m *Model) trackEvents() []hq.Event {
 		}
 	}
 	d.seeded = true
-	d.pending = append(d.pending, events...)
+	if m.cfg.Nudge() && d.open {
+		d.pending = append(d.pending, events...)
+		d.pending = d.pending[max(len(d.pending)-maxPending, 0):]
+	}
 	return events
 }
 
-func (m Model) recordEvents(events []hq.Event) tea.Cmd {
-	if len(events) == 0 || !m.cfg.HQOn() {
-		return nil
-	}
-	return func() tea.Msg {
+// recordEvents writes events as they happen, in order, for read_inbox.
+func (m *Model) recordEvents(events []hq.Event) {
+	if len(events) > 0 && m.cfg.HQOn() {
 		if err := hq.AppendEvents(events); err != nil {
-			return flashMsg{err: err}
+			m.setFlash("", err)
 		}
-		return nil
 	}
 }
 
-type nudgedMsg struct {
-	sent      bool
+// A delivery is text deckk types into a prompt: news for the deckk session,
+// or a suggestion for a session. Every one goes through deliver and
+// delivered, so none can be lost or sent twice.
+type delivery struct {
+	// key is nudgeKey or the ID of the session the suggestion is for.
+	key     string
+	target  string
+	text    string
+	replace string
+	send    bool
+
+	// What a delivery covers, for once it lands.
+	at        time.Time
 	events    int
 	questions []string
+}
+
+const nudgeKey = "deckk"
+
+type deliveredMsg struct {
+	delivery
+	result tmux.Delivery
+	err    error
+}
+
+func (m *Model) deliver(d delivery) tea.Cmd {
+	if m.deckk.inflight[d.key] {
+		return nil
+	}
+	m.deckk.inflight[d.key] = true
+	return func() tea.Msg {
+		result, err := m.host.Deliver(d.target, d.text, d.replace, d.send)
+		return deliveredMsg{d, result, err}
+	}
+}
+
+func (m *Model) delivered(msg deliveredMsg) {
+	delete(m.deckk.inflight, msg.key)
+	switch {
+	case msg.err != nil:
+		m.setFlash("", msg.err)
+	case msg.result != tmux.Delivered:
+	case msg.key == nudgeKey:
+		d := &m.deckk
+		d.nudgedAt = time.Now()
+		d.pending = d.pending[min(msg.events, len(d.pending)):]
+		for _, id := range msg.questions {
+			d.told[id] = true
+		}
+	case msg.text == "":
+		m.mark(m.store.ForgetPrefill(msg.key))
+	default:
+		m.mark(m.store.MarkPrefilled(msg.key, store.Prefill{At: msg.at, Text: msg.text}))
+	}
 }
 
 // nudge tells the deckk session there is news, when it is idle and nobody is
@@ -143,13 +196,17 @@ func (m *Model) nudge() tea.Cmd {
 	if !m.cfg.Nudge() || !d.open || !d.running || d.pane.Seen || deck.StateOf(d.session) != deck.YourTurn {
 		return nil
 	}
-	var asked []string
-	var lines []string
+	var asked, lines []string
 	for _, q := range d.questions {
-		if !d.told[q.ID] {
-			asked = append(asked, q.ID)
-			lines = append(lines, q.Title+" "+map[bool]string{true: "asks", false: "notes"}[q.Wait]+": "+clipText(q.Text, 120))
+		if d.told[q.ID] {
+			continue
 		}
+		verb := "notes"
+		if q.Wait {
+			verb = "asks"
+		}
+		asked = append(asked, q.ID)
+		lines = append(lines, q.Title+" "+verb+": "+clipText(q.Text, 120))
 	}
 	every := nudgeEvery
 	if len(asked) > 0 {
@@ -161,26 +218,11 @@ func (m *Model) nudge() tea.Cmd {
 	for _, e := range d.pending {
 		lines = append(lines, e.Title+" "+e.Kind)
 	}
-	text := "[deckk] " + clipText(strings.Join(lines, "; "), 400) + ". Check read_inbox."
-	d.nudgedAt = time.Now()
-	events, pane := len(d.pending), d.pane.ID
-	return func() tea.Msg {
-		sent, err := m.host.Deliver(pane, text, true)
-		if err != nil {
-			return flashMsg{err: err}
-		}
-		return nudgedMsg{sent: sent, events: events, questions: asked}
-	}
-}
-
-func (m *Model) nudged(msg nudgedMsg) {
-	if !msg.sent {
-		return
-	}
-	m.deckk.pending = m.deckk.pending[min(msg.events, len(m.deckk.pending)):]
-	for _, id := range msg.questions {
-		m.deckk.told[id] = true
-	}
+	return m.deliver(delivery{
+		key: nudgeKey, target: d.pane.ID, send: true,
+		text:   "[deckk] " + clipText(strings.Join(lines, "; "), 400) + ". Check read_inbox.",
+		events: len(d.pending), questions: asked,
+	})
 }
 
 // suggestion is the deckk session's current proposal for a session: made
@@ -197,18 +239,19 @@ func (m Model) suggestion(s claude.Session) (hq.Suggestion, bool) {
 }
 
 func (m Model) prefilled(s claude.Session, sg hq.Suggestion) bool {
-	at, ok := m.store.Prefilled[s.ID]
-	return ok && at.Equal(sg.At)
+	return m.store.Prefilled[s.ID].At.Equal(sg.At)
 }
 
-type prefilledMsg struct {
-	id   string
-	at   time.Time
-	done bool
+// typedIn is what deckk left in a session's prompt this turn, if anything.
+// Once the session takes another turn the text was sent or is the user's.
+func (m Model) typedIn(s claude.Session) (store.Prefill, bool) {
+	p, ok := m.store.Prefilled[s.ID]
+	return p, ok && deck.StateOf(s) == deck.YourTurn && !s.StatusAt.After(p.At)
 }
 
-// prefill types waiting suggestions into sessions nobody is looking at, so
-// the next prompt is ready when the user switches over.
+// prefill keeps each prompt nobody is looking at in step with the deckk
+// session: it types new suggestions in, replaces ones it typed earlier, and
+// takes back ones that were withdrawn or dismissed.
 func (m *Model) prefill() tea.Cmd {
 	if !m.cfg.Prefill() {
 		return nil
@@ -219,50 +262,49 @@ func (m *Model) prefill() tea.Cmd {
 	}
 	var cmds []tea.Cmd
 	for _, s := range m.sessions {
-		sg, ok := m.suggestion(s)
 		id, hosted := m.window(s)
-		if !ok || !hosted || active[id] || m.prefilled(s, sg) || m.deckk.inflight[s.ID] {
+		if !hosted || active[id] {
 			continue
 		}
-		cmds = append(cmds, m.deliver(s, id, sg, m.cfg.Send() && sg.Safe))
+		cmds = append(cmds, m.syncPrompt(s, m.cfg.Send()))
 	}
 	return tea.Batch(cmds...)
 }
 
-func (m *Model) deliver(s claude.Session, target string, sg hq.Suggestion, send bool) tea.Cmd {
-	m.deckk.inflight[s.ID] = true
-	id := s.ID
-	return func() tea.Msg {
-		done, err := m.host.Deliver(target, sg.Prompt, send)
-		if err != nil {
-			return flashMsg{err: err}
-		}
-		return prefilledMsg{id: id, at: sg.At, done: done}
+func (m *Model) syncPrompt(s claude.Session, maySend bool) tea.Cmd {
+	sg, suggested := m.suggestion(s)
+	prev, typed := m.typedIn(s)
+	switch {
+	case suggested && !m.prefilled(s, sg):
+		return m.deliver(delivery{key: s.ID, target: s.TTY, text: sg.Prompt, replace: prev.Text, send: maySend && sg.Safe, at: sg.At})
+	case !suggested && typed:
+		return m.deliver(delivery{key: s.ID, target: s.TTY, replace: prev.Text})
 	}
-}
-
-func (m *Model) donePrefill(msg prefilledMsg) {
-	delete(m.deckk.inflight, msg.id)
-	if msg.done {
-		m.mark(m.store.MarkPrefilled(msg.id, msg.at))
+	if _, kept := m.store.Prefilled[s.ID]; kept && !typed {
+		m.mark(m.store.ForgetPrefill(s.ID))
 	}
+	return nil
 }
 
 // openWithSuggestion fills in a waiting suggestion on the way into a session,
 // since opening it is the user choosing to see it.
 func (m *Model) openWithSuggestion(s claude.Session) tea.Cmd {
-	sg, ok := m.suggestion(s)
-	id, hosted := m.window(s)
-	if !ok || !hosted || !m.cfg.Prefill() || m.prefilled(s, sg) || m.deckk.inflight[s.ID] {
+	if _, hosted := m.window(s); !hosted || !m.cfg.Prefill() {
 		return m.open(s)
 	}
-	return tea.Sequence(m.deliver(s, id, sg, false), m.open(s))
+	return tea.Sequence(m.syncPrompt(s, false), m.open(s))
 }
 
-func (m *Model) dismiss(s claude.Session) {
-	if sg, ok := m.suggestion(s); ok {
-		m.mark(m.store.Dismiss(s.ID, sg.At))
+func (m *Model) dismiss(s claude.Session) tea.Cmd {
+	sg, ok := m.suggestion(s)
+	if !ok {
+		return nil
 	}
+	m.mark(m.store.Dismiss(s.ID, sg.At))
+	if _, hosted := m.window(s); hosted && m.cfg.Prefill() {
+		return m.syncPrompt(s, false)
+	}
+	return nil
 }
 
 // nextUp is the section at the top of the list: every session with a

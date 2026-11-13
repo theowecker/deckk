@@ -26,12 +26,11 @@ type fakeHost struct {
 
 	hqOpened, hqClosed int
 	hqPane             tmux.Pane
-	delivered          []delivery
-	// typed stands in for text the user has typed into every prompt.
-	typed     string
-	overwrite bool
-	labels    map[string]tmux.Label
-	tabKeys   []string
+	delivered          []typing
+	// prompts holds what each pane's prompt shows, by pane ID or tty.
+	prompts map[string]string
+	labels  map[string]tmux.Label
+	tabKeys []string
 }
 
 func (h *fakeHost) PopOut(id string) error    { h.popped = append(h.popped, id); return nil }
@@ -49,12 +48,19 @@ func (h *fakeHost) CloseHQ() error          { h.hqClosed++; return nil }
 
 func (h *fakeHost) HQPane() (tmux.Pane, bool, error) { return h.hqPane, h.hqPane.ID != "", nil }
 
-func (h *fakeHost) Deliver(target, text string, send bool) (bool, error) {
-	if h.typed != "" && !h.overwrite {
-		return false, nil
+func (h *fakeHost) Deliver(target, text, replace string, send bool) (tmux.Delivery, error) {
+	if h.prompts == nil {
+		h.prompts = map[string]string{}
 	}
-	h.delivered = append(h.delivered, delivery{target, text, send})
-	return true, nil
+	if typed := h.prompts[target]; typed != "" && typed != replace {
+		return tmux.Busy, nil
+	}
+	h.delivered = append(h.delivered, typing{target, text, replace, send})
+	h.prompts[target] = text
+	if send {
+		h.prompts[target] = ""
+	}
+	return tmux.Delivered, nil
 }
 
 func (h *fakeHost) SetTabKeys(preset string) error {
@@ -173,7 +179,7 @@ func selectID(m Model, id string) Model {
 	return m
 }
 
-type delivery struct {
-	target, text string
-	send         bool
+type typing struct {
+	target, text, replace string
+	send                  bool
 }

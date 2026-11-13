@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -32,25 +33,30 @@ func LoadSuggestions() (map[string]Suggestion, error) {
 	} else if err != nil {
 		return nil, err
 	}
-	return all, json.Unmarshal(data, &all)
+	if err := json.Unmarshal(data, &all); err != nil {
+		return nil, err
+	}
+	return all, nil
 }
 
+// The deckk session can call suggest several times at once.
 func Suggest(id string, sg Suggestion) error {
-	all, err := LoadSuggestions()
-	if err != nil {
-		return err
-	}
-	all[id] = sg
-	return saveSuggestions(all)
+	return changeSuggestions(func(all map[string]Suggestion) { all[id] = sg })
 }
 
 func ClearSuggestion(id string) error {
-	all, err := LoadSuggestions()
-	if err != nil {
-		return err
-	}
-	delete(all, id)
-	return saveSuggestions(all)
+	return changeSuggestions(func(all map[string]Suggestion) { delete(all, id) })
+}
+
+func changeSuggestions(change func(map[string]Suggestion)) error {
+	return locked(func() error {
+		all, err := LoadSuggestions()
+		if err != nil {
+			return err
+		}
+		change(all)
+		return saveSuggestions(all)
+	})
 }
 
 func saveSuggestions(all map[string]Suggestion) error {
@@ -94,9 +100,10 @@ func AppendEvents(events []Event) error {
 	if len(events) == 0 {
 		return nil
 	}
-	if err := os.MkdirAll(Dir(), 0o755); err != nil {
-		return err
-	}
+	return locked(func() error { return appendEvents(events) })
+}
+
+func appendEvents(events []Event) error {
 	f, err := os.OpenFile(path("inbox.jsonl"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 	if err != nil {
 		return err
@@ -146,6 +153,15 @@ func readInbox() ([]Event, error) {
 
 // Unread returns the events past the cursor and moves the cursor to the end.
 func Unread() ([]Event, error) {
+	var unread []Event
+	err := locked(func() (err error) {
+		unread, err = unreadEvents()
+		return err
+	})
+	return unread, err
+}
+
+func unreadEvents() ([]Event, error) {
 	events, err := readInbox()
 	if err != nil {
 		return nil, err
@@ -199,13 +215,45 @@ func WriteGoals(text string) error {
 	return writeAtomic(path("goals.md"), []byte(text))
 }
 
+// writeAtomic swaps in a whole new file, so a reader never sees half of one.
+// Each write gets its own temp file, so concurrent writers can't clash.
 func writeAtomic(name string, data []byte) error {
 	if err := os.MkdirAll(filepath.Dir(name), 0o755); err != nil {
 		return err
 	}
-	tmp := name + ".tmp"
-	if err := os.WriteFile(tmp, data, 0o644); err != nil {
+	tmp, err := os.CreateTemp(filepath.Dir(name), "."+filepath.Base(name)+".*")
+	if err != nil {
 		return err
 	}
-	return os.Rename(tmp, name)
+	if _, err := tmp.Write(data); err != nil {
+		_ = tmp.Close()
+		_ = os.Remove(tmp.Name())
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		_ = os.Remove(tmp.Name())
+		return err
+	}
+	if err := os.Chmod(tmp.Name(), 0o644); err != nil {
+		return err
+	}
+	return os.Rename(tmp.Name(), name)
+}
+
+// locked serializes read-modify-writes across every deckk process, since the
+// dashboard and several MCP servers share these files.
+func locked(fn func() error) error {
+	if err := os.MkdirAll(Dir(), 0o755); err != nil {
+		return err
+	}
+	f, err := os.OpenFile(path(".lock"), os.O_CREATE|os.O_RDWR, 0o644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX); err != nil {
+		return err
+	}
+	defer func() { _ = syscall.Flock(int(f.Fd()), syscall.LOCK_UN) }()
+	return fn()
 }

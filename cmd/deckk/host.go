@@ -86,11 +86,6 @@ func (host) CloseHQ() error { return tmux.CloseHQ() }
 
 func (host) HQPane() (tmux.Pane, bool, error) { return tmux.HQ() }
 
-// Deliver types text into a pane's prompt, only while nothing is typed there.
-func (host) Deliver(target, text string, send bool) (bool, error) {
-	empty, err := tmux.PromptIsEmpty(target)
-	if err != nil || !empty {
-		return false, err
-	}
-	return true, tmux.Type(target, text, send)
+func (host) Deliver(target, text, replace string, send bool) (tmux.Delivery, error) {
+	return tmux.Deliver(target, text, replace, send)
 }

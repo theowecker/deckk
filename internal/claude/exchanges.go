@@ -5,12 +5,30 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"regexp"
 )
 
 type Exchange struct {
 	Prompt string
 	Reply  string
 }
+
+// ProjectDirs are where Claude may keep transcripts for sessions started in
+// cwd: the path with separators and dots turned into dashes. Older versions
+// turned underscores into dashes too.
+func ProjectDirs(home, cwd string) []string {
+	current := filepath.Join(home, "projects", unsafeName.ReplaceAllString(cwd, "-"))
+	older := filepath.Join(home, "projects", notAlphanumeric.ReplaceAllString(cwd, "-"))
+	if current == older {
+		return []string{current}
+	}
+	return []string{current, older}
+}
+
+var (
+	unsafeName      = regexp.MustCompile(`[^A-Za-z0-9_-]`)
+	notAlphanumeric = regexp.MustCompile(`[^A-Za-z0-9-]`)
+)
 
 // TranscriptPath finds a session's transcript under any project folder.
 func TranscriptPath(home, id string) string {

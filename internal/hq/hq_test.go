@@ -1,6 +1,7 @@
 package hq
 
 import (
+	"context"
 	"os"
 	"strings"
 	"testing"
@@ -19,7 +20,9 @@ func TestAQuestionWaitsForItsAnswer(t *testing.T) {
 			t.Error(err)
 		}
 	}()
-	answer, ok := Await(q.ID, 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	answer, ok := Await(ctx, q.ID)
 	if !ok || answer != "open the PR" {
 		t.Fatalf("got %q %v", answer, ok)
 	}

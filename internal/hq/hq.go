@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/theowecker/deckk/internal/claude"
 	"github.com/theowecker/deckk/internal/config"
 )
 
@@ -39,29 +40,59 @@ func Setup(exe string) error {
 			return err
 		}
 	}
-	mcp, err := json.MarshalIndent(map[string]any{
-		"mcpServers": map[string]any{
-			"deckk": map[string]any{"type": "stdio", "command": exe, "args": []string{"mcp"}},
-		},
-	}, "", "  ")
-	if err != nil {
-		return err
+	for role, name := range map[string]string{RoleHQ: hqConfig, RoleChild: childConfig} {
+		mcp, err := json.MarshalIndent(map[string]any{
+			"mcpServers": map[string]any{
+				"deckk": map[string]any{"type": "stdio", "command": exe, "args": []string{"mcp", "--role", role}},
+			},
+		}, "", "  ")
+		if err != nil {
+			return err
+		}
+		if err := writeAtomic(path(name), mcp); err != nil {
+			return err
+		}
 	}
-	return os.WriteFile(path("mcp.json"), mcp, 0o644)
+	return nil
 }
 
-// ChildArgs give a session the tools to ask the deckk session what's next.
-// The same server serves both sides and picks tools by folder.
+const (
+	hqConfig    = "hq-mcp.json"
+	childConfig = "mcp.json"
+)
+
+// The = form matters: both flags take several values, so a bare value after
+// them would be read as one more.
+func mcpArgs(config string) []string {
+	return []string{"--mcp-config=" + path(config), "--allowedTools=mcp__deckk"}
+}
+
+// ChildArgs give a session the tools to ask the deckk session what's next,
+// once the deckk session has written their config.
 func ChildArgs() []string {
-	return []string{"--mcp-config", path("mcp.json"), "--allowedTools", "mcp__deckk"}
+	if _, err := os.Stat(path(childConfig)); err != nil {
+		return nil
+	}
+	return mcpArgs(childConfig)
 }
 
 // Command starts the deckk session, picking up its last conversation when
-// there is one. --continue fails when there is none, so it falls back.
+// there is one.
 func Command(cfg *config.Config) string {
-	args := ChildArgs()
-	resume := cfg.Claude(append([]string{"--continue"}, args...)...)
-	return resume + " || " + cfg.Claude(args...)
+	args := mcpArgs(hqConfig)
+	if hasConversation() {
+		args = append([]string{"--continue"}, args...)
+	}
+	return cfg.Claude(args...)
+}
+
+func hasConversation() bool {
+	for _, dir := range claude.ProjectDirs(claude.Home(), Dir()) {
+		if found, _ := filepath.Glob(filepath.Join(dir, "*.jsonl")); len(found) > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 const claudeMD = `@role.md
