@@ -3,6 +3,7 @@ package ui
 import (
 	"errors"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -36,6 +37,9 @@ type deckkState struct {
 	inflight map[string]bool
 
 	started, starting bool
+	// briefed is set once this dashboard has asked for, or skipped, the
+	// briefing on opening.
+	briefed bool
 }
 
 func newDeckkState() deckkState {
@@ -155,6 +159,7 @@ type delivery struct {
 	at        time.Time
 	events    int
 	questions []string
+	brief     bool
 }
 
 const nudgeKey = "deckk"
@@ -187,6 +192,10 @@ func (m *Model) delivered(msg deliveredMsg) {
 	case msg.key == nudgeKey:
 		d := &m.deckk
 		d.nudgedAt = time.Now()
+		if msg.brief {
+			d.briefed = true
+			m.mark(m.store.SetBriefed(d.nudgedAt))
+		}
 		d.pending = d.pending[min(msg.events, len(d.pending)):]
 		for _, id := range msg.questions {
 			d.told[id] = true
@@ -198,12 +207,24 @@ func (m *Model) delivered(msg deliveredMsg) {
 	}
 }
 
+// A briefing on opening deckk is worth a turn after a real break, not after
+// every relaunch.
+const briefEvery = 3 * time.Hour
+
 // nudge tells the deckk session there is news, when it is idle and nobody is
-// typing to it. It reads the details itself with read_inbox.
+// typing to it. It reads the details itself with read_inbox. The first nudge
+// after a break asks it to brief the user instead.
 func (m *Model) nudge() tea.Cmd {
 	d := &m.deckk
 	if !m.cfg.Nudge() || !d.open || !d.running || d.pane.Seen || deck.StateOf(d.session) != deck.YourTurn {
 		return nil
+	}
+	if !d.briefed {
+		if time.Since(m.store.Briefed) < briefEvery {
+			d.briefed = true
+		} else {
+			return m.deliver(delivery{key: nudgeKey, target: d.pane.ID, send: true, text: m.briefing(), events: len(d.pending), brief: true})
+		}
 	}
 	var asked, lines []string
 	for _, q := range d.questions {
@@ -232,6 +253,28 @@ func (m *Model) nudge() tea.Cmd {
 		text:   "[deckk] " + clipText(strings.Join(lines, "; "), 400) + ". Check read_inbox.",
 		events: len(d.pending), questions: asked,
 	})
+}
+
+func (m Model) briefing() string {
+	waiting := 0
+	for _, s := range m.sessions {
+		if deck.StateOf(s) == deck.YourTurn && !s.Background {
+			waiting++
+		}
+	}
+	facts := []string{sessions(waiting) + " waiting on the user"}
+	if closed := len(deck.ToRestore(m.sessions, m.marks())); closed > 0 {
+		facts = append(facts, sessions(closed)+" closed since last time")
+	}
+	switch clashes := len(m.clashBanner()); clashes {
+	case 0:
+	case 1:
+		facts = append(facts, "1 clash over the same files")
+	default:
+		facts = append(facts, strconv.Itoa(clashes)+" clashes over the same files")
+	}
+	return "[deckk] Briefing: the user just opened deckk. " + strings.Join(facts, ", ") +
+		". Give them a short briefing and suggest or propose where the next step is clear."
 }
 
 // suggestion is the deckk session's current proposal for a session: the

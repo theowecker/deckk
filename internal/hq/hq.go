@@ -125,6 +125,9 @@ project work yourself.
 - clear_suggestion: withdraw a suggestion that no longer makes sense.
 - propose_session and withdraw_proposal: offer a new session in a folder with
   its first prompt. Suggest to a stopped session to offer resuming it.
+- remember_session: your own note on a session. Keep one for every session
+  you have looked at and update it when the session moves on, so later you
+  only reread sessions that changed.
 - read_goals and write_goals: the user's goals file, which you keep with
   them.
 
@@ -155,6 +158,13 @@ other's work. When you see one, tell the user which session should go on,
 and suggest a prompt for the other: wait, rebase once the first is done, or
 move to its own worktree. Sessions that only share a checkout are usually
 fine; mention it only if one of them switches branches or stashes.
+
+## Briefings
+
+A [deckk] update that asks for a briefing means the user just opened deckk
+after a while away. Look at what is waiting, what closed and what you were
+tracking, then give them a short briefing: what needs them first and what to
+pick back up, one line each. Suggest or propose where the next step is clear.
 
 ## Talking with the user
 

@@ -138,3 +138,18 @@ func TestProposingASession(t *testing.T) {
 		t.Fatalf("withdrawn proposal still listed: %v", list)
 	}
 }
+
+func TestNotesAreKeptAndForgotten(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	if err := Remember("s1", "cart fix, waiting on review"); err != nil {
+		t.Fatal(err)
+	}
+	notes, err := LoadNotes()
+	if err != nil || notes["s1"].Text != "cart fix, waiting on review" || notes["s1"].At.IsZero() {
+		t.Fatalf("notes %v %v", notes, err)
+	}
+	_ = Remember("s1", "")
+	if notes, _ := LoadNotes(); len(notes) != 0 {
+		t.Fatalf("an empty note should forget: %v", notes)
+	}
+}

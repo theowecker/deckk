@@ -78,6 +78,11 @@ It also works on its own:
 - When two running sessions edit the same files, deckk warns you above the
   list and on both tabs, and tells the deckk session so it can suggest which
   one should wait.
+- When you open deckk after a few hours away, it asks the deckk session for a
+  short briefing on what's waiting and what to pick back up.
+
+It keeps a short note on each session it has looked at, so it only rereads
+sessions that moved since.
 - Sessions deckk starts can ask it what to do next with an `ask_deckk` tool,
   and wait for its answer, or leave it a note with `tell_deckk`.
 

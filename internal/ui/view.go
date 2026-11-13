@@ -301,7 +301,7 @@ func (m Model) body() ([]string, []int) {
 	}
 	if m.view == sessionsView {
 		if n := len(deck.ToRestore(m.sessions, m.marks())); n > 0 {
-			add(pad()+accent.Render("↻ ")+text.Render(plural(n, "session")+" to bring back")+
+			add(pad()+accent.Render("↻ ")+text.Render(sessions(n)+" to bring back")+
 				"   "+text.Render("R")+" "+ghost.Render("reopen all"), restoreOwner)
 			add("", noOwner)
 		}
@@ -650,11 +650,11 @@ func helpBody(frame int) ([]string, []int) {
 	return lines, owners
 }
 
-func plural(n int, word string) string {
+func sessions(n int) string {
 	if n == 1 {
-		return "1 " + word
+		return "1 session"
 	}
-	return fmt.Sprintf("%d %ss", n, word)
+	return fmt.Sprintf("%d sessions", n)
 }
 
 func displayTitle(s claude.Session) string {

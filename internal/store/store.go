@@ -26,6 +26,8 @@ type Store struct {
 	// by the time each suggestion was made, so neither happens twice.
 	Prefilled map[string]Prefill   `json:"prefilled,omitempty"`
 	Dismissed map[string]time.Time `json:"dismissed,omitempty"`
+	// Briefed is when the deckk session last briefed the user on opening.
+	Briefed time.Time `json:"briefed,omitzero"`
 }
 
 // A Prefill is a suggestion deckk typed into a session's prompt. The text is
@@ -163,6 +165,11 @@ func (s *Store) SetRunning(running map[string]bool) error {
 func (s *Store) MarkPrefilled(id string, p Prefill) error {
 	s.Prefilled[id] = p
 	return s.saveSuggestions(p.At)
+}
+
+func (s *Store) SetBriefed(at time.Time) error {
+	s.Briefed = at
+	return s.save()
 }
 
 func (s *Store) ForgetPrefill(id string) error {

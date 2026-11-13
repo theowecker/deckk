@@ -57,6 +57,19 @@ func parentTools() []mcp.Tool {
 			Run:         ignoringContext(readSession),
 		},
 		{
+			Name: "remember_session",
+			Description: "Keep a note about a session: what it is for and where it stands, in a sentence or two. list_sessions shows your note and whether the session moved since, " +
+				"so you only reread sessions that changed. An empty note forgets it.",
+			Params: []mcp.Param{sessionParam, {Name: "note", Kind: "string", Description: "What the session is for and where it stands", Required: true}},
+			Run: ignoringContext(func(a mcp.Args) (string, error) {
+				id, err := resolve(a.String("session"))
+				if err != nil {
+					return "", err
+				}
+				return "Noted.", Remember(id, strings.Join(strings.Fields(a.String("note")), " "))
+			}),
+		},
+		{
 			Name:        "read_inbox",
 			Description: "What changed since you last looked: sessions that finished a turn, opened a PR or closed, notes sessions left you, and questions sessions are waiting on you to answer.",
 			Run:         ignoringContext(inboxTool),
@@ -219,6 +232,7 @@ func listSessions(a mcp.Args) (string, error) {
 		return "", err
 	}
 	suggestions, _ := LoadSuggestions()
+	notes, _ := LoadNotes()
 	where := windows()
 	now := time.Now()
 	sessions = slices.DeleteFunc(sessions, func(s claude.Session) bool {
@@ -232,11 +246,22 @@ func listSessions(a mcp.Args) (string, error) {
 	}
 	for _, s := range sessions {
 		fmt.Fprintf(&b, "- [%s] %s\n  %s\n", claude.ShortID(s.ID), s.Title, describe(s, where, now))
-		if s.LastPrompt != "" {
-			fmt.Fprintf(&b, "  last prompt: %s\n", clip(s.LastPrompt, 200))
+		note, noted := notes[s.ID]
+		if noted {
+			moved := "unchanged since"
+			if s.UpdatedAt.After(note.At) {
+				moved = "moved on since"
+			}
+			fmt.Fprintf(&b, "  your note (%s): %s\n", moved, note.Text)
 		}
-		if s.LastReply != "" {
-			fmt.Fprintf(&b, "  last reply: %s\n", clip(s.LastReply, 300))
+		// A note on a session that hasn't moved already says what matters.
+		if !noted || s.UpdatedAt.After(note.At) {
+			if s.LastPrompt != "" {
+				fmt.Fprintf(&b, "  last prompt: %s\n", clip(s.LastPrompt, 200))
+			}
+			if s.LastReply != "" {
+				fmt.Fprintf(&b, "  last reply: %s\n", clip(s.LastReply, 300))
+			}
 		}
 		for _, c := range deck.CollisionsOf(collisions, s.ID) {
 			other := c.Other(s.ID)

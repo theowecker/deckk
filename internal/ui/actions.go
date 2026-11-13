@@ -176,7 +176,7 @@ func (m Model) popAll() tea.Cmd {
 			}
 		}
 		return nil
-	}, fmt.Sprintf("Gave %s its own tab. M brings them all back", plural(len(ids), "session")))
+	}, fmt.Sprintf("Gave %s its own tab. M brings them all back", sessions(len(ids))))
 }
 
 func (m Model) popOut(s claude.Session) tea.Cmd {

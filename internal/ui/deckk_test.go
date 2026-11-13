@@ -20,6 +20,9 @@ func withDeckk(t *testing.T) (Model, *fakeHost) {
 	t.Helper()
 	m, host := newTestModel(t)
 	host.hqPane = tmux.Pane{ID: "%9", Role: "hq"}
+	if err := m.store.SetBriefed(time.Now()); err != nil {
+		t.Fatal(err)
+	}
 	return m, host
 }
 
@@ -354,3 +357,27 @@ func TestNoBacklogWhileUpdatesAreOff(t *testing.T) {
 }
 
 func tmuxWindow(id, tty string) tmux.Window { return tmux.Window{ID: id, TTY: tty, Session: "deckk"} }
+
+func TestOpeningDeckkAfterABreakAsksForABriefingOnce(t *testing.T) {
+	m, host := withDeckk(t)
+	if err := m.store.SetBriefed(time.Now().Add(-5 * time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	m = load(t, m, host, append(slices.Clone(m.sessions), deckkSession()))
+	if len(host.delivered) != 1 || !strings.Contains(host.delivered[0].text, "[deckk] Briefing") || !host.delivered[0].send {
+		t.Fatalf("delivered %v", host.delivered)
+	}
+	m.deckk.nudgedAt = time.Time{}
+	refresh(t, m, host, nil)
+	if len(host.delivered) != 1 {
+		t.Fatalf("briefed twice: %v", host.delivered)
+	}
+}
+
+func TestNoBriefingRightAfterTheLastOne(t *testing.T) {
+	m, host := withDeckk(t)
+	load(t, m, host, append(slices.Clone(m.sessions), deckkSession()))
+	if len(host.delivered) != 0 {
+		t.Fatalf("delivered %v", host.delivered)
+	}
+}
