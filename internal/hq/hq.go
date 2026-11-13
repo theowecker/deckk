@@ -97,13 +97,18 @@ func ChildArgs() []string {
 }
 
 // Command starts the deckk session, picking up its last conversation when
-// there is one.
-func Command(cfg *config.Config) string {
+// there is one. Until Claude Code trusts the folder, deckk explains it
+// first, since Claude's question comes with no context of its own.
+func Command(cfg *config.Config, exe string) string {
 	args := mcpArgs(hqConfig)
 	if hasConversation() {
 		args = append([]string{"--continue"}, args...)
 	}
-	return cfg.Claude(args...)
+	start := cfg.Claude(args...)
+	if claude.Trusted(Dir()) {
+		return start
+	}
+	return "'" + strings.ReplaceAll(exe, "'", `'\''`) + "' intro && " + start
 }
 
 func hasConversation() bool {

@@ -77,3 +77,21 @@ func settingIndex(t *testing.T, key string) int {
 	t.Fatalf("no setting %s", key)
 	return 0
 }
+
+func TestAConfigChangedElsewhereIsPickedUp(t *testing.T) {
+	m, host := newTestModel(t)
+	other, err := config.Load(m.cfg.Path())
+	if err != nil {
+		t.Fatal(err)
+	}
+	other.HQ = config.Off
+	time.Sleep(10 * time.Millisecond)
+	if err := other.Save(); err != nil {
+		t.Fatal(err)
+	}
+	m.loadedAt = time.Now().Add(-time.Second)
+	tm, _ := m.Update(loadedMsg{sessions: m.sessions, windows: host.windows, started: time.Now(), cfg: m.changedConfig()})
+	if tm.(Model).cfg.HQOn() {
+		t.Fatal("the dashboard should see the deckk session turned off")
+	}
+}

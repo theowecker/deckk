@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/theowecker/deckk/internal/config"
 	"github.com/theowecker/deckk/internal/mcp"
 )
 
@@ -208,5 +209,41 @@ func TestBrokenSettingsDontKeepTheDeckkSessionClosed(t *testing.T) {
 		if _, err := os.Stat(filepath.Join(Dir(), "hq-mcp.json")); err != nil {
 			t.Fatalf("settings %q: tool config missing", broken)
 		}
+	}
+}
+
+func TestTheIntroCanTurnTheDeckkSessionOff(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	cfg, err := config.Load(config.DefaultPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out strings.Builder
+	if !Intro(strings.NewReader("\n"), &out, cfg) || !strings.Contains(out.String(), "trust that folder") {
+		t.Fatalf("Enter should go on: %q", out.String())
+	}
+	if Intro(strings.NewReader("n\n"), &out, cfg) {
+		t.Fatal("n should not go on")
+	}
+	saved, _ := config.Load(config.DefaultPath())
+	if saved.HQOn() {
+		t.Fatal("n should turn the deckk session off for good")
+	}
+}
+
+func TestTheIntroComesFirstUntilTheFolderIsTrusted(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	home := t.TempDir()
+	t.Setenv("CLAUDE_CONFIG_DIR", home)
+	cfg, _ := config.Load(config.DefaultPath())
+	if cmd := Command(cfg, "/bin/deckk"); !strings.HasPrefix(cmd, "'/bin/deckk' intro && claude") {
+		t.Fatalf("untrusted: %s", cmd)
+	}
+	trust := `{"projects":{"` + Dir() + `":{"hasTrustDialogAccepted":true}}}`
+	if err := os.WriteFile(filepath.Join(home, ".claude.json"), []byte(trust), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if cmd := Command(cfg, "/bin/deckk"); strings.Contains(cmd, "intro") {
+		t.Fatalf("trusted: %s", cmd)
 	}
 }

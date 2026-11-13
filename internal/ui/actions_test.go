@@ -611,3 +611,18 @@ func TestTypingIntoTheListDoesntTriggerShortcuts(t *testing.T) {
 		t.Fatal("a key on its own is a shortcut again")
 	}
 }
+
+func TestFindPutsYourSessionsBeforeBackgroundRuns(t *testing.T) {
+	m, _ := newTestModel(t)
+	now := time.Now()
+	for i := range 8 {
+		m.sessions = append(m.sessions, claude.Session{ID: fmt.Sprintf("bg%d", i), Title: "Analyze the PR data from stdin", Cwd: "/x", Background: true, UpdatedAt: now.Add(time.Minute)})
+	}
+	m, _ = press(m, "/")
+	if len(m.groups) != 2 || m.groups[0].Title != "LATEST" || m.groups[1].Title != "BACKGROUND" {
+		t.Fatalf("groups %v", m.groups)
+	}
+	if m.flat[0].Background || len(m.groups[1].Sessions) != backgroundShown || m.groups[1].Hidden != 3 {
+		t.Fatalf("your sessions should come first and background runs few: %+v", m.groups[1])
+	}
+}

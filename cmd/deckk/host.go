@@ -66,7 +66,11 @@ func (h host) OpenHQ(focus bool) error {
 		return err
 	}
 	if focus {
-		return tmux.OpenHQ(hq.Dir(), hq.Command(h.cfg), true)
+		exe, err := os.Executable()
+		if err != nil {
+			return err
+		}
+		return tmux.OpenHQ(hq.Dir(), hq.Command(h.cfg, exe), true)
 	}
 	return nil
 }
@@ -79,7 +83,7 @@ func openHQ(cfg *config.Config) error {
 	if err := hq.Setup(exe); err != nil {
 		return err
 	}
-	return tmux.OpenHQ(hq.Dir(), hq.Command(cfg), false)
+	return tmux.OpenHQ(hq.Dir(), hq.Command(cfg, exe), false)
 }
 
 func (host) CloseHQ() error { return tmux.CloseHQ() }

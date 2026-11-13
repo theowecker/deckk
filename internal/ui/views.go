@@ -29,6 +29,9 @@ const (
 
 const findLimit = 100
 
+// Background runs Find shows before + shows them all.
+const backgroundShown = 5
+
 func (v view) next() view { return (v + 1) % viewCount }
 func (v view) prev() view { return (v + viewCount - 1) % viewCount }
 
@@ -67,32 +70,54 @@ func (m Model) findEverything() tea.Cmd {
 	}
 }
 
+// findResults lists your own sessions first and background runs after,
+// a few at a time, since a tool that calls claude -p can leave hundreds of
+// them that would bury the session you came to resume.
 func (m Model) findResults() []deck.Group {
 	pool := m.everything
 	if pool == nil {
 		pool = m.sessions
 	}
 	query := m.filter.Value()
-	var found []claude.Session
+	var yours, background []claude.Session
 	for _, s := range pool {
-		if deck.Matches(s, query) {
-			found = append(found, s)
+		switch {
+		case !deck.Matches(s, query):
+		case s.Background:
+			background = append(background, s)
+		default:
+			yours = append(yours, s)
 		}
 	}
-	slices.SortFunc(found, func(a, b claude.Session) int {
+	newest := func(a, b claude.Session) int {
 		return cmp.Or(b.UpdatedAt.Compare(a.UpdatedAt), strings.Compare(a.ID, b.ID))
-	})
-	g := deck.Group{Section: deck.Recent, Title: "RESULTS", Sessions: found}
-	if query == "" {
-		g.Title = "LATEST"
 	}
-	if len(found) > findLimit {
-		g.Sessions, g.Hidden = found[:findLimit], len(found)-findLimit
+	slices.SortFunc(yours, newest)
+	slices.SortFunc(background, newest)
+
+	var groups []deck.Group
+	if len(yours) > 0 {
+		g := deck.Group{Section: deck.Recent, Title: "RESULTS", Sessions: yours}
+		if query == "" {
+			g.Title = "LATEST"
+		}
+		if len(yours) > findLimit {
+			g.Sessions, g.Hidden = yours[:findLimit], len(yours)-findLimit
+		}
+		groups = append(groups, g)
 	}
-	if len(found) == 0 {
-		return nil
+	if len(background) > 0 {
+		limit := backgroundShown
+		if m.showAll || len(yours) == 0 {
+			limit = findLimit
+		}
+		g := deck.Group{Section: deck.Recent, Title: "BACKGROUND", Sessions: background}
+		if len(background) > limit {
+			g.Sessions, g.Hidden = background[:limit], len(background)-limit
+		}
+		groups = append(groups, g)
 	}
-	return []deck.Group{g}
+	return groups
 }
 
 func (m Model) updateFind(msg tea.KeyMsg) (tea.Model, tea.Cmd) {

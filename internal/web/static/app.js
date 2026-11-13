@@ -111,11 +111,11 @@ function renderNext(next) {
   const head = [el("h2", { id: "next-title" }, "Next up")];
   if (!next.length) {
     $("next").replaceChildren(...head, el("p", { class: "lede" },
-      "Nothing suggested right now. Ask the deckk session what to do next; press c in deckk."));
+      "Nothing suggested right now. Ask deckk what to do next; press c in deckk."));
     return;
   }
   $("next").replaceChildren(...head,
-    el("p", { class: "lede" }, "What the deckk session thinks you'd say next. Opening one puts the prompt in place for you to send."),
+    el("p", { class: "lede" }, "What deckk suggests."),
     el("div", { class: "card" }, next.map((n) => {
       const kind = n.kind === "suggestion" && n.ready ? "ready" : n.kind;
       const [start, starting] = { proposal: ["Start", "Starting"], resume: ["Resume", "Resuming"] }[n.kind] || ["Open", "Opening"];

@@ -74,6 +74,11 @@ func run(args []string) error {
 		return dashboard(*days, cfg, *program)
 	case "ls":
 		return list(*days)
+	case "intro":
+		if !hq.Intro(os.Stdin, os.Stdout, cfg) {
+			os.Exit(1)
+		}
+		return nil
 	case "mcp":
 		return mcp.Serve(os.Stdin, os.Stdout, "deckk", version, hq.Tools(*role))
 	case "stop":

@@ -2,6 +2,7 @@ package ui
 
 import (
 	"maps"
+	"os"
 	"time"
 
 	"github.com/charmbracelet/bubbles/textinput"
@@ -121,6 +122,9 @@ type loadedMsg struct {
 	started   time.Time
 	deckk     deckkSnapshot
 	edits     map[string][]string
+	// cfg is the config file again when something else changed it, such as
+	// the deckk session's intro turning the session off.
+	cfg *config.Config
 }
 
 type labelsSetMsg map[string]tmux.Label
@@ -147,7 +151,7 @@ func (m Model) load(scheduled bool) tea.Cmd {
 			return loadedMsg{err: err, scheduled: scheduled, started: started}
 		}
 		windows, err := m.host.Windows()
-		return loadedMsg{sessions, windows, err, scheduled, started, m.snapshot(), claude.EditsOf(sessions)}
+		return loadedMsg{sessions, windows, err, scheduled, started, m.snapshot(), claude.EditsOf(sessions), m.changedConfig()}
 	}
 }
 
@@ -178,6 +182,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.flash, m.flashErr = "", false
 			}
 			m.loadedAt = msg.started
+			if msg.cfg != nil {
+				*m.cfg = *msg.cfg
+			}
 			m.sessions = m.takeDeckk(msg.sessions, msg.deckk)
 			m.store.ApplyNames(m.sessions)
 			m.windows, m.popped = byTTY(msg.windows)
@@ -487,4 +494,19 @@ func (m Model) selected() (claude.Session, bool) {
 		return claude.Session{}, false
 	}
 	return m.flat[m.cursor], true
+}
+
+// changedConfig reloads the config file when it is newer than the last
+// refresh, so a change made outside the dashboard isn't overwritten by the
+// dashboard's next save.
+func (m Model) changedConfig() *config.Config {
+	info, err := os.Stat(m.cfg.Path())
+	if err != nil || !info.ModTime().After(m.loadedAt) {
+		return nil
+	}
+	fresh, err := config.Load(m.cfg.Path())
+	if err != nil {
+		return nil
+	}
+	return fresh
 }
