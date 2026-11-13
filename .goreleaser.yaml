@@ -41,6 +41,7 @@ homebrew_casks:
     license: MIT
     dependencies:
       - formula: tmux
+      - formula: terminal-notifier
     hooks:
       post:
         # The binary is unsigned, so Gatekeeper would refuse to run it.

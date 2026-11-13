@@ -80,7 +80,7 @@ just type: keys go to Claude whether or not you've scrolled back.
 - **Status.** Each session shows whether Claude is working or waiting on you,
   and for how long. A session that finished while you were elsewhere is marked
   new until you open it, and macOS tells you, at most once a minute for each
-  session.
+  session. Click the notification to go straight to that session.
 - **Context.** The selected row shows your last prompt, Claude's latest reply
   and any pull request it opened. Under the tab strip, each tab shows how long
   it has been working or waiting, its folder, branch, uncommitted changes,

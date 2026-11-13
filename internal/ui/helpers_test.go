@@ -46,7 +46,7 @@ func (h *fakeHost) MoveAfter(id, after string) error {
 
 func (h *fakeHost) Focus(string) error { return nil }
 
-func (h *fakeHost) Notify(title, subtitle, body string) error {
+func (h *fakeHost) Notify(_, title, subtitle, body string) error {
 	h.notes = append(h.notes, title+" | "+subtitle+" | "+body)
 	return nil
 }

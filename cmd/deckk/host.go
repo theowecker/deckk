@@ -87,7 +87,13 @@ func openHQ(cfg *config.Config) error {
 
 func (host) CloseHQ() error { return tmux.CloseHQ() }
 
-func (host) Notify(title, subtitle, body string) error { return terminal.Notify(title, subtitle, body) }
+func (h host) Notify(id, title, subtitle, body string) error {
+	n := terminal.Notification{Title: title, Subtitle: subtitle, Body: body, Group: "deckk-" + id}
+	if exe, err := os.Executable(); err == nil {
+		n.OnClick = shellQuote(exe) + " focus " + id
+	}
+	return h.app.Notify(n)
+}
 
 func (host) HQPane() (tmux.Pane, bool, error) { return tmux.HQ() }
 

@@ -40,6 +40,7 @@ Usage:
   deckk [--days N]    open deckk, or reattach if it is already running
   deckk ls            list sessions
   deckk stop          close deckk and every session running inside it
+  deckk focus ID      switch to a running session, wherever its tab is
   deckk version
 
 Inside deckk, Ctrl+Space switches between the dashboard and your last session.
@@ -87,6 +88,8 @@ func run(args []string) error {
 		return mcp.Serve(os.Stdin, os.Stdout, "deckk", version, hq.Tools(*role))
 	case "stop":
 		return tmux.Kill()
+	case "focus":
+		return focus(flags.Arg(0))
 	case "version":
 		fmt.Println(version)
 		return nil
@@ -341,4 +344,35 @@ func mentioning(sessions []claude.Session, query string) []claude.Session {
 		return nil
 	}
 	return slices.DeleteFunc(slices.Clone(sessions), func(s claude.Session) bool { return !found[s.Path] })
+}
+
+func focus(id string) error {
+	if !claude.IsSessionID(id) {
+		return errors.New("focus needs a session ID")
+	}
+	sessions, err := claude.Load(claude.Home(), time.Now().AddDate(0, 0, -30), nil)
+	if err != nil {
+		return err
+	}
+	i := slices.IndexFunc(sessions, func(s claude.Session) bool { return s.ID == id && s.Running() })
+	if i < 0 {
+		return errors.New("that session isn't running")
+	}
+	tty := sessions[i].TTY
+	windows, _ := tmux.Windows()
+	for _, w := range windows {
+		if w.TTY != tty || tty == "" {
+			continue
+		}
+		if w.Session == tmux.Session {
+			if err := tmux.Select(w.ID); err != nil {
+				return err
+			}
+		}
+		if w.ClientTTY != "" {
+			return terminal.Focus(w.ClientTTY)
+		}
+		return nil
+	}
+	return terminal.Focus(tty)
 }

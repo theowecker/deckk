@@ -31,7 +31,7 @@ func (m *Model) notify(events []hq.Event) tea.Cmd {
 			body = "Claude finished in " + s.Project()
 		}
 		cmds = append(cmds, func() tea.Msg {
-			if err := m.host.Notify(title, s.Project(), body); err != nil {
+			if err := m.host.Notify(s.ID, title, s.Project(), body); err != nil {
 				return flashMsg{err: err}
 			}
 			return nil

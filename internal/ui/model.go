@@ -35,7 +35,7 @@ type Host interface {
 	OpenHQ(cfg config.Config, focus bool) error
 	CloseHQ() error
 	HQPane() (tmux.Pane, bool, error)
-	Notify(title, subtitle, body string) error
+	Notify(id, title, subtitle, body string) error
 	Deliver(target, text, replace string, send bool) (tmux.Delivery, error)
 }
 
