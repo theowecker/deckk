@@ -186,3 +186,17 @@ func TestWritingFromThePageReplacesDeckksTypedSuggestion(t *testing.T) {
 		t.Fatal("deckk's copy should be forgotten once the user's text replaces it")
 	}
 }
+
+func TestASettingChangedDuringALoadIsntUndoneByIt(t *testing.T) {
+	m, host := newTestModel(t)
+	started := time.Now()
+	stale := *m.cfg
+	m.setting = settingIndex(t, "notifications")
+	m.settings = true
+	m, _ = press(m, "enter")
+	changed := m.cfg.Notify
+	tm, _ := m.Update(loadedMsg{sessions: m.sessions, windows: host.windows, started: started, deckk: m.snapshot(), cfg: &stale})
+	if got := tm.(Model).cfg.Notify; got != changed {
+		t.Fatalf("notifications went back to %q", got)
+	}
+}

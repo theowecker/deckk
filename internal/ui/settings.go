@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"time"
+
 	"fmt"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -32,7 +34,7 @@ func (m *Model) cycleSetting() tea.Cmd {
 		m.setFlash("", err)
 		return nil
 	}
-	m.cfg = &next
+	m.cfg, m.settingAt = &next, time.Now()
 	if effect, ok := settingEffects[o.Key]; ok {
 		return effect(m, m.cfg.Value(o))
 	}

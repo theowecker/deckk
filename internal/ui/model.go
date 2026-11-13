@@ -94,6 +94,7 @@ type Model struct {
 	lastClickY int
 	pointer    string
 	loadedAt   time.Time
+	settingAt  time.Time
 	startedAt  time.Time
 
 	flash    string
@@ -194,7 +195,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.flash, m.flashErr = "", false
 			}
 			m.loadedAt = msg.started
-			if msg.cfg != nil {
+			// A setting changed here after the load read the file is newer.
+			if msg.cfg != nil && !m.settingAt.After(msg.started) {
 				m.cfg = msg.cfg
 			}
 			m.sessions = m.takeDeckk(msg.sessions, msg.deckk)
