@@ -8,11 +8,11 @@ state = {
   counts: { waiting: 2, working: 1, resumable: 6 },
   clashes: [],
   nextUp: [
-    { id: "a", kind: "suggestion", title: "Checkout flow redesign", project: "shop", prompt: "Run the payment tests again now that the cursor change is merged", why: "The API session merged #212", ready: true },
+    { id: "a", kind: "suggestion", title: "Checkout flow redesign", project: "shop", prompt: "Commit the checkout changes and open a PR", why: "Tests pass on the new payment step", ready: true, concerns: 1 },
     { id: "p", kind: "proposal", title: "New session in mobile", project: "~/dev/mobile", prompt: "Fix the share sheet upload crash on iOS", why: "It blocks this week's release" },
   ],
   groups: [{ title: "Running", sessions: [
-    session({ id: "a", title: "Checkout flow redesign", project: "shop", branch: "checkout", state: "waiting", since: minutesAgo(4), running: true, suggestion: "Run the payment tests again now that the cursor change is merged" }),
+    session({ id: "a", title: "Checkout flow redesign", project: "shop", branch: "checkout", state: "waiting", since: minutesAgo(4), running: true, suggestion: "Commit the checkout changes and open a PR" }),
     session({ id: "b", title: "Search API pagination", project: "api", branch: "search-cursor", state: "working", since: minutesAgo(3), running: true, summary: "Moving search to cursor pagination; tests half done" }),
     session({ id: "c", title: "Onboarding copy pass", project: "site", branch: "main", state: "waiting", since: minutesAgo(25), running: true, summary: "Copy drafted for three screens, waiting on your review" }),
   ] }],
