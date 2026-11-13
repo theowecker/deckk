@@ -70,7 +70,9 @@ func (m Model) View() string {
 	b.WriteString(strings.Join(visible, "\n"))
 	b.WriteString(strings.Repeat("\n", height-len(visible)))
 
-	b.WriteString("\n\n")
+	b.WriteString("\n")
+	b.WriteString(ansi.Truncate(m.deckkLine(), m.width-1, "…"))
+	b.WriteString("\n")
 	b.WriteString(m.footer())
 	if m.faded() {
 		return fade(b.String())
@@ -118,35 +120,7 @@ func (m Model) headerLeft() string {
 		return pad() + m.filter.View()
 	}
 
-	var yourTurn, fresh, busy, resumable int
-	for _, s := range m.inView(m.sessions) {
-		if m.unread(s) {
-			fresh++
-		}
-		switch deck.StateOf(s) {
-		case deck.Working:
-			busy++
-		case deck.YourTurn:
-			yourTurn++
-		case deck.Stopped:
-			if !m.store.Archived[s.ID] {
-				resumable++
-			}
-		}
-	}
-	var parts []string
-	add := func(n int, glyph, label string) {
-		if n > 0 {
-			parts = append(parts, glyph+" "+text.Render(fmt.Sprint(n))+" "+dim.Render(label))
-		}
-	}
-	add(yourTurn, accent.Render("●"), "waiting")
-	if fresh > 0 {
-		parts[len(parts)-1] += dim.Render(" · ") + accent.Bold(true).Render(fmt.Sprintf("%d new", fresh))
-	}
-	add(busy, working.Render("◐"), "working")
-	add(resumable, ghost.Render("○"), "resumable")
-	return pad() + strings.Join(parts, "     ")
+	return ""
 }
 
 type hint struct{ key, label string }
@@ -550,45 +524,50 @@ func (m Model) status(s claude.Session, now time.Time) (string, string) {
 	}
 }
 
+// preview is the selected row's detail, kept to what the row can't say: what
+// the session is about, then the one thing that most needs attention.
 func (m Model) preview(s claude.Session) []string {
 	const indent = "    "
 	room := m.width - gutter*2 - len(indent)
 	var lines []string
-	if n, ok, stale := m.note(s); ok && m.view != boardView {
+	add := func(line string) { lines = append(lines, pad()+indent+ansi.Truncate(line, room, "…")) }
+
+	switch n, ok, stale := m.note(s); {
+	case ok && m.view != boardView:
 		line := accent.Render("◆ ") + soft.Render(n.Text)
 		if stale {
 			line += ghost.Render(" · from before its last turn")
 		}
-		lines = append(lines, pad()+indent+ansi.Truncate(line, room, "…"))
+		add(line)
+	case isProposal(s):
+		add(dim.Render("in " + abbreviateHome(s.Dir)))
+	case s.LastReply != "":
+		add(reply.Render("⏺ " + s.LastReply))
+	case s.LastPrompt != "":
+		add(preview.Render("› " + s.LastPrompt))
 	}
-	if isProposal(s) {
-		lines = append(lines, pad()+indent+dim.Render("in "+abbreviateHome(s.Dir)))
-	}
-	for _, line := range m.collisionLines(s) {
-		style := ghost
-		if strings.HasPrefix(line, "⚠") {
-			style = warn
-		}
-		lines = append(lines, pad()+indent+style.Render(ansi.Truncate(line, room, "…")))
-	}
-	if sg, ok := m.suggestion(s); ok && sg.Why != "" {
-		lines = append(lines, pad()+indent+accent.Render(ansi.Truncate("✦ "+sg.Why, room, "…")))
-	}
+
 	if full := m.reviewLines(s, room); full != nil {
 		for _, line := range full {
 			lines = append(lines, pad()+indent+line)
 		}
-	} else if _, line, ok := m.reviewSummary(s); ok {
-		lines = append(lines, pad()+indent+ansi.Truncate(line, room, "…"))
+		return lines
 	}
-	if s.LastPrompt != "" {
-		lines = append(lines, pad()+indent+preview.Render(ansi.Truncate("› "+s.LastPrompt, room, "…")))
-	}
-	if s.LastReply != "" {
-		lines = append(lines, pad()+indent+reply.Render(ansi.Truncate("⏺ "+s.LastReply, room, "…")))
-	}
-	if s.PR != "" {
-		lines = append(lines, pad()+indent+accent.Render("⎇ PR "+s.PR)+"  "+ghost.Render(ansi.Truncate(s.PRURL, room-12, "…")))
+	clashes := m.collisionLines(s)
+	_, review, reviewed := m.reviewSummary(s)
+	label, weight := prLabel(s.PRStatus)
+	sg, suggested := m.suggestion(s)
+	switch {
+	case len(clashes) > 0 && strings.HasPrefix(clashes[0], "⚠"):
+		add(warn.Render(clashes[0]))
+	case weight == 2:
+		add(errText.Render("⎇ PR " + s.PR + " " + label))
+	case reviewed:
+		add(review)
+	case suggested && sg.Why != "":
+		add(accent.Render("✦ " + sg.Why))
+	case len(clashes) > 0:
+		add(ghost.Render(clashes[0]))
 	}
 	return lines
 }

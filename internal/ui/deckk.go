@@ -553,3 +553,31 @@ func (m *Model) toggleTrust(s claude.Session) {
 		m.setFlash("deckk's suggestions for "+displayTitle(s)+" wait for you again", nil)
 	}
 }
+
+// deckkLine is the deckk session's latest word, the headline its briefs open
+// with, so it can be read at a glance whatever its pane shows.
+func (m Model) deckkLine() string {
+	d := m.deckk
+	if !m.cfg.HQOn() || !d.running || m.picker != nil || m.settings {
+		return ""
+	}
+	if deck.StateOf(d.session) == deck.Working {
+		return pad() + accent.Render("◆ ") + ghost.Render("deckk is thinking…")
+	}
+	headline := firstLine(d.session.LastReply)
+	if headline == "" {
+		return ""
+	}
+	return pad() + accent.Render("◆ deckk  ") + soft.Render(headline)
+}
+
+func firstLine(text string) string {
+	for line := range strings.Lines(text) {
+		line = strings.TrimSpace(strings.NewReplacer("**", "", "__", "", "`", "").Replace(line))
+		line = strings.TrimLeft(line, "#>-* ")
+		if line != "" {
+			return line
+		}
+	}
+	return ""
+}
