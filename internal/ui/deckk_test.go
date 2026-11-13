@@ -480,3 +480,20 @@ func TestNoNotificationForTheTabYouAreOn(t *testing.T) {
 		t.Fatalf("notes %v", host.notes)
 	}
 }
+
+func TestATrustedSessionGetsSafeSuggestionsSent(t *testing.T) {
+	for _, c := range []struct {
+		trusted, safe, send bool
+	}{{false, true, false}, {true, false, false}, {true, true, true}} {
+		m, host := newTestModel(t)
+		if c.trusted {
+			m = selectID(m, "dddddddd")
+			m, _ = press(m, "t")
+		}
+		suggestInside(t, hq.Suggestion{Prompt: "commit it", At: time.Now(), Safe: c.safe})
+		refresh(t, m, host, waiting)
+		if len(host.delivered) != 1 || host.delivered[0].send != c.send {
+			t.Errorf("trusted %v safe %v: delivered %v", c.trusted, c.safe, host.delivered)
+		}
+	}
+}

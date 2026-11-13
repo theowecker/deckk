@@ -48,6 +48,7 @@ place.
 | `m` / `M` | bring one session, or all of them, back into deckk |
 | `c` | talk to the deckk session |
 | `d` | dismiss the deckk session's suggestion for a session |
+| `t` | let the deckk session send its safe suggestions to a session without asking |
 | `w` | open deckk in your browser |
 | `/` | find any session, ever |
 | `tab` | switch between Sessions, Board, Background and Find |
@@ -121,6 +122,11 @@ It also works on its own:
 - **Questions.** Sessions deckk starts can ask it what to do next with an
   `ask_deckk` tool and wait for its answer, or leave it a note with
   `tell_deckk`.
+
+Suggestions wait for you by default. Press `t` on a session you trust, or
+Let deckk send in the browser, and the deckk session's suggestions for it go
+out on their own when it judges them safe. Text that would run a command is
+never sent, and the session is marked ⇢ while this is on.
 
 It answers in briefs: a headline, then what needs you, what's in flight,
 what's blocked and what's next, with detail when you ask for it.

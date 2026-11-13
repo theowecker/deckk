@@ -16,7 +16,7 @@ func (m Model) updateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 	confirm := m.confirm
 	m.confirm = ""
-	if s, ok := m.selected(); ok && isProposal(s) && strings.Contains("xompra", key) && len(key) == 1 {
+	if s, ok := m.selected(); ok && isProposal(s) && strings.Contains("xomprat", key) && len(key) == 1 {
 		m.setFlash("That session doesn't exist yet. Press ↵ to start it or d to dismiss it", nil)
 		return m, nil
 	}
@@ -98,6 +98,10 @@ func (m Model) updateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "a":
 		if s, ok := m.selected(); ok {
 			m.mark(m.store.ToggleArchive(s.ID))
+		}
+	case "t":
+		if s, ok := m.selected(); ok {
+			m.toggleTrust(s)
 		}
 	case "R":
 		return m, m.restoreWorkspace()

@@ -396,6 +396,8 @@ function detailBody(s) {
           el("button", { class: "button primary", onclick: () => act("open", { id: s.id }, `${verb === "Open" ? "Opening" : "Resuming"} in deckk`) }, `${verb} in deckk`),
           el("button", { class: "button quiet", onclick: () => act("pin", { id: s.id }, s.pinned ? "Unpinned" : "Pinned") }, s.pinned ? "Unpin" : "Pin"),
           el("button", { class: "button quiet", onclick: () => { renaming = s.id; render(true); } }, "Rename"),
+          s.running && el("button", { class: "button quiet", title: "deckk sends its safe suggestions here without asking",
+            onclick: () => act("trust", { id: s.id }) }, s.trusted ? "Stop deckk sending" : "Let deckk send"),
           !s.running && el("button", { class: "button quiet", onclick: () => act("archive", { id: s.id }, s.archived ? "Unarchived" : "Archived") }, s.archived ? "Unarchive" : "Archive")),
   );
   return el("div", { class: "detail" }, el("div", { class: "detail-inner" }, body));
@@ -428,6 +430,7 @@ function sessionRow(s) {
     el("span", { class: `dot ${s.state}`, "aria-hidden": "true" }),
     el("span", { class: "title" }, s.title,
       s.pinned && el("span", { class: "pin", "aria-label": "pinned" }, "◆"),
+      s.trusted && el("span", { class: "pin", title: "deckk sends its safe suggestions here", "aria-label": "deckk sends here" }, "⇢"),
       s.suggestion && el("span", { class: "mark", title: "deckk has a suggestion", "aria-label": "has a suggestion" }, "✦"),
       s.clash && el("span", { class: "warn", title: s.clash, "aria-label": s.clash }, "⚠"),
     ),

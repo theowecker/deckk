@@ -472,6 +472,9 @@ func (m Model) row(s claude.Session, selected bool, now time.Time, titles, proje
 	if _, ok := m.suggestion(s); ok {
 		meta = append(meta, accent.Render("✦"))
 	}
+	if m.store.Trusted[s.ID] && m.cfg.HQOn() {
+		meta = append(meta, ghost.Render("⇢ deckk sends"))
+	}
 	if _, ok := m.clash(s); ok {
 		meta = append(meta, warn.Render("⚠"))
 	}
@@ -637,6 +640,7 @@ func helpBody(frame int) ([]string, []int) {
 			{"w", "open this dashboard as a page in your browser"},
 			{"⌃⇧↑ ⌃⇧↓", "move between the list and the deckk session"},
 			{"d", "dismiss deckk's suggestion for a session"},
+			{"t", "let deckk send its safe suggestions to a session without asking"},
 			{"x", "close a session running in deckk. It stays resumable"},
 			{"o   O", "give this session, or every one, its own tab"},
 			{"m   M", "bring this session, or all of them, from other tabs into deckk"},

@@ -103,6 +103,8 @@ func (m *Model) webAction(a webActionMsg) tea.Cmd {
 		m.mark(m.store.TogglePin(s.ID))
 	case web.Archive:
 		m.mark(m.store.ToggleArchive(s.ID))
+	case web.Trust:
+		m.toggleTrust(s)
 	case web.Rename:
 		m.mark(m.store.Rename(s.ID, a.Text))
 		m.store.ApplyNames(m.sessions)
@@ -305,7 +307,7 @@ func (m Model) webSession(s claude.Session, now time.Time) web.Session {
 		out.Suggested, out.Suggestion, out.Why, out.Ready = true, sg.Prompt, sg.Why, m.prefilled(s, sg)
 	}
 	_, out.Hosted = m.window(s)
-	out.Running, out.Archived = s.Running(), m.store.Archived[s.ID]
+	out.Running, out.Archived, out.Trusted = s.Running(), m.store.Archived[s.ID], m.store.Trusted[s.ID]
 	if n, ok, stale := m.note(s); ok {
 		out.Summary, out.Stale = clipText(n.Text, 240), stale
 	}

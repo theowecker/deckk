@@ -49,10 +49,11 @@ const (
 	Prompt  = "prompt"
 	Chat    = "chat"
 	Goals   = "goals"
+	Trust   = "trust"
 )
 
 // Kinds are the actions the page may send.
-var Kinds = map[string]bool{Open: true, Dismiss: true, Talk: true, Pin: true, Archive: true, Rename: true, Prompt: true, Chat: true, Goals: true}
+var Kinds = map[string]bool{Open: true, Dismiss: true, Talk: true, Pin: true, Archive: true, Rename: true, Prompt: true, Chat: true, Goals: true, Trust: true}
 
 // A Search finds sessions across everything Claude has kept, not only the
 // ones the dashboard lists.

@@ -100,6 +100,8 @@ type Session struct {
 	Archived   bool   `json:"archived,omitempty"`
 	// Hosted sessions can take a prompt from the page directly.
 	Hosted bool `json:"hosted,omitempty"`
+	// Trusted sessions get deckk's safe suggestions sent without review.
+	Trusted bool `json:"trusted,omitempty"`
 }
 
 type Event struct {

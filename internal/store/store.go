@@ -26,6 +26,9 @@ type Store struct {
 	// by the time each suggestion was made, so neither happens twice.
 	Prefilled map[string]Prefill   `json:"prefilled,omitempty"`
 	Dismissed map[string]time.Time `json:"dismissed,omitempty"`
+	// Trusted sessions may have the deckk session's safe suggestions sent
+	// without review, whatever the global setting says.
+	Trusted map[string]bool `json:"trusted,omitempty"`
 	// Briefed is when the deckk session last briefed the user on opening.
 	Briefed time.Time `json:"briefed,omitzero"`
 }
@@ -60,7 +63,7 @@ func DefaultPath() string {
 
 func Open(path string) (*Store, error) {
 	s := &Store{path: path, Pinned: map[string]bool{}, Archived: map[string]bool{}, Open: map[string]bool{}, Names: map[string]string{}, Closed: map[string]time.Time{}, Running: map[string]bool{},
-		Prefilled: map[string]Prefill{}, Dismissed: map[string]time.Time{}}
+		Prefilled: map[string]Prefill{}, Dismissed: map[string]time.Time{}, Trusted: map[string]bool{}}
 	data, err := os.ReadFile(path)
 	if errors.Is(err, fs.ErrNotExist) {
 		return s, nil
@@ -94,12 +97,20 @@ func Open(path string) (*Store, error) {
 	if s.Dismissed == nil {
 		s.Dismissed = map[string]time.Time{}
 	}
+	if s.Trusted == nil {
+		s.Trusted = map[string]bool{}
+	}
 	return s, nil
 }
 
 func (s *Store) TogglePin(id string) error {
 	toggle(s.Pinned, id)
 	delete(s.Archived, id)
+	return s.save()
+}
+
+func (s *Store) ToggleTrust(id string) error {
+	toggle(s.Trusted, id)
 	return s.save()
 }
 

@@ -404,9 +404,16 @@ func (m *Model) prefill() tea.Cmd {
 		if !hosted || active[id] {
 			continue
 		}
-		cmds = append(cmds, m.syncPrompt(s, m.cfg.Send()))
+		cmds = append(cmds, m.syncPrompt(s, m.maySend(s)))
 	}
 	return tea.Batch(cmds...)
+}
+
+// maySend is whether the deckk session's safe suggestions for a session go
+// out without review: everywhere with the send setting, or for sessions the
+// user trusts.
+func (m Model) maySend(s claude.Session) bool {
+	return m.cfg.HQOn() && (m.cfg.Send() || m.store.Trusted[s.ID])
 }
 
 func (m *Model) syncPrompt(s claude.Session, maySend bool) tea.Cmd {
@@ -557,5 +564,16 @@ func heldBack(result tmux.Delivery) string {
 		return "That pane is scrolled back. Scroll to the bottom and try again"
 	default:
 		return "Claude is asking something there, so nothing was typed. Answer it first"
+	}
+}
+
+// toggleTrust lets the deckk session send its safe suggestions to one
+// session without review, or takes that back.
+func (m *Model) toggleTrust(s claude.Session) {
+	m.mark(m.store.ToggleTrust(s.ID))
+	if m.store.Trusted[s.ID] {
+		m.setFlash("deckk may now send its safe suggestions to "+displayTitle(s)+" without asking. t again to stop", nil)
+	} else {
+		m.setFlash("deckk's suggestions for "+displayTitle(s)+" wait for you again", nil)
 	}
 }
