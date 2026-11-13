@@ -222,13 +222,25 @@ const kinds = {
   proposal: "New session",
 };
 
+// Busy days would push everything below the fold, so each section shows its
+// first few until asked for the rest.
+const expanded = new Set();
+
+function firstFew(section, list, limit) {
+  if (expanded.has(section) || list.length <= limit + 1) return [list, null];
+  const more = el("button", { class: "link more-link", "data-focus": `more:${section}`, onclick: () => { expanded.add(section); render(true); } },
+    `Show ${list.length - limit} more`);
+  return [list.slice(0, limit), more];
+}
+
 function renderNext(next) {
   if (!next.length) {
     $("next").replaceChildren(el("p", { class: "empty-card" },
       "Nothing suggested right now. Ask deckk what to do next in the deckk section."));
     return;
   }
-  $("next").replaceChildren(el("div", { class: "card" }, next.map((n) => {
+  const [shown, more] = firstFew("next", next, 3);
+  $("next").replaceChildren(el("div", { class: "card" }, shown.map((n) => {
     const kind = n.kind === "suggestion" && n.ready ? "ready" : n.kind;
     const [start, starting] = { proposal: ["Start", "Starting"], resume: ["Resume", "Resuming"] }[n.kind] || ["Open", "Opening"];
     return el("article", { class: "offer" },
@@ -247,7 +259,7 @@ function renderNext(next) {
           `⚑ The review flagged ${plural(n.concerns, "thing")}`),
       ),
     );
-  })));
+  }), more && el("div", { class: "more-row" }, more)));
 }
 
 function renderLook(s) {
@@ -255,7 +267,8 @@ function renderLook(s) {
     .filter((x) => x.review && !x.review.ok && !x.review.earlier)
     .sort((a, b) => new Date(b.review.at) - new Date(a.review.at));
   $("look-section").hidden = flagged.length === 0;
-  $("look").replaceChildren(flagged.length ? el("div", { class: "card" }, flagged.map((x) =>
+  const [shown, more] = firstFew("look", flagged, 3);
+  $("look").replaceChildren(flagged.length ? el("div", { class: "card" }, shown.map((x) =>
     el("article", { class: "offer" },
       el("div", { class: "offer-head" },
         badge(x.project),
@@ -266,7 +279,7 @@ function renderLook(s) {
         ),
       ),
       el("ul", { class: "concerns" }, (x.review.concerns || ["The review found concerns"]).map((c) => el("li", {}, c))),
-    ))) : "");
+    )), more && el("div", { class: "more-row" }, more)) : "");
 }
 
 function liveSessions(s) {
@@ -284,14 +297,15 @@ function renderNow(s) {
       el("button", { class: "button primary", "data-focus": "start-empty", onclick: () => newSession() }, "New session")));
     return;
   }
-  $("now").replaceChildren(el("div", { class: "now" }, live.map((x) =>
+  const [shown, more] = firstFew("now", live, 8);
+  $("now").replaceChildren(el("div", { class: "now" }, shown.map((x) =>
     el("button", { class: "tile", "data-focus": `tile:${x.id}`, onclick: () => go("sessions", x.id) },
       el("span", { class: `tile-state ${x.state}` }, el("span", { class: "pulse", "aria-hidden": "true" }),
         x.state === "waiting" ? `Waiting ${ago(x.since) === "now" ? "" : ago(x.since)}` : "Working"),
       el("strong", {}, x.title),
-      el("span", { class: "tile-note" }, x.suggestion ? `✦ ${x.suggestion}` : x.summary || x.project),
+      el("span", { class: "tile-note" }, x.suggestion ? "✦ Suggestion above" : x.summary || x.project),
       x.review && !x.review.ok && !x.review.earlier && el("span", { class: "tile-flag" }, `⚑ The review flagged ${plural((x.review.concerns || []).length || 1, "thing")}`),
-    ))));
+    ))), more && el("div", { class: "more-row" }, more));
 }
 
 function renderToday(t) {
