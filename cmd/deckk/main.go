@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -151,7 +152,7 @@ func dashboard(days int, cfg *config.Config, program string) error {
 			}
 			p.Send(ui.WebAction(a))
 			return nil
-		}); err == nil {
+		}, history); err == nil {
 			model = model.WithWeb(server)
 		}
 	}
@@ -185,6 +186,39 @@ func list(days int) error {
 		}
 	}
 	return w.Flush()
+}
+
+// sessionID is the shape of Claude's session IDs; anything else is refused
+// before it reaches a file path.
+var sessionID = regexp.MustCompile(`^[0-9a-f-]{8,64}$`)
+
+// history is the page's view of a session: its last ten exchanges, each
+// clipped so a long reply can't swamp the page.
+func history(id string) ([]web.Turn, error) {
+	if !sessionID.MatchString(id) {
+		return nil, errors.New("no such session")
+	}
+	path := claude.TranscriptPath(claude.Home(), id)
+	if path == "" {
+		return nil, errors.New("no such session")
+	}
+	exchanges, err := claude.Exchanges(path, 10)
+	if err != nil {
+		return nil, err
+	}
+	turns := make([]web.Turn, len(exchanges))
+	for i, e := range exchanges {
+		turns[i] = web.Turn{Prompt: clip(e.Prompt, 1200), Reply: clip(e.Reply, 2400)}
+	}
+	return turns, nil
+}
+
+func clip(s string, n int) string {
+	r := []rune(s)
+	if len(r) <= n {
+		return s
+	}
+	return string(r[:n-1]) + "…"
 }
 
 // tmux runs window commands through sh, so the path is single-quoted.

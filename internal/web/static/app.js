@@ -1,13 +1,25 @@
 "use strict";
 
-// deckk's link sets a cookie; changes also need the token as a header, which
-// the page asks for with that cookie.
+// deckk's link carries the token after #, which never reaches a server. It
+// is kept per origin, which includes the port, and cleared from the address.
 let token = "";
+try {
+  const fromLink = new URLSearchParams(location.hash.slice(1)).get("t");
+  if (fromLink) localStorage.setItem("deckk-token", fromLink);
+  token = fromLink || localStorage.getItem("deckk-token") || "";
+} catch {
+  token = new URLSearchParams(location.hash.slice(1)).get("t") || "";
+}
+if (location.hash) history.replaceState(null, "", location.pathname);
 
 const $ = (id) => document.getElementById(id);
 const open = new Set();
+const histories = new Map();
 let state = null;
 let raw = "";
+let deferred = false;
+// Where each open conversation was scrolled, so a redraw keeps the place.
+const scrolled = new Map();
 
 function el(tag, attrs = {}, ...children) {
   const node = document.createElement(tag);
@@ -18,7 +30,7 @@ function el(tag, attrs = {}, ...children) {
     else node.setAttribute(key, value === true ? "" : value);
   }
   for (const child of children.flat()) {
-    if (child === null || child === undefined || child === false) continue;
+    if (child === null || child === undefined || child === false || child === "") continue;
     node.append(child instanceof Node ? child : document.createTextNode(String(child)));
   }
   return node;
@@ -40,13 +52,18 @@ function plural(n, word) {
   return `${n} ${word}${n === 1 ? "" : "s"}`;
 }
 
+function api(path, options = {}) {
+  return fetch(path, { ...options, headers: { ...(options.headers || {}), "X-Deckk-Token": token } });
+}
+
 async function act(kind, id, done) {
-  const response = await fetch("api/action", {
+  const response = await api("api/action", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "X-Deckk-Token": token },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ kind, id }),
   }).catch(() => null);
-  toast(response && response.ok ? done : "deckk didn't answer. Is the dashboard still running?");
+  if (!response) return toast("deckk isn't answering. Is it still running?");
+  toast(response.ok ? done : (await response.text()).trim());
 }
 
 let toastTimer;
@@ -55,7 +72,14 @@ function toast(text) {
   node.textContent = text;
   node.classList.add("shown");
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => node.classList.remove("shown"), 2600);
+  toastTimer = setTimeout(() => node.classList.remove("shown"), 2800);
+}
+
+// A badge's colour comes from the project's name, so it stays the same.
+function badge(name) {
+  let hash = 0;
+  for (const c of name) hash = (hash * 31 + c.codePointAt(0)) >>> 0;
+  return el("span", { class: `badge hue-${hash % 6}`, "aria-hidden": "true" }, [...name][0] || "·");
 }
 
 function renderTallies(c) {
@@ -69,16 +93,11 @@ function renderTallies(c) {
 }
 
 function renderClashes(clashes) {
-  $("clashes").replaceChildren(
-    ...clashes.map((c) =>
-      el("div", { class: "clash", role: "alert" },
-        el("div", {},
-          el("p", {}, `${c.a} and ${c.b} both edited the same files.`),
-          el("p", { class: "files" }, c.files.map((f) => f.split("/").pop()).join(", ")),
-        ),
-      ),
-    ),
-  );
+  $("clashes").replaceChildren(...clashes.map((c) =>
+    el("div", { class: "clash", role: "alert" },
+      el("p", {}, `${c.a} and ${c.b} both edited the same files.`),
+      el("p", { class: "files" }, c.files.map((f) => f.split("/").pop()).join(", ")),
+    )));
 }
 
 const kinds = {
@@ -89,49 +108,107 @@ const kinds = {
 };
 
 function renderNext(next) {
-  const section = $("next");
-  const title = el("h2", { id: "next-title" }, "Next up");
+  const head = [el("h2", { id: "next-title" }, "Next up")];
   if (!next.length) {
-    section.replaceChildren(title, el("p", { class: "empty" },
-      "Nothing suggested right now. Ask the deckk session what to do next, or press c on the dashboard."));
+    $("next").replaceChildren(...head, el("p", { class: "lede" },
+      "Nothing suggested right now. Ask the deckk session what to do next; press c in deckk."));
     return;
   }
-  section.replaceChildren(title,
+  $("next").replaceChildren(...head,
     el("p", { class: "lede" }, "What the deckk session thinks you'd say next. Opening one puts the prompt in place for you to send."),
-    ...next.map((n) => {
+    el("div", { class: "card" }, next.map((n) => {
       const kind = n.kind === "suggestion" && n.ready ? "ready" : n.kind;
       const [start, starting] = { proposal: ["Start", "Starting"], resume: ["Resume", "Resuming"] }[n.kind] || ["Open", "Opening"];
       return el("article", { class: "offer" },
-        el("div", { class: "who" },
-          el("strong", {}, n.title), el("span", {}, n.project),
-          el("div", { class: "kind" }, kinds[kind]),
-        ),
-        el("div", { class: "actions" },
-          el("button", { class: "button", "data-focus": `dismiss:${n.id}`, onclick: () => act("dismiss", n.id, "Dismissed") }, "Dismiss"),
-          el("button", { class: "button primary", "data-focus": `open:${n.id}`, onclick: () => act("open", n.id, `${starting} in deckk`) }, start),
+        el("div", { class: "offer-head" },
+          badge(n.project.split("/").pop()),
+          el("div", { class: "who" }, el("strong", {}, n.title), el("span", { class: "kind" }, `${kinds[kind]} · ${n.project}`)),
+          el("div", { class: "actions" },
+            el("button", { class: "button", "data-focus": `dismiss:${n.id}`, onclick: () => act("dismiss", n.id, "Dismissed") }, "Dismiss"),
+            el("button", { class: "button primary", "data-focus": `open:${n.id}`, onclick: () => act("open", n.id, `${starting} in deckk`) }, start),
+          ),
         ),
         el("div", { class: "said" },
           el("p", { class: `bubble ${kind === "ready" ? "ready" : "draft"}` }, n.prompt),
           n.why && el("p", { class: "why" }, n.why),
         ),
       );
-    }),
+    })),
   );
 }
 
-const stateLabel = { working: "Working", waiting: "Waiting", stopped: "", other: "" };
+// The grouping switch is a pair of toggle buttons, as in a macOS toolbar;
+// the choice is remembered in this browser.
+let grouping = "status";
+try {
+  if (localStorage.getItem("deckk-grouping") === "project") grouping = "project";
+} catch {}
+
+function renderGrouping() {
+  const choice = (value, label) => el("button", {
+    class: "segment", "aria-pressed": grouping === value ? "true" : "false", "data-focus": `grouping:${value}`,
+    onclick: () => {
+      grouping = value;
+      try { localStorage.setItem("deckk-grouping", value); } catch {}
+      render(true);
+    },
+  }, label);
+  $("grouping").replaceChildren(el("div", { class: "segmented", role: "group", "aria-label": "Group sessions" },
+    choice("status", "By status"), choice("project", "By project")));
+}
+
+const stateLabel = { working: "Working", waiting: "Waiting" };
+
+function statusText(s) {
+  if (s.state === "stopped") return s.status || ago(s.since);
+  const since = ago(s.since);
+  return `${stateLabel[s.state] || s.status}${since === "now" ? "" : ` ${since}`}`;
+}
+
+// History loads when a row opens, and again when the session moves on.
+async function loadHistory(s) {
+  const known = histories.get(s.id);
+  if (known && known.since === s.since) return;
+  histories.set(s.id, { since: s.since, turns: known ? known.turns : null });
+  const response = await api(`api/history?id=${encodeURIComponent(s.id)}`).catch(() => null);
+  const turns = response && response.ok ? await response.json() : null;
+  histories.set(s.id, { since: s.since, turns });
+  render(true);
+}
+
+function conversation(s) {
+  const loaded = histories.get(s.id);
+  const turns = loaded && loaded.turns && loaded.turns.length ? loaded.turns : [{ prompt: s.lastPrompt, reply: s.lastReply }];
+  const chat = el("div", { class: "chat", tabindex: "0", role: "log", "data-chat": s.id, "aria-label": `Recent conversation in ${s.title}` },
+    turns.flatMap((t) => [
+      t.prompt && el("p", { class: "bubble mine" }, t.prompt),
+      t.reply && el("p", { class: "bubble them" }, t.reply),
+    ]));
+  if (!chat.childElementCount) return null;
+  const place = scrolled.get(s.id);
+  requestAnimationFrame(() => {
+    chat.scrollTop = place && !place.atEnd ? place.top : chat.scrollHeight;
+  });
+  return chat;
+}
+
+function safeLink(url) {
+  try {
+    return new URL(url).protocol === "https:";
+  } catch {
+    return false;
+  }
+}
 
 function sessionRow(s) {
-  const key = s.id;
-  const row = el("li", { class: `row${open.has(key) ? " open" : ""}` });
-  const status = s.state === "stopped" ? (s.status || ago(s.since)) : `${stateLabel[s.state] || s.status} ${ago(s.since) === "now" ? "" : ago(s.since)}`.trim();
+  const row = el("li", { class: `row${open.has(s.id) ? " open" : ""}` });
   const toggle = el("button", {
-    "data-focus": `row:${key}`,
-    "aria-expanded": open.has(key) ? "true" : "false",
+    "data-focus": `row:${s.id}`,
+    "aria-expanded": open.has(s.id) ? "true" : "false",
     onclick: () => {
-      open.has(key) ? open.delete(key) : open.add(key);
-      row.classList.toggle("open");
-      toggle.setAttribute("aria-expanded", open.has(key) ? "true" : "false");
+      if (open.has(s.id)) open.delete(s.id);
+      else { open.add(s.id); loadHistory(s); }
+      render(true);
     },
   },
     el("span", { class: `dot ${s.state}`, "aria-hidden": "true" }),
@@ -139,84 +216,67 @@ function sessionRow(s) {
       s.suggested && el("span", { class: "mark", title: "Has a suggestion", "aria-label": "has a suggestion" }, "✦"),
       s.clash && el("span", { class: "warn", title: s.clash, "aria-label": s.clash }, "⚠"),
     ),
-    el("span", { class: `state ${s.state}` }, status),
+    el("span", { class: `state ${s.state}` }, statusText(s)),
     el("span", { class: "where" }, s.project, s.branch && [" ", el("code", {}, `⎇ ${s.branch}`)], s.where && ` · ${s.where}`),
-    s.summary && el("span", { class: `summary${s.stale ? " stale" : ""}`, title: s.stale ? "Written before the session's last turn" : null }, s.summary),
+    s.summary && el("span", { class: `summary${s.stale ? " stale" : ""}` },
+      s.stale && el("span", { class: "earlier" }, "Earlier note: "), s.summary),
   );
-  const chat = el("div", { class: "chat" },
-    s.lastPrompt && el("p", { class: "bubble mine" }, s.lastPrompt),
-    s.lastReply && el("p", { class: "bubble them" }, s.lastReply),
-  );
-  const facts = el("div", { class: "facts" },
-    el("span", {}, s.folder),
-    s.pr && safeLink(s.prUrl) && el("a", { href: s.prUrl, target: "_blank", rel: "noopener noreferrer" }, `PR ${s.pr}`),
-    s.model && el("span", {}, s.model),
-    s.context && el("span", {}, `${Math.round(s.context / 1000)}k context`),
-    s.changed && el("span", {}, plural(s.changed, "uncommitted change")),
-  );
-  const verb = s.state === "stopped" ? "Resume in deckk" : "Open in deckk";
-  row.append(toggle, el("div", { class: "detail" },
-    s.clash && el("p", { class: "note" }, `⚠ ${s.clash}`),
-    chat, facts,
-    el("div", { class: "actions" },
-      el("button", { class: "button primary", "data-focus": `go:${s.id}`, onclick: () => act("open", s.id, s.state === "stopped" ? "Resuming in deckk" : "Opening in deckk") }, verb),
-    ),
-  ));
+  row.append(toggle);
+  if (open.has(s.id)) {
+    const verb = s.state === "stopped" ? "Resume in deckk" : "Open in deckk";
+    row.append(el("div", { class: "detail" },
+      s.clash && el("p", { class: "note" }, `⚠ ${s.clash}`),
+      conversation(s),
+      el("div", { class: "facts" },
+        el("span", {}, s.folder),
+        s.pr && safeLink(s.prUrl) && el("a", { href: s.prUrl, target: "_blank", rel: "noopener noreferrer" }, `PR ${s.pr}`),
+        s.model && el("span", {}, s.model),
+        s.context && el("span", {}, `${Math.round(s.context / 1000)}k context`),
+        s.changed && el("span", {}, plural(s.changed, "uncommitted change")),
+      ),
+      el("div", { class: "actions" },
+        el("button", { class: "button primary", "data-focus": `go:${s.id}`, onclick: () => act("open", s.id, s.state === "stopped" ? "Resuming in deckk" : "Opening in deckk") }, verb),
+      ),
+    ));
+  }
   return row;
 }
 
-// The sessions can be grouped by how they stand or by project; the choice is
-// remembered in this browser.
-let grouping = "status";
-try { grouping = localStorage.getItem("deckk-grouping") || "status"; } catch {}
-
-function groupingControl() {
-  const choice = (value, label) => el("button", {
-    class: "segment", role: "radio", "aria-checked": grouping === value ? "true" : "false",
-    "data-focus": `grouping:${value}`,
-    onclick: () => {
-      grouping = value;
-      try { localStorage.setItem("deckk-grouping", value); } catch {}
-      render();
-    },
-  }, label);
-  return el("div", { class: "segmented", role: "radiogroup", "aria-label": "Group sessions" },
-    choice("status", "By status"), choice("project", "By project"));
-}
-
 function renderGroups(groups) {
-  $("groups").replaceChildren(groupingControl(), ...groups.map((g) =>
+  if (!groups.length) {
+    $("groups").replaceChildren(el("p", { class: "groups-empty" },
+      grouping === "project" ? "No project has moved this week." : "No sessions yet. Press n in deckk to start one."));
+    return;
+  }
+  $("groups").replaceChildren(...groups.map((g) =>
     el("section", { "aria-label": g.title },
       el("h3", {}, g.title),
-      el("ul", { class: "list" }, g.sessions.map(sessionRow),
-        g.hidden > 0 && el("li", { class: "more" }, `${g.hidden} more in the terminal`),
+      el("ul", { class: "card" }, g.sessions.map(sessionRow),
+        g.hidden > 0 && el("li", { class: "more" }, `${g.hidden} more in deckk`),
       ),
-    ),
-  ));
+    )));
 }
 
 function renderToday(t) {
-  const lines = [el("h2", {}, "Today")];
+  const title = el("h2", { id: "today-title" }, "Today");
   if (!t.touched) {
-    lines.push(el("p", {}, "No sessions have moved yet today."));
-  } else {
-    lines.push(el("p", {},
-      "You've worked in ", el("strong", {}, plural(t.touched, "session")),
-      " across ", el("strong", {}, plural(t.projects, "project")),
-      t.busiest ? [", most of it in ", el("strong", {}, t.busiest)] : "", ".",
-      t.prs ? [" ", el("strong", {}, plural(t.prs, "pull request")), " this week."] : "",
-    ));
+    $("today").replaceChildren(title, el("p", {}, "No sessions have moved yet today."));
+    return;
   }
-  $("today").replaceChildren(...lines);
+  $("today").replaceChildren(title, el("p", {},
+    "You've worked in ", el("strong", {}, plural(t.touched, "session")),
+    " across ", el("strong", {}, plural(t.projects, "project")),
+    t.busiest ? [", most of it in ", el("strong", {}, t.busiest)] : "", ".",
+    t.prs ? [" ", el("strong", {}, plural(t.prs, "pull request")), " this week."] : "",
+  ));
 }
 
 // A small Markdown subset: headings, lists, paragraphs, bold and code.
 function markdown(text) {
   const inline = (line) => {
     const out = [];
-    const re = /(\*\*[^*]+\*\*|`[^`]+`)/g;
     let last = 0;
-    for (const m of line.matchAll(re)) {
+    for (const m of line.matchAll(/(\*\*[^*]+\*\*|`[^`]+`)/g)) {
       out.push(line.slice(last, m.index));
       const part = m[0];
       out.push(part.startsWith("**") ? el("strong", {}, part.slice(2, -2)) : el("code", {}, part.slice(1, -1)));
@@ -227,8 +287,8 @@ function markdown(text) {
   };
   const nodes = [];
   let list = null;
-  for (const raw of text.split("\n")) {
-    const line = raw.trimEnd();
+  for (const rawLine of text.split("\n")) {
+    const line = rawLine.trimEnd();
     const heading = line.match(/^(#{1,3})\s+(.*)/);
     const item = line.match(/^\s*[-*]\s+(?:\[[ x]\]\s+)?(.*)/);
     if (item) {
@@ -252,40 +312,63 @@ function renderGoals(goals) {
   );
 }
 
+// Repeats of the same news fold into one line with a count.
 function renderActivity(events) {
+  const folded = [];
+  for (const e of events) {
+    const last = folded[folded.length - 1];
+    if (last && last.text === e.text) last.times++;
+    else folded.push({ ...e, times: 1 });
+  }
   $("activity").replaceChildren(
     el("h2", { id: "activity-title" }, "Activity"),
-    events.length
-      ? el("ul", { class: "events" }, events.map((e) =>
-          el("li", {}, el("time", { datetime: e.at }, new Date(e.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })), el("span", {}, e.text))))
+    folded.length
+      ? el("ul", { class: "events" }, folded.slice(0, 8).map((e) =>
+          el("li", {},
+            el("span", {}, e.text, e.times > 1 && el("span", { class: "times" }, ` ×${e.times}`)),
+            el("time", { datetime: e.at }, ago(e.at)))))
       : el("p", {}, "Sessions finishing, opening PRs and clashing show up here."),
   );
 }
 
-function safeLink(url) {
-  try {
-    return new URL(url).protocol === "https:";
-  } catch {
-    return false;
-  }
+function selecting() {
+  const selection = document.getSelection();
+  return Boolean(selection && !selection.isCollapsed && document.querySelector("main").contains(selection.anchorNode));
 }
 
-// Re-rendering replaces the nodes, so focus is put back by name.
-function render() {
+// Re-rendering replaces the nodes, so focus and scrolled conversations are
+// put back, and a redraw waits while the user is selecting text.
+function render(force = false) {
   if (!state || !state.counts) return;
+  if (!force && selecting()) {
+    deferred = true;
+    return;
+  }
+  deferred = false;
   const focused = document.activeElement && document.activeElement.dataset.focus;
+  for (const chat of document.querySelectorAll("[data-chat]")) {
+    scrolled.set(chat.dataset.chat, { top: chat.scrollTop, atEnd: chat.scrollTop + chat.clientHeight >= chat.scrollHeight - 4 });
+  }
   renderTallies(state.counts);
   renderClashes(state.clashes || []);
   renderNext(state.nextUp || []);
+  renderGrouping();
   renderGroups((grouping === "project" ? state.projects : state.groups) || []);
   renderToday(state.today || {});
   renderGoals(state.goals || "");
   renderActivity(state.activity || []);
+  for (const groups of [state.groups || [], state.projects || []]) {
+    for (const g of groups) for (const s of g.sessions) if (open.has(s.id)) loadHistory(s);
+  }
   if (focused) {
     const again = document.querySelector(`[data-focus="${CSS.escape(focused)}"]`);
     if (again) again.focus({ preventScroll: true });
   }
 }
+
+document.addEventListener("selectionchange", () => {
+  if (deferred && !selecting()) render();
+});
 
 function receive(data) {
   if (data === raw) return;
@@ -294,29 +377,47 @@ function receive(data) {
   render();
 }
 
-function lost(text) {
+function status(kind, text) {
   const live = $("live");
-  live.dataset.state = "lost";
+  live.dataset.state = kind;
   live.textContent = text;
 }
 
-async function connect() {
-  const live = $("live");
-  const reply = await fetch("api/token").catch(() => null);
-  if (!reply || !reply.ok) {
-    lost(reply ? "Press w in deckk to open this page" : "deckk isn't running");
-    return;
+// The live stream is read with fetch rather than EventSource, so it can send
+// the token as a header like every other request.
+async function stream() {
+  for (let wait = 1000; ; wait = Math.min(wait * 2, 15000)) {
+    const response = await api("api/stream").catch(() => null);
+    if (response && response.status === 401) {
+      try { localStorage.removeItem("deckk-token"); } catch {}
+      status("lost", "Press w in deckk to open this page");
+      return;
+    }
+    if (response && response.ok) {
+      status("live", "Live");
+      wait = 1000;
+      const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
+      let buffer = "";
+      try {
+        for (;;) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += value;
+          let end;
+          while ((end = buffer.indexOf("\n\n")) >= 0) {
+            const event = buffer.slice(0, end);
+            buffer = buffer.slice(end + 2);
+            const data = event.split("\n").filter((l) => l.startsWith("data: ")).map((l) => l.slice(6)).join("\n");
+            if (data) receive(data);
+          }
+        }
+      } catch {}
+    }
+    status("lost", response ? "Reconnecting" : "deckk isn't running");
+    await new Promise((resolve) => setTimeout(resolve, wait));
   }
-  token = (await reply.json()).token;
-  fetch("api/state").then((r) => r.text()).then((data) => { if (!raw) receive(data); }).catch(() => {});
-  const stream = new EventSource("api/stream");
-  stream.onopen = () => { live.dataset.state = "live"; live.textContent = "Live"; };
-  stream.onmessage = (event) => receive(event.data);
-  stream.onerror = () => {
-    if (stream.readyState === EventSource.CLOSED) lost("Press w in deckk to open this page");
-    else lost("Reconnecting");
-  };
 }
 
-setInterval(render, 30000);
-connect();
+if (!token) status("lost", "Press w in deckk to open this page");
+else stream();
+setInterval(() => render(), 30000);

@@ -11,22 +11,30 @@
 <body>
   <h1 class="visually-hidden">deckk</h1>
   <header class="toolbar">
-    <div class="brand">
-      <img src="icon.svg" alt="" width="30" height="20">
-      <span>deckk</span>
+    <div class="toolbar-inner">
+      <div class="brand">
+        <img src="icon.svg" alt="" width="27" height="18">
+        <span>deckk</span>
+      </div>
+      <p class="tallies" id="tallies"></p>
+      <p class="live" id="live" data-state="connecting" aria-live="polite">Connecting</p>
     </div>
-    <p class="tallies" id="tallies"></p>
-    <p class="live" id="live" data-state="connecting" aria-live="polite">Connecting</p>
   </header>
 
   <main class="layout">
     <div class="primary">
       <div id="clashes"></div>
       <section class="next" id="next" aria-labelledby="next-title"></section>
-      <div id="groups"></div>
+      <section class="sessions" aria-labelledby="sessions-title">
+        <div class="section-head">
+          <h2 id="sessions-title">Sessions</h2>
+          <div id="grouping"></div>
+        </div>
+        <div id="groups"></div>
+      </section>
     </div>
     <aside class="secondary">
-      <section class="panel" id="today" aria-label="Today"></section>
+      <section class="panel" id="today" aria-labelledby="today-title"></section>
       <section class="panel" id="goals" aria-labelledby="goals-title"></section>
       <section class="panel" id="activity" aria-labelledby="activity-title"></section>
     </aside>

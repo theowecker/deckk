@@ -107,34 +107,18 @@ func TestTheStreamSendsEachChange(t *testing.T) {
 	}
 }
 
-func TestTheLinkTradesItsTokenForACookie(t *testing.T) {
-	s, h, _ := testServer(t)
-	w := request(h, "GET", "/?t="+s.token, "", "")
-	if w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/" {
-		t.Fatalf("got %d to %q", w.Code, w.Header().Get("Location"))
+func TestTheLinkKeepsItsTokenFromTheServer(t *testing.T) {
+	s := newServer("0123456789abcdef0123456789abcdef", func(Action) error { return nil })
+	s.url = "http://127.0.0.1:4747/#t=" + s.token
+	if !strings.Contains(s.URL(), "/#t=") {
+		t.Fatalf("the token belongs after #, got %s", s.URL())
 	}
-	cookies := w.Result().Cookies()
-	if len(cookies) != 1 || !cookies[0].HttpOnly || cookies[0].SameSite != http.SameSiteStrictMode {
-		t.Fatalf("cookies %v", cookies)
+	h := s.routes(4747)
+	if w := request(h, "GET", "/", "", ""); w.Header().Get("X-Frame-Options") != "DENY" || !strings.Contains(w.Header().Get("Content-Security-Policy"), "frame-ancestors 'none'") {
+		t.Fatal("the page must refuse to be framed")
 	}
-	r := httptest.NewRequest("GET", "/api/state", nil)
-	r.Host = "localhost:4747"
-	r.AddCookie(cookies[0])
-	reads := httptest.NewRecorder()
-	h.ServeHTTP(reads, r)
-	if reads.Code != http.StatusOK {
-		t.Fatalf("the cookie should allow reads: %d", reads.Code)
-	}
-	r = httptest.NewRequest("POST", "/api/action", strings.NewReader(`{"kind":"open","id":"x"}`))
-	r.Host = "localhost:4747"
-	r.AddCookie(cookies[0])
-	changes := httptest.NewRecorder()
-	h.ServeHTTP(changes, r)
-	if changes.Code != http.StatusUnauthorized {
-		t.Fatalf("a cookie alone must not allow changes: %d", changes.Code)
-	}
-	if bad := request(h, "GET", "/?t=wrong", "", ""); len(bad.Result().Cookies()) != 0 {
-		t.Fatal("a wrong token should get no cookie")
+	if w := request(h, "GET", "/", "", ""); len(w.Result().Cookies()) != 0 {
+		t.Fatal("deckk sets no cookies")
 	}
 }
 

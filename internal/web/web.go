@@ -43,12 +43,19 @@ const (
 // ErrNotReady means the dashboard can't take actions yet.
 var ErrNotReady = errors.New("the dashboard isn't ready")
 
-const cookieName = "deckk"
+// History is a session's recent exchanges, oldest first.
+type History func(id string) ([]Turn, error)
+
+type Turn struct {
+	Prompt string `json:"prompt"`
+	Reply  string `json:"reply"`
+}
 
 type Server struct {
 	token    string
 	url      string
 	onAction func(Action) error
+	history  History
 
 	mu      sync.Mutex
 	state   []byte
@@ -56,7 +63,7 @@ type Server struct {
 }
 
 // Start listens on localhost and serves until the process ends.
-func Start(tokenPath string, onAction func(Action) error) (*Server, error) {
+func Start(tokenPath string, onAction func(Action) error, history History) (*Server, error) {
 	token, err := loadToken(tokenPath)
 	if err != nil {
 		return nil, err
@@ -69,9 +76,11 @@ func Start(tokenPath string, onAction func(Action) error) (*Server, error) {
 	}
 	port := ln.Addr().(*net.TCPAddr).Port
 	s := newServer(token, onAction)
+	s.history = history
 	// 127.0.0.1 rather than localhost, which may resolve to an IPv6 address
-	// some other program is listening on.
-	s.url = fmt.Sprintf("http://127.0.0.1:%d/?t=%s", port, token)
+	// some other program is listening on. The token goes after #, which
+	// browsers never send to a server; the page keeps it and clears it.
+	s.url = fmt.Sprintf("http://127.0.0.1:%d/#t=%s", port, token)
 	// No write timeout: the live stream stays open for as long as the page.
 	server := &http.Server{Handler: s.routes(port), ReadHeaderTimeout: 5 * time.Second}
 	go func() { _ = server.Serve(ln) }()
@@ -82,7 +91,7 @@ func newServer(token string, onAction func(Action) error) *Server {
 	return &Server{token: token, onAction: onAction, state: []byte("{}"), waiters: map[chan struct{}]bool{}}
 }
 
-// URL opens the page. The token in it is traded for a cookie on arrival.
+// URL opens the page with the token it needs.
 func (s *Server) URL() string { return s.url }
 
 // Publish replaces the state the page shows and wakes the pages watching.
@@ -128,11 +137,11 @@ func (s *Server) unsubscribe(changed chan struct{}) {
 func (s *Server) routes(port int) http.Handler {
 	files, _ := fs.Sub(static, "static")
 	mux := http.NewServeMux()
-	mux.Handle("GET /", s.arrive(http.FileServerFS(files)))
-	mux.HandleFunc("GET /api/token", s.authed(s.serveToken))
+	mux.Handle("GET /", http.FileServerFS(files))
 	mux.HandleFunc("GET /api/state", s.authed(s.serveState))
 	mux.HandleFunc("GET /api/stream", s.authed(s.serveStream))
-	mux.HandleFunc("POST /api/action", s.authedByHeader(s.serveAction))
+	mux.HandleFunc("GET /api/history", s.authed(s.serveHistory))
+	mux.HandleFunc("POST /api/action", s.authed(s.serveAction))
 	return localOnly(port, mux)
 }
 
@@ -150,26 +159,8 @@ func localOnly(port int, next http.Handler) http.Handler {
 		}
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("Referrer-Policy", "no-referrer")
-		w.Header().Set("Content-Security-Policy", "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'")
-		next.ServeHTTP(w, r)
-	})
-}
-
-// arrive trades the token in deckk's link for a cookie and drops it from
-// the address, so it stays out of history and off the screen, and a
-// bookmark of the bare page keeps working.
-func (s *Server) arrive(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if given := r.URL.Query().Get("t"); given != "" {
-			if s.valid(given) {
-				http.SetCookie(w, &http.Cookie{
-					Name: cookieName, Value: s.token, Path: "/", MaxAge: 365 * 24 * 60 * 60,
-					HttpOnly: true, SameSite: http.SameSiteStrictMode,
-				})
-			}
-			http.Redirect(w, r, r.URL.Path, http.StatusSeeOther)
-			return
-		}
+		w.Header().Set("X-Frame-Options", "DENY")
+		w.Header().Set("Content-Security-Policy", "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'")
 		next.ServeHTTP(w, r)
 	})
 }
@@ -178,36 +169,17 @@ func (s *Server) valid(given string) bool {
 	return subtle.ConstantTimeCompare([]byte(given), []byte(s.token)) == 1
 }
 
-// authed accepts the cookie or the header. Reads are safe with the cookie
-// alone: other origins can't read the replies without CORS headers.
+// authed needs the token in a header. A page on another site can't add one
+// without a CORS preflight, which deckk never grants, and deckk sets no
+// cookie, since cookies would reach every other server on 127.0.0.1.
 func (s *Server) authed(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		cookie, _ := r.Cookie(cookieName)
-		if !s.valid(r.Header.Get("X-Deckk-Token")) && (cookie == nil || !s.valid(cookie.Value)) {
-			http.Error(w, "open the page from deckk to get a working link", http.StatusUnauthorized)
-			return
-		}
-		next(w, r)
-	}
-}
-
-// authedByHeader is for changes. Other pages on localhost count as the same
-// site, so a cookie alone could be sent along by them; a custom header can't
-// be, since it needs a CORS preflight deckk never grants.
-func (s *Server) authedByHeader(next http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
 		if !s.valid(r.Header.Get("X-Deckk-Token")) {
-			http.Error(w, "missing token", http.StatusUnauthorized)
+			http.Error(w, "This page needs a fresh link. Press w in deckk.", http.StatusUnauthorized)
 			return
 		}
 		next(w, r)
 	}
-}
-
-func (s *Server) serveToken(w http.ResponseWriter, _ *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Cache-Control", "no-store")
-	_ = json.NewEncoder(w).Encode(map[string]string{"token": s.token})
 }
 
 func (s *Server) serveState(w http.ResponseWriter, _ *http.Request) {
@@ -245,6 +217,23 @@ func (s *Server) serveStream(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+}
+
+func (s *Server) serveHistory(w http.ResponseWriter, r *http.Request) {
+	if s.history == nil {
+		http.Error(w, "no history here", http.StatusNotFound)
+		return
+	}
+	turns, err := s.history(r.URL.Query().Get("id"))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+	if turns == nil {
+		turns = []Turn{}
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(turns)
 }
 
 func (s *Server) serveAction(w http.ResponseWriter, r *http.Request) {
