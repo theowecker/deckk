@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"cmp"
 	"fmt"
 	"slices"
 	"strings"
@@ -75,21 +74,26 @@ func (m Model) findResults() []deck.Group {
 		pool = m.sessions
 	}
 	query := m.filter.Value()
-	var yours, background []claude.Session
+	mentioned := m.mentioned.ids
+	if m.mentioned.query != query {
+		mentioned = nil
+	}
+	var yours, said, background []claude.Session
 	for _, s := range pool {
+		matched := m.score(s, query) > 0
 		switch {
-		case !deck.Matches(s, query):
-		case s.Background:
+		case s.Background && matched:
 			background = append(background, s)
-		default:
+		case s.Background:
+		case matched:
 			yours = append(yours, s)
+		case mentioned[s.ID]:
+			said = append(said, s)
 		}
 	}
-	newest := func(a, b claude.Session) int {
-		return cmp.Or(b.UpdatedAt.Compare(a.UpdatedAt), strings.Compare(a.ID, b.ID))
-	}
-	slices.SortFunc(yours, newest)
-	slices.SortFunc(background, newest)
+	deck.Rank(yours, func(s claude.Session) int { return m.score(s, query) })
+	deck.Rank(said, func(claude.Session) int { return 0 })
+	deck.Rank(background, func(s claude.Session) int { return m.score(s, query) })
 
 	var groups []deck.Group
 	if len(yours) > 0 {
@@ -99,6 +103,13 @@ func (m Model) findResults() []deck.Group {
 		}
 		if len(yours) > findLimit {
 			g.Sessions, g.Hidden = yours[:findLimit], len(yours)-findLimit
+		}
+		groups = append(groups, g)
+	}
+	if len(said) > 0 {
+		g := deck.Group{Section: deck.Recent, Title: "MENTIONED IN THE CONVERSATION", Sessions: said}
+		if len(said) > findLimit {
+			g.Sessions, g.Hidden = said[:findLimit], len(said)-findLimit
 		}
 		groups = append(groups, g)
 	}
@@ -149,7 +160,53 @@ func (m Model) updateFind(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	m.filter, cmd = m.filter.Update(msg)
 	m.cursor = 0
 	m.rearrange()
-	return m, cmd
+	return m, tea.Batch(cmd, searchSoon(m.filter.Value()))
+}
+
+func (m Model) score(s claude.Session, query string) int {
+	note, _, _ := m.note(s)
+	return deck.Score(s, query, note.Text)
+}
+
+type mentionedMsg struct {
+	query string
+	ids   map[string]bool
+}
+
+type searchSoonMsg string
+
+// Searching whole transcripts waits for a pause in typing.
+func searchSoon(query string) tea.Cmd {
+	if len(strings.TrimSpace(query)) < 3 {
+		return nil
+	}
+	return tea.Tick(250*time.Millisecond, func(time.Time) tea.Msg { return searchSoonMsg(query) })
+}
+
+func (m Model) searchTranscripts(query string) tea.Cmd {
+	pool := m.everything
+	if pool == nil {
+		pool = m.sessions
+	}
+	byPath := map[string]string{}
+	var paths []string
+	for _, s := range pool {
+		if s.Path != "" && !s.Background {
+			byPath[s.Path] = s.ID
+			paths = append(paths, s.Path)
+		}
+	}
+	return func() tea.Msg {
+		found, err := claude.Mentioning(paths, query)
+		if err != nil {
+			return nil
+		}
+		ids := map[string]bool{}
+		for path := range found {
+			ids[byPath[path]] = true
+		}
+		return mentionedMsg{query, ids}
+	}
 }
 
 type viewTab struct {

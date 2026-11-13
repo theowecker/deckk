@@ -215,26 +215,39 @@ func search(st *store.Store) web.Search {
 		}
 		sessions = slices.Clone(sessions)
 		labels.ApplyNames(sessions)
-		sessions = slices.DeleteFunc(sessions, func(s claude.Session) bool {
-			return hq.Is(s.Cwd) || !deck.Matches(s, query)
-		})
-		slices.SortFunc(sessions, func(a, b claude.Session) int {
-			if a.Background != b.Background {
-				if a.Background {
-					return 1
-				}
-				return -1
+		notes, _ := hq.LoadNotes()
+		score := func(s claude.Session) int { return deck.Score(s, query, notes[s.ID].Text) }
+		var yours, unmatched, background []claude.Session
+		for _, s := range sessions {
+			switch {
+			case hq.Is(s.Cwd):
+			case score(s) == 0 && !s.Background && s.Path != "":
+				unmatched = append(unmatched, s)
+			case score(s) == 0:
+			case s.Background:
+				background = append(background, s)
+			default:
+				yours = append(yours, s)
 			}
-			return b.UpdatedAt.Compare(a.UpdatedAt)
-		})
-		found := make([]web.Found, 0, min(len(sessions), searchLimit))
-		for _, s := range sessions[:min(len(sessions), searchLimit)] {
-			found = append(found, web.Found{
-				ID: s.ID, Title: cmp.Or(s.Title, "new session"), Project: s.Project(), Folder: s.Cwd, Branch: s.Branch,
-				Updated: s.UpdatedAt, LastPrompt: clip(s.LastPrompt, 200), Running: s.Running(), Background: s.Background,
-				Pinned: labels.Pinned[s.ID], Archived: labels.Archived[s.ID],
-			})
 		}
+		deck.Rank(yours, score)
+		deck.Rank(background, score)
+		said := mentioning(unmatched, query)
+		deck.Rank(said, func(claude.Session) int { return 0 })
+
+		found := make([]web.Found, 0, searchLimit)
+		add := func(list []claude.Session, mentioned bool) {
+			for _, s := range list[:min(len(list), searchLimit-len(found))] {
+				found = append(found, web.Found{
+					ID: s.ID, Title: cmp.Or(s.Title, "new session"), Project: s.Project(), Folder: s.Cwd, Branch: s.Branch,
+					Updated: s.UpdatedAt, LastPrompt: clip(s.LastPrompt, 200), Running: s.Running(), Background: s.Background,
+					Pinned: labels.Pinned[s.ID], Archived: labels.Archived[s.ID], Mentioned: mentioned,
+				})
+			}
+		}
+		add(yours, false)
+		add(said, true)
+		add(background, false)
 		return found, nil
 	}
 }
@@ -313,4 +326,19 @@ func restartStaleServer() error {
 		return errors.New("deckk can't attach until its tmux server restarts; run deckk again and answer y")
 	}
 	return tmux.KillServer()
+}
+
+func mentioning(sessions []claude.Session, query string) []claude.Session {
+	if len(strings.TrimSpace(query)) < 3 {
+		return nil
+	}
+	paths := make([]string, len(sessions))
+	for i, s := range sessions {
+		paths[i] = s.Path
+	}
+	found, err := claude.Mentioning(paths, query)
+	if err != nil {
+		return nil
+	}
+	return slices.DeleteFunc(slices.Clone(sessions), func(s claude.Session) bool { return !found[s.Path] })
 }

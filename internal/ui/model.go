@@ -62,6 +62,7 @@ type Model struct {
 	view        view
 	showAll     bool
 	everything  []claude.Session
+	mentioned   mentionedMsg
 	byProject   bool
 	filter      textinput.Model
 	picker      *picker
@@ -279,6 +280,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.updateFind(msg)
 		}
 		return m.updateList(msg)
+
+	case searchSoonMsg:
+		if m.view == findView && string(msg) == m.filter.Value() {
+			return m, m.searchTranscripts(string(msg))
+		}
+		return m, nil
+
+	case mentionedMsg:
+		if msg.query == m.filter.Value() {
+			m.mentioned = msg
+			m.rearrange()
+		}
+		return m, nil
 
 	case foundMsg:
 		m.everything = msg

@@ -52,7 +52,7 @@ place.
 | `d` | dismiss the deckk session's suggestion for a session |
 | `t` | let the deckk session send its safe suggestions to a session without asking |
 | `w` | open deckk in your browser |
-| `/` | find any session, ever |
+| `/` | find any session, ever: titles first, then folders and branches, then what was said, then anything in the whole conversation |
 | `tab` | switch between Sessions, Board, Background and Find |
 | `v` | group by status or by project |
 | `s` | settings |

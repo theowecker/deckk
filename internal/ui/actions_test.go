@@ -670,3 +670,20 @@ func TestTheNewPickerFindsOldSessionsAndAFoldersSessions(t *testing.T) {
 		t.Fatalf("enter on a session should open it, opened %v selected %v", host.opened, host.selected)
 	}
 }
+
+func TestFindListsSessionsThatOnlyMentionTheQueryLast(t *testing.T) {
+	m, _ := newTestModel(t)
+	m, _ = press(m, "/")
+	for _, r := range "zebra" {
+		m, _ = press(m, string(r))
+	}
+	if len(m.flat) != 0 {
+		t.Fatalf("nothing is called zebra, got %d", len(m.flat))
+	}
+	quiet := m.sessions[0]
+	tm, _ := m.Update(mentionedMsg{query: "zebra", ids: map[string]bool{quiet.ID: true}})
+	m = tm.(Model)
+	if len(m.groups) != 1 || m.groups[0].Title != "MENTIONED IN THE CONVERSATION" || m.groups[0].Sessions[0].ID != quiet.ID {
+		t.Fatalf("groups %+v", m.groups)
+	}
+}

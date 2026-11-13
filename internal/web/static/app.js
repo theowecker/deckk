@@ -533,7 +533,12 @@ function fromSearch(f) {
 function renderGroups(s) {
   let groups;
   if (found) {
-    groups = found.length ? [{ title: `${plural(found.length, "match")} for “${query}”`, sessions: found.map(fromSearch) }] : [];
+    const named = found.filter((f) => !f.mentioned);
+    const said = found.filter((f) => f.mentioned);
+    groups = [
+      named.length && { title: `${plural(named.length, "match")} for “${query}”`, sessions: named.map(fromSearch) },
+      said.length && { title: "Mentioned in the conversation", sessions: said.map(fromSearch) },
+    ].filter(Boolean);
   } else if (grouping === "background") {
     groups = (s.background || []).length ? [{ title: "Runs nobody typed into, such as claude -p", sessions: s.background }] : [];
   } else {

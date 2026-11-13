@@ -199,14 +199,39 @@ func compareBool(a, b bool) int {
 	}
 }
 
-func Matches(s claude.Session, query string) bool {
-	haystack := strings.ToLower(strings.Join([]string{s.Title, s.Project(), s.Branch, s.LastPrompt, s.LastReply, s.PR}, " "))
-	for word := range strings.FieldsSeq(strings.ToLower(query)) {
-		if !strings.Contains(haystack, word) {
-			return false
+func Matches(s claude.Session, query string) bool { return Score(s, query) > 0 }
+
+// Score is 3 when the title holds every word of the query, 2 when the title,
+// folder, branch and PR do together, 1 when what was last said or noted does
+// too, and 0 otherwise.
+func Score(s claude.Session, query string, notes ...string) int {
+	words := strings.Fields(strings.ToLower(query))
+	holds := func(fields ...string) bool {
+		haystack := strings.ToLower(strings.Join(fields, " "))
+		for _, w := range words {
+			if !strings.Contains(haystack, w) {
+				return false
+			}
 		}
+		return true
 	}
-	return true
+	named := []string{s.Title, s.Project(), s.Branch, s.PR}
+	switch {
+	case holds(s.Title):
+		return 3
+	case holds(named...):
+		return 2
+	case holds(append(append(named, s.LastPrompt, s.LastReply), notes...)...):
+		return 1
+	}
+	return 0
+}
+
+// Rank sorts sessions by score, then newest first.
+func Rank(sessions []claude.Session, score func(claude.Session) int) {
+	slices.SortStableFunc(sessions, func(a, b claude.Session) int {
+		return cmp.Or(score(b)-score(a), b.UpdatedAt.Compare(a.UpdatedAt), strings.Compare(a.ID, b.ID))
+	})
 }
 
 func ToRestore(sessions []claude.Session, marks Marks) []claude.Session {

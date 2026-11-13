@@ -164,7 +164,7 @@ func (p *picker) refilter() {
 			p.sessions = append(p.sessions, s)
 		}
 	}
-	sortNewest(p.sessions)
+	deck.Rank(p.sessions, func(s claude.Session) int { return deck.Score(s, query) })
 	p.sessions = p.sessions[:min(len(p.sessions), pickerSessions)]
 }
 

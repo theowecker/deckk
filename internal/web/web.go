@@ -70,6 +70,9 @@ type Found struct {
 	Background bool      `json:"background,omitempty"`
 	Pinned     bool      `json:"pinned,omitempty"`
 	Archived   bool      `json:"archived,omitempty"`
+	// Mentioned matches only somewhere in the conversation, not in what the
+	// session is called or last said.
+	Mentioned bool `json:"mentioned,omitempty"`
 }
 
 var ErrNotReady = errors.New("the dashboard isn't ready")
