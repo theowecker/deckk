@@ -102,7 +102,6 @@ func newTestModel(t *testing.T) (Model, *fakeHost) {
 	return newTestModelWith(t, nil)
 }
 
-// prepare stands in for state left by an earlier run of deckk.
 func newTestModelWith(t *testing.T, prepare func(*store.Store)) (Model, *fakeHost) {
 	t.Helper()
 	t.Setenv("TMUX", "")

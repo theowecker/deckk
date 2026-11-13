@@ -19,8 +19,6 @@ type view int
 
 const (
 	sessionsView view = iota
-	// boardView is the overview: goals, then each project's sessions with
-	// what the deckk session says about them.
 	boardView
 	backgroundView
 	findView
@@ -29,7 +27,6 @@ const (
 
 const findLimit = 100
 
-// Background runs Find shows before + shows them all.
 const backgroundShown = 5
 
 func (v view) next() view { return (v + 1) % viewCount }
@@ -70,9 +67,8 @@ func (m Model) findEverything() tea.Cmd {
 	}
 }
 
-// findResults lists your own sessions first and background runs after,
-// a few at a time, since a tool that calls claude -p can leave hundreds of
-// them that would bury the session you came to resume.
+// Background runs go last and a few at a time, since a tool that calls claude
+// -p can leave hundreds of them that would bury the session you came to resume.
 func (m Model) findResults() []deck.Group {
 	pool := m.everything
 	if pool == nil {
@@ -193,7 +189,6 @@ func (m Model) viewTabsLine() string {
 	return line
 }
 
-// webLink opens the page deckk serves, from the end of the view tabs.
 const webLink = "Web ↗"
 
 func (m Model) webLinkAt(x, y int) bool {

@@ -1,5 +1,3 @@
-// Package mcp is a minimal Model Context Protocol server over stdio: enough
-// for Claude Code to list and call tools.
 package mcp
 
 import (
@@ -11,9 +9,9 @@ import (
 	"sync"
 )
 
-// Serve speaks MCP: one JSON-RPC message per line. Calls run concurrently,
-// so a tool may block for a long time without holding up the others. A
-// call's context ends when the client cancels it or the input closes.
+// Calls run concurrently, so a tool may block for a long time without holding
+// up the others. A call's context ends when the client cancels it or the input
+// closes.
 func Serve(in io.Reader, out io.Writer, name, version string, tools []Tool) error {
 	ctx, stop := context.WithCancel(context.Background())
 	defer stop()
@@ -170,7 +168,6 @@ func toolResult(text string, isError bool) map[string]any {
 	}
 }
 
-// Args are a call's arguments as JSON decoded them.
 type Args map[string]any
 
 func (a Args) String(key string) string {
@@ -190,7 +187,6 @@ func (a Args) Bool(key string) bool {
 	return v
 }
 
-// Param kinds are JSON Schema types.
 type Param struct {
 	Name, Kind, Description string
 	Required                bool

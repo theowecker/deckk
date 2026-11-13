@@ -20,8 +20,7 @@ const (
 	profileGUID = "6F0D9C1E-5B7A-4D2E-9C3B-DECC0000C0DE"
 )
 
-// installProfile writes a dynamic profile that looks exactly like parent but
-// sends Cmd+C to deckk. iTerm2 reloads dynamic profiles as soon as they change.
+// iTerm2 reloads dynamic profiles as soon as they change.
 func installProfile(parent, tabKeys string) error {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -75,8 +74,6 @@ func profileJSON(parent string, keys map[string]any, tabKeys string) ([]byte, er
 	return json.MarshalIndent(map[string]any{"Profiles": []any{profile}}, "", "  ")
 }
 
-// tabKeyMap sends the chosen Cmd keys to tmux as Ctrl+Shift+arrows. They
-// take over iTerm2's own use of the keys, but only in the deckk tab.
 func tabKeyMap(tabKeys string) map[string]any {
 	prev := map[string]any{"Action": 10, "Text": "[1;6D"}
 	next := map[string]any{"Action": 10, "Text": "[1;6C"}
@@ -90,7 +87,6 @@ func tabKeyMap(tabKeys string) map[string]any {
 	return nil
 }
 
-// RefreshProfile rewrites an installed deckk profile for new tab keys.
 // iTerm2 picks up the change in tabs that already use it.
 func RefreshProfile(tabKeys string) error {
 	home, err := os.UserHomeDir()
@@ -112,8 +108,7 @@ func RefreshProfile(tabKeys string) error {
 	return installProfile(installed.Profiles[0].Parent, tabKeys)
 }
 
-// parentKeys reads the parent profile's key mappings from iTerm2's
-// preferences. A parent that can't be found just keeps iTerm2's defaults.
+// A parent that can't be found keeps iTerm2's defaults.
 func parentKeys(home, parent string) map[string]any {
 	prefs := filepath.Join(home, "Library", "Preferences", "com.googlecode.iterm2.plist")
 	for i := 0; ; i++ {
@@ -170,7 +165,6 @@ func plistJSON(path string) map[string]any {
 	return m
 }
 
-// useProfile switches the current iTerm2 tab, and only that tab, to a profile.
 func useProfile(w io.Writer, name string) {
 	fmt.Fprintf(w, "\x1b]1337;SetProfile=%s\x07", name)
 }

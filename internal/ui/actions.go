@@ -52,8 +52,6 @@ func (m Model) resume(s claude.Session, focus bool) error {
 	return m.host.Open(s.Dir, tabName(displayTitle(s)), m.claude("--resume", s.ID), focus)
 }
 
-// claude is the command for a session deckk starts, with the tools to ask
-// the deckk session what's next when that is on.
 func (m Model) claude(args ...string) string {
 	if m.cfg.AskDeckk() {
 		args = append(args, hq.ChildArgs()...)
@@ -345,9 +343,8 @@ func fitName(title string, max int) string {
 	return strings.ReplaceAll(string(r), "#", "##")
 }
 
-// tabFit shares the strip's width between session tabs. The numbers mirror
-// the tab formats in tmux/config.go: each tab costs its name plus 7 cells,
-// the dashboard tab 12, and the buttons on the right 16.
+// The numbers mirror the tab formats in tmux/config.go: each tab costs its name
+// plus 7 cells, the dashboard tab 12, and the buttons on the right 16.
 func tabFit(width, tabs int) (int, bool) {
 	if tabs == 0 {
 		return maxTabName, false
@@ -357,9 +354,7 @@ func tabFit(width, tabs int) (int, bool) {
 	return max(fit, 1), fit < 6
 }
 
-// confirmed runs a move that touches every session only on its second press,
-// since one stray key or click would otherwise rearrange all the tabs. The
-// first press says what will happen.
+// One stray key or click would otherwise rearrange all the tabs.
 func (m *Model) confirmed(key, last string, sessions int, what string, run func() tea.Cmd) tea.Cmd {
 	if sessions == 0 || last == key {
 		m.confirm = ""
@@ -377,7 +372,6 @@ func sessionsWord(n int) string {
 	return fmt.Sprintf("all %d sessions", n)
 }
 
-// popAllCount and adoptAllCount are how many sessions O and M would move.
 func (m Model) popAllCount() int {
 	n := 0
 	for _, s := range m.sessions {

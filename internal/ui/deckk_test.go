@@ -18,7 +18,6 @@ import (
 	"github.com/theowecker/deckk/internal/tmux"
 )
 
-// withDeckk adds a running, idle deckk session in its own pane.
 func withDeckk(t *testing.T) (Model, *fakeHost) {
 	t.Helper()
 	m, host := newTestModel(t)
@@ -33,7 +32,6 @@ func deckkSession() claude.Session {
 	return claude.Session{ID: "hqhqhqhq", Title: "deckk", Cwd: hq.Dir(), PID: 9, TTY: "/dev/ttys109", Status: "idle"}
 }
 
-// refresh is a load where sessions changed, with its effects played back.
 func refresh(t *testing.T, m Model, host *fakeHost, change func([]claude.Session)) Model {
 	t.Helper()
 	sessions := slices.Clone(m.sessions)
@@ -46,7 +44,6 @@ func refresh(t *testing.T, m Model, host *fakeHost, change func([]claude.Session
 	return load(t, m, host, sessions)
 }
 
-// load is a refresh that finds exactly these sessions.
 func load(t *testing.T, m Model, host *fakeHost, sessions []claude.Session) Model {
 	t.Helper()
 	tm, cmd := m.Update(loadedMsg{sessions: sessions, windows: host.windows, started: time.Now(), deckk: m.snapshot(), edits: host.edits})
@@ -58,7 +55,6 @@ func load(t *testing.T, m Model, host *fakeHost, sessions []claude.Session) Mode
 	return tm.(Model)
 }
 
-// inside is the test session hosted in deckk's strip.
 func inside(sessions []claude.Session) *claude.Session {
 	for i := range sessions {
 		if sessions[i].ID == "dddddddd" {

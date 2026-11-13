@@ -35,14 +35,12 @@ type Option struct {
 	Label   string
 	Choices []string
 	field   func(*Config) *string
-	// Deckk options set deckk itself rather than the Claudes it starts.
-	Deckk bool
-	// Names shows a choice, and the empty choice, in words.
-	Names map[string]string
+	Deckk   bool
+	Names   map[string]string
 }
 
-// Ways to switch deckk tabs from the keyboard. Ctrl+Shift+arrows work in any
-// terminal, and the iTerm2 profile maps the Cmd keys onto them.
+// The iTerm2 profile maps the Cmd keys onto Ctrl+Shift+arrows, which work in
+// any terminal.
 const (
 	TabKeysArrows   = ""
 	TabKeysBrackets = "brackets"
@@ -50,7 +48,7 @@ const (
 	TabKeysOff      = "off"
 )
 
-// The deckk session's settings. Empty is the default for each.
+// Empty is the default for each.
 const (
 	On  = ""
 	Off = "off"
@@ -62,7 +60,6 @@ const (
 
 func (c *Config) HQOn() bool { return c.HQ != Off }
 
-// Prefill and Send say how far a suggestion may go on its own.
 func (c *Config) Prefill() bool { return c.HQOn() && c.Suggest != SuggestList }
 func (c *Config) Send() bool    { return c.HQOn() && c.Suggest == SuggestSend }
 
@@ -76,9 +73,8 @@ func (c *Config) NotifyOn() bool { return c.Notify != Off }
 
 var onOff = []string{On, Off}
 
-// Options are what the settings screen cycles through. An empty choice means
-// leave it to Claude's own settings. Modes that skip permission checks are
-// left out on purpose; extra_args can still set them.
+// An empty choice leaves it to Claude's own settings. Modes that skip
+// permission checks are left out on purpose; extra_args can still set them.
 var Options = []Option{
 	{Key: "view", Label: "View", Choices: []string{"", "default", "verbose", "focus"}, field: func(c *Config) *string { return &c.View }},
 	{Key: "model", Label: "Model", Choices: []string{"", "opus", "sonnet", "fable", "haiku"}, field: func(c *Config) *string { return &c.Model }},

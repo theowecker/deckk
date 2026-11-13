@@ -78,8 +78,6 @@ func eachSession(sessions string) string {
 end repeat`, sessions)
 }
 
-// The deckk profile sends Cmd+C to deckk, and the tab switches back to the
-// profile it started in when deckk quits.
 func useDeckkProfile(out io.Writer, tabKeys string) func() {
 	parent := os.Getenv("ITERM_PROFILE")
 	if parent == "" || parent == profileName || installProfile(parent, tabKeys) != nil {

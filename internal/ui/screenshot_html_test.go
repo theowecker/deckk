@@ -17,8 +17,8 @@ type pen struct {
 	bold, faint, italic, underline bool
 }
 
-// screenshotHTML lays ANSI output on a fixed cell grid. Fonts draw block
-// glyphs at their own widths and heights, so those become boxes instead.
+// Fonts draw block glyphs at their own widths and heights, so those become
+// boxes on a fixed cell grid.
 func screenshotHTML(ansiText string, cols int) string {
 	var cells strings.Builder
 	lines := strings.Split(ansiText, "\n")

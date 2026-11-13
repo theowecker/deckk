@@ -13,7 +13,6 @@ import (
 	"github.com/theowecker/deckk/internal/hq"
 )
 
-// Inside deckk and Popped out are both running; give them a file in common.
 func clashing(t *testing.T) (Model, *fakeHost) {
 	t.Helper()
 	m, host := withDeckk(t)

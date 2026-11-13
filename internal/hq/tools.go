@@ -18,14 +18,11 @@ import (
 	"github.com/theowecker/deckk/internal/tmux"
 )
 
-// The MCP server runs in one of two roles, named in its config.
 const (
 	RoleHQ    = "hq"
 	RoleChild = "child"
 )
 
-// Tools are the deckk session's when role is RoleHQ, and a child session's
-// otherwise.
 func Tools(role string) []mcp.Tool {
 	if role == RoleHQ {
 		return parentTools()
@@ -33,7 +30,6 @@ func Tools(role string) []mcp.Tool {
 	return childTools()
 }
 
-// ignoringContext is for tools that finish quickly and never need cancelling.
 func ignoringContext(run func(mcp.Args) (string, error)) func(context.Context, mcp.Args) (string, error) {
 	return func(_ context.Context, a mcp.Args) (string, error) { return run(a) }
 }
@@ -186,7 +182,6 @@ func ask(ctx context.Context, a mcp.Args) (string, error) {
 	return "deckk did not answer in time. Carry on with your best judgement.", nil
 }
 
-// Running reports whether the deckk session is up to answer questions.
 func Running() bool {
 	live, err := claude.ReadLive(filepath.Join(claude.Home(), "sessions"))
 	if err != nil {
@@ -414,7 +409,6 @@ func propose(a mcp.Args) (string, error) {
 	return "Proposed as " + p.ID + ". The user can start it from Next up.", Propose(p)
 }
 
-// resolve accepts a full session ID or a unique prefix of one.
 func resolve(prefix string) (string, error) {
 	prefix = strings.TrimSpace(strings.Trim(prefix, "[]"))
 	if len(prefix) < 4 {

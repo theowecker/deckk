@@ -35,11 +35,8 @@ var (
 
 var sessionID = regexp.MustCompile(`^[0-9a-f-]{8,64}$`)
 
-// IsSessionID checks an ID has the shape of Claude's before it reaches a
-// file path or a glob.
 func IsSessionID(id string) bool { return sessionID.MatchString(id) }
 
-// TranscriptPath finds a session's transcript under any project folder.
 func TranscriptPath(home, id string) string {
 	if !IsSessionID(id) {
 		return ""
@@ -51,8 +48,7 @@ func TranscriptPath(home, id string) string {
 	return paths[0]
 }
 
-// Exchanges returns the last n prompts in a transcript, each with the final
-// text Claude replied with. Only the tail is read, so long sessions stay cheap.
+// Only the tail is read, so long sessions stay cheap.
 func Exchanges(path string, n int) ([]Exchange, error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -88,8 +84,7 @@ func Exchanges(path string, n int) ([]Exchange, error) {
 	return turns[max(len(turns)-n, 0):], nil
 }
 
-// Tools whose input names the file they change. Edits made through shell
-// commands can't be seen this way.
+// Edits made through shell commands can't be seen this way.
 var editTools = map[string]string{"Edit": "file_path", "MultiEdit": "file_path", "Write": "file_path", "NotebookEdit": "notebook_path"}
 
 var edits = struct {
@@ -103,9 +98,8 @@ type editsEntry struct {
 	files []string
 }
 
-// EditsOf reads which files each running session has edited since it
-// started, by session ID. A session with no start time is left out, since
-// without one there's no telling which edits are this run's.
+// A session with no start time is left out, since there's no telling which
+// edits are this run's.
 func EditsOf(sessions []Session) map[string][]string {
 	edits := map[string][]string{}
 	for _, s := range sessions {
@@ -119,10 +113,8 @@ func EditsOf(sessions []Session) map[string][]string {
 	return edits
 }
 
-// EditedFiles lists the files a session changed since a time, newest first,
-// counting its subagents' edits too. After the first read it only parses
-// what the transcript gained since, which matters for a working session's
-// ever-growing transcript.
+// After the first read it only parses what the transcript gained since, which
+// matters for a working session's ever-growing transcript.
 func EditedFiles(path string, since time.Time) ([]string, error) {
 	info, err := os.Stat(path)
 	if err != nil {
@@ -153,9 +145,8 @@ func EditedFiles(path string, since time.Time) ([]string, error) {
 	return files, nil
 }
 
-// readEdits parses the whole lines between two offsets and says where the
-// last of them ended, so a line still being written is read next time. A
-// start mid-line skips to the next line.
+// Returns where the last whole line ended, so a line still being written is
+// read next time. A start mid-line skips to the next line.
 func readEdits(path string, from, to int64, since time.Time) ([]string, int64, error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -209,7 +200,6 @@ func readEdits(path string, from, to int64, since time.Time) ([]string, int64, e
 	return files, start + int64(end), nil
 }
 
-// mergeNewest appends older files after newer ones, keeping each once.
 func mergeNewest(newer, older []string) []string {
 	out := slices.Clone(newer)
 	for _, f := range older {

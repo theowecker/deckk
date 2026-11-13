@@ -11,16 +11,13 @@ func atoi(s string) int {
 	return n
 }
 
-// The dashboard window holds two panes once the deckk session is open: the
-// dashboard and, beside it, the deckk session. Each is marked with a pane
-// option so either can be found whichever has focus.
+// Each pane is marked with an option so either can be found whichever has
+// focus.
 const (
 	dashboardPane = "dashboard"
 	hqPane        = "hq"
 )
 
-// The deckk session goes beside the dashboard when the window is at least
-// this wide, and under it otherwise.
 const sideBySide = 150
 
 type Pane struct {
@@ -28,8 +25,8 @@ type Pane struct {
 	Role   string
 	TTY    string
 	Active bool
-	// Seen is true when someone is looking at this pane: it has focus in the
-	// window an attached client shows.
+	// Seen is true when the pane has focus in the window an attached client
+	// shows.
 	Seen   bool
 	InMode bool
 }
@@ -47,8 +44,8 @@ func dashboardWindow() (string, error) {
 	return "", errors.New("the dashboard window is missing")
 }
 
-// DashboardPanes lists the dashboard window's panes. A pane from before panes
-// were marked is the dashboard, since it was the only one.
+// A pane from before panes were marked is the dashboard, since it was the only
+// one.
 func DashboardPanes() ([]Pane, error) {
 	window, err := dashboardWindow()
 	if err != nil {
@@ -86,7 +83,6 @@ func findPane(role string) (Pane, bool, error) {
 	return Pane{}, false, nil
 }
 
-// HQ is the deckk session's pane, if it is open.
 func HQ() (Pane, bool, error) { return findPane(hqPane) }
 
 func markPane(target, role string) error {
@@ -98,7 +94,6 @@ func markPane(target, role string) error {
 // decides the layout, isn't known.
 var ErrDetached = errors.New("no client is attached")
 
-// OpenHQ starts the deckk session beside the dashboard unless it is running.
 func OpenHQ(dir, command string, focus bool) error {
 	pane, open, err := HQ()
 	if err != nil {
@@ -152,10 +147,9 @@ func OpenHQ(dir, command string, focus bool) error {
 	return err
 }
 
-// titlePanes names both panes along their top edge, the focused one in clay,
-// and fades the other, since tmux can't frame a pane and a divider alone
-// doesn't show which side has the keyboard. Only
-// the dashboard window gets this; session tabs stay one bare pane.
+// Fades the side without focus, since tmux can't frame a pane and a divider
+// alone doesn't show which side has the keyboard. Session tabs stay one bare
+// pane.
 func titlePanes(window string) error {
 	_, err := run(
 		"set-option", "-w", "-t", window, "pane-border-status", "top", ";",
@@ -166,8 +160,8 @@ func titlePanes(window string) error {
 		"set-option", "-w", "-t", window, "pane-border-style", "fg=#3A3A52", ";",
 		"set-option", "-w", "-t", window, "pane-active-border-style", "fg=#3A3A52", ";",
 		"set-option", "-w", "-t", window, "pane-border-format", paneTitle, ";",
-		// The side without focus fades to grey. Only default-coloured text
-		// changes, so it works on light and dark terminals alike.
+		// Only default-coloured text changes, so it works on light and dark
+		// terminals alike.
 		"set-option", "-w", "-t", window, "window-style", "fg=#7A7A8C", ";",
 		"set-option", "-w", "-t", window, "window-active-style", "fg=terminal,bg=terminal")
 	return err

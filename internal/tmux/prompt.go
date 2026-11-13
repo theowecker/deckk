@@ -15,9 +15,8 @@ import (
 // replaces, so dim text counts as empty.
 const promptMark = "❯"
 
-// promptText reads a capture made with escapes and returns what the user has
-// typed. found is false when no prompt is showing, such as while a permission
-// question is up.
+// found is false when no prompt is showing, such as while a permission question
+// is up.
 func promptText(capture string) (typed string, found bool) {
 	lines := strings.Split(capture, "\n")
 	start := -1
@@ -47,7 +46,6 @@ func promptText(capture string) (typed string, found bool) {
 	return strings.Join(words, " "), true
 }
 
-// typedText returns a line's visible words that aren't dim.
 func typedText(line string, first bool) []string {
 	var b strings.Builder
 	dim := false
@@ -77,9 +75,8 @@ func typedText(line string, first bool) []string {
 	return strings.Fields(b.String())
 }
 
-// applyDim follows the dim attribute through one SGR sequence. Colour codes
-// carry numbers of their own, as in 38;2;r;g;b or 38;5;n, which are skipped
-// so a 2 or 0 inside a colour isn't read as dim or reset.
+// Colour codes carry numbers of their own, as in 38;2;r;g;b or 38;5;n, which
+// are skipped so a 2 or 0 inside a colour isn't read as dim or reset.
 func applyDim(dim bool, sgr string) bool {
 	params := strings.TrimSuffix(strings.TrimPrefix(sgr, "\x1b["), "m")
 	if params == "" {
@@ -103,7 +100,6 @@ func applyDim(dim bool, sgr string) bool {
 	return dim
 }
 
-// A Delivery says what Deliver did, or why it held back.
 type Delivery int
 
 const (
@@ -120,9 +116,8 @@ const (
 // trailing Enter into a newline, so Enter waits a moment.
 const enterAfter = 200 * time.Millisecond
 
-// Deliver types text into the Claude prompt in a pane, given by pane ID or by
-// its tty. It only types into an empty prompt, or one still holding exactly
-// replace, which it clears first. send presses Enter after.
+// Only types into an empty prompt, or one still holding exactly replace, which
+// it clears first.
 func Deliver(target, text, replace string, send bool) (Delivery, error) {
 	if strings.HasPrefix(target, "/dev/") {
 		pane, err := paneByTTY(target)
@@ -170,8 +165,8 @@ func Deliver(target, text, replace string, send bool) (Delivery, error) {
 	return Delivered, nil
 }
 
-// oneLine makes text safe to type: newlines would submit early, and control
-// characters would reach Claude as keys such as Escape or Ctrl+C.
+// Newlines would submit early, and control characters would reach Claude as
+// keys such as Escape or Ctrl+C.
 func oneLine(s string) string {
 	s = strings.Map(func(r rune) rune {
 		if unicode.IsControl(r) {
@@ -188,9 +183,8 @@ func commandLike(text string) bool {
 	return strings.HasPrefix(text, "/") || strings.HasPrefix(text, "!")
 }
 
-// sameText compares a prompt as read off the screen with text deckk typed.
-// Claude wraps long words at the edge, and reading the lines back adds a
-// space there, so spacing is ignored.
+// Claude wraps long words at the edge, and reading the lines back adds a space
+// there, so spacing is ignored.
 func sameText(screen, typed string) bool {
 	squash := func(s string) string { return strings.Join(strings.Fields(s), "") }
 	return squash(screen) == squash(oneLine(typed))

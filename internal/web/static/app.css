@@ -85,7 +85,6 @@ h1, h2 { margin: 0; }
   white-space: nowrap;
 }
 
-/* The window: a translucent sidebar beside the content, as in a Mac app. */
 .app { display: grid; grid-template-columns: 228px minmax(0, 1fr); min-height: 100%; }
 
 .sidebar {
@@ -104,7 +103,6 @@ h1, h2 { margin: 0; }
 
 .brand { display: flex; align-items: center; gap: 10px; padding: 0 10px; font-weight: 700; font-size: 17px; letter-spacing: -0.015em; }
 
-/* The cassette's reels turn while a session is working. */
 .cassette { width: 33px; height: 22px; shape-rendering: crispEdges; }
 .cassette .shell { fill: #E8875B; }
 .cassette .label { fill: #F4E9DC; }
@@ -157,7 +155,6 @@ body[data-working] .cassette .reel { animation: reel 1.4s linear infinite; }
 .live[data-state="live"]::before { background: var(--green); }
 .live[data-state="lost"]::before { background: var(--amber); }
 
-/* Pages cross-fade when you move between them. */
 .content { min-width: 0; padding: 36px 40px 80px; }
 .page { max-width: 1060px; margin: 0 auto; }
 .page.entering { animation: enter 0.32s var(--ease); }
@@ -206,7 +203,6 @@ div.empty-card { display: flex; align-items: center; justify-content: space-betw
 .clash::before { content: "⚠"; grid-row: span 2; color: var(--amber); font-size: 16px; line-height: 1.4; }
 .clash .files { color: var(--secondary); font-size: 13px; }
 
-/* Next up: what you'd say next, drawn as the message you would send. */
 .offer { position: relative; padding: 14px 16px 16px; }
 .offer + .offer::before, .row + .row::before {
   content: "";
@@ -250,7 +246,6 @@ div.empty-card { display: flex; align-items: center; justify-content: space-betw
 .bubble.ready { background: var(--clay-fill); color: #fff; border-bottom-right-radius: 6px; }
 .bubble.them { background: var(--bubble-them); color: var(--label); border-bottom-left-radius: 6px; align-self: flex-start; }
 
-/* Buttons respond to a press the way native ones do. */
 .button {
   border: 0;
   border-radius: 8px;
@@ -274,7 +269,6 @@ div.empty-card { display: flex; align-items: center; justify-content: space-betw
 .button.danger:hover { background: var(--clay-soft); }
 .segment[disabled] { opacity: 0.5; cursor: default; }
 
-/* Right now: what is waiting on you and what is working, at a glance. */
 .now { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
 .tile {
   display: flex;
@@ -300,7 +294,6 @@ div.empty-card { display: flex; align-items: center; justify-content: space-betw
 .working .pulse { animation: pulse 1.6s var(--ease) infinite; }
 @keyframes pulse { 50% { opacity: 0.35; transform: scale(0.8); } }
 
-/* Sessions: search, grouping and the list. */
 .search { flex: 1; position: relative; }
 .search input {
   width: 100%;
@@ -368,8 +361,6 @@ div.empty-card { display: flex; align-items: center; justify-content: space-betw
 .facts a { color: var(--blue); text-decoration: none; }
 .note { color: var(--amber); font-size: 13px; }
 
-/* Writing to a session or to deckk, like Messages' compose field. deckk's
-   suggestion sits above it like a QuickType offer: tapping it fills the field. */
 .composer { display: flex; flex-direction: column; gap: 8px; }
 .field-row { display: flex; gap: 8px; align-items: flex-end; }
 .composer textarea {
@@ -417,7 +408,6 @@ div.empty-card { display: flex; align-items: center; justify-content: space-betw
 .link:hover { text-decoration: underline; }
 .keys { color: var(--tertiary); }
 
-/* A switch, as in System Settings. */
 .switch { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; border: 0; padding: 4px 2px; background: none; font: inherit; font-size: 13px; color: var(--label); cursor: pointer; }
 .switch .track { position: relative; width: 32px; height: 19px; border-radius: 10px; background: var(--fill-strong); transition: background-color 0.25s var(--ease); }
 .switch .track::after { content: ""; position: absolute; top: 2px; left: 2px; width: 15px; height: 15px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25); transition: transform 0.25s var(--spring); }
@@ -428,7 +418,6 @@ div.empty-card { display: flex; align-items: center; justify-content: space-betw
 .rename input { flex: 1; padding: 5px 10px; border: 0; border-radius: 8px; background: var(--fill); }
 .rename input:focus { outline: none; box-shadow: 0 0 0 3px var(--blue-soft), 0 0 0 1px var(--blue); }
 
-/* The side column: quiet inset panels, like an inspector. */
 .panel { margin-bottom: 16px; padding: 14px 16px 16px; background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); }
 .panel h2 { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 13px; font-weight: 600; letter-spacing: 0; color: var(--secondary); }
 .panel > p { color: var(--secondary); font-size: 13.5px; }
@@ -450,7 +439,6 @@ div.empty-card { display: flex; align-items: center; justify-content: space-betw
 .events time { color: var(--secondary); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .events .times { color: var(--secondary); }
 
-/* The deckk chat fills its card, newest at the bottom. */
 .chat-card { display: flex; flex-direction: column; gap: 12px; padding: 16px; background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); }
 .chat-card .chat { max-height: 58vh; min-height: 240px; }
 .chat-card .status { color: var(--secondary); font-size: 12px; display: flex; gap: 6px; align-items: center; }

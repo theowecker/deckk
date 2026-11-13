@@ -9,12 +9,8 @@ import (
 	"github.com/theowecker/deckk/internal/hq"
 )
 
-// One notification per session in this long is plenty, however often it
-// finishes a turn.
 const notifyEvery = time.Minute
 
-// notify tells the user about sessions that just finished and are waiting
-// on them, unless they're already looking at that session.
 func (m *Model) notify(events []hq.Event) tea.Cmd {
 	if !m.cfg.NotifyOn() {
 		return nil
@@ -44,7 +40,6 @@ func (m *Model) notify(events []hq.Event) tea.Cmd {
 	return tea.Batch(cmds...)
 }
 
-// watching is whether the session's tab is the one showing in deckk.
 func (m Model) watching(s claude.Session) bool {
 	for _, w := range m.tabs {
 		if w.TTY == s.TTY && s.TTY != "" {

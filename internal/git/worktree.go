@@ -27,9 +27,8 @@ func worktree(dir string) (repo, name string) {
 	return "", ""
 }
 
-// Root is the top of the checkout dir is in: the nearest folder holding
-// .git, which is a file in linked worktrees. Two folders with the same root
-// share one working tree. It is empty outside git.
+// Linked worktrees hold .git as a file. Two folders with the same root share
+// one working tree.
 func Root(dir string) string {
 	for d := filepath.Clean(dir); ; d = filepath.Dir(d) {
 		if _, err := os.Stat(filepath.Join(d, ".git")); err == nil {

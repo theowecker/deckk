@@ -27,18 +27,16 @@ type Store struct {
 	// by the time each suggestion was made, so neither happens twice.
 	Prefilled map[string]Prefill   `json:"prefilled,omitempty"`
 	Dismissed map[string]time.Time `json:"dismissed,omitempty"`
-	// Trusted sessions may have the deckk session's safe suggestions sent
-	// without review, whatever the global setting says.
+	// Trusted sessions get the deckk session's safe suggestions sent whatever
+	// the global setting says.
 	Trusted map[string]bool `json:"trusted,omitempty"`
-	// Briefed is when the deckk session last briefed the user on opening.
-	Briefed time.Time `json:"briefed,omitzero"`
+	Briefed time.Time       `json:"briefed,omitzero"`
 
 	labels atomic.Pointer[Labels]
 }
 
-// Labels are the marks a session gets from the user, copied at every save so
-// code off the dashboard's goroutine, like the page's search, can read them
-// while the dashboard changes the store.
+// Labels are copied at every save, so code off the dashboard's goroutine, like
+// the page's search, can read them while the dashboard changes the store.
 type Labels struct {
 	Pinned, Archived map[string]bool
 	Names            map[string]string
@@ -52,16 +50,14 @@ func (l *Labels) ApplyNames(sessions []claude.Session) {
 	}
 }
 
-// Labels is the latest copy, safe to read from any goroutine.
 func (s *Store) Labels() *Labels { return s.labels.Load() }
 
 func (s *Store) copyLabels() {
 	s.labels.Store(&Labels{Pinned: maps.Clone(s.Pinned), Archived: maps.Clone(s.Archived), Names: maps.Clone(s.Names)})
 }
 
-// A Prefill is a suggestion deckk typed into a session's prompt. The text is
-// kept so deckk can tell its own words from the user's when it replaces or
-// withdraws them.
+// The text is kept so deckk can tell its own words from the user's when it
+// replaces or withdraws them.
 type Prefill struct {
 	At   time.Time `json:"at"`
 	Text string    `json:"text"`

@@ -118,8 +118,6 @@ function safeLink(url) {
   }
 }
 
-/* Moving between sections. */
-
 function current() {
   const name = location.hash.slice(1);
   return sections.includes(name) ? name : "home";
@@ -170,8 +168,6 @@ function go(section, sessionID) {
     });
   }
 }
-
-/* Home: what's next and what's happening. */
 
 function renderSidebar(s) {
   const waiting = s.counts.waiting;
@@ -301,8 +297,6 @@ function renderActivity(events) {
   );
 }
 
-/* Sessions: finding, opening and keeping them. */
-
 function renderGrouping() {
   const choice = (value, label) => el("button", {
     class: "segment", "aria-pressed": !found && grouping === value ? "true" : "false", "data-focus": `grouping:${value}`,
@@ -367,7 +361,6 @@ function conversation(s) {
   return chat;
 }
 
-// thinking is the bubble that stands in for a reply on its way.
 function thinking(label) {
   return el("p", { class: "bubble them thinking", role: "img", "aria-label": label }, el("span", { class: "typing", "aria-hidden": "true" }, el("i"), el("i"), el("i")));
 }
@@ -394,15 +387,12 @@ function composer(key, placeholder, onSubmit, hint) {
     value: drafts.get(key) || "", disabled: Boolean(hint.disabled),
     oninput: (e) => drafts.set(key, e.target.value),
     onkeydown: (e) => {
-      // Tab takes deckk's suggestion into an empty field, as Claude Code does.
       if (e.key === "Tab" && !e.shiftKey && offer && !area.value) {
         e.preventDefault();
         fill();
         return;
       }
-      // Enter sends and Shift+Enter starts a new line, as in Claude Code;
-      // Option+Enter types it in without sending. Safari reports the Enter
-      // that picks an IME candidate as keyCode 229.
+      // Safari reports the Enter that picks an IME candidate as keyCode 229.
       if (e.key === "Enter" && !e.shiftKey && !e.isComposing && e.keyCode !== 229) {
         e.preventDefault();
         submit(!(hint.typeIn && e.altKey));
@@ -587,12 +577,9 @@ async function runSearch() {
   render(true);
 }
 
-// Pins, names and archiving change what a result shows, so it is asked again.
 function refreshSearch() {
   if (found) setTimeout(runSearch, 300);
 }
-
-/* Starting and closing sessions. */
 
 function newSession() {
   starting = true;
@@ -661,8 +648,6 @@ async function closeSession(s) {
   closing = "";
   await act("close", { id: s.id, confirm: s.state === "working" }, `Closed ${s.title}. It stays resumable`);
 }
-
-/* deckk: the chat with the deckk session, and the goals it keeps. */
 
 let chatTurns = null;
 let chatKey = "";
@@ -775,8 +760,6 @@ function renderGoals(goals) {
       ? el("div", { class: "goals" }, markdown(goals))
       : el("p", {}, "No goals yet. Add some, or tell deckk what you're working toward and it will keep them here."));
 }
-
-/* Drawing it all. */
 
 let selectedAt = 0;
 function selecting() {

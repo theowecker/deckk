@@ -23,8 +23,8 @@ var (
 	film    = lipgloss.NewStyle().Background(ink).Foreground(lipgloss.Color("#6B5A50"))
 )
 
-// pixels draws two rows of a bitmap as one line of half blocks, so each cell
-// is two square pixels. A dot is transparent.
+// Two bitmap rows per line of half blocks, so each cell is two square pixels. A
+// dot is transparent.
 func pixels(top, bottom string) string {
 	t, b := []rune(top), []rune(bottom)
 	var line strings.Builder
@@ -52,7 +52,6 @@ func solid(code rune, n int) string {
 	return lipgloss.NewStyle().Background(palette[code]).Render(strings.Repeat(" ", n))
 }
 
-// tapeWindow is the dark window with a reel at each end and tape between.
 func tapeWindow(left, right string, width int) string {
 	tape := width - 6
 	return window.Render(" "+left+" ") + film.Render(strings.Repeat("━", tape)) + window.Render(" "+right+" ")
@@ -71,7 +70,6 @@ func cassette(frame int) string {
 	}, "\n")
 }
 
-// The reels only turn while a session is working.
 func miniDeck(frame int, spinning bool) []string {
 	left, right := "◐", "◐"
 	if spinning {

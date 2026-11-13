@@ -1,5 +1,3 @@
-// Package hq is the deckk session: a Claude that runs beside the dashboard,
-// watches the other sessions and suggests what to do next.
 package hq
 
 import (
@@ -15,16 +13,15 @@ import (
 	"github.com/theowecker/deckk/internal/config"
 )
 
-// Dir is where the deckk session runs and keeps its files. Its transcripts
-// are found by this folder, so the dashboard can leave them out.
+// The dashboard leaves out the deckk session's own transcripts by this folder.
 func Dir() string {
 	return filepath.Join(filepath.Dir(config.DefaultPath()), "hq")
 }
 
 func path(name string) string { return filepath.Join(Dir(), name) }
 
-// Is reports whether a session is the deckk session itself. Claude may
-// report the folder with symlinks resolved, as when ~/.config is a link.
+// Claude may report the folder with symlinks resolved, as when ~/.config is a
+// link.
 func Is(cwd string) bool {
 	if cwd == "" {
 		return false
@@ -39,9 +36,8 @@ func Is(cwd string) bool {
 	return err == nil && filepath.Clean(cwd) == resolved
 }
 
-// Setup writes the deckk session's role and tool config. CLAUDE.md is the
-// user's to edit, so it is only created; role.md belongs to deckk and is
-// rewritten on every launch so upgrades reach it.
+// CLAUDE.md is the user's to edit, so it is only created; role.md is rewritten
+// on every launch so upgrades reach it.
 func Setup(exe string) error {
 	if err := os.MkdirAll(Dir(), 0o755); err != nil {
 		return err
@@ -87,8 +83,6 @@ func mcpArgs(config string) []string {
 	return []string{"--mcp-config=" + path(config), "--allowedTools=mcp__deckk"}
 }
 
-// ChildArgs give a session the tools to ask the deckk session what's next,
-// once the deckk session has written their config.
 func ChildArgs() []string {
 	if _, err := os.Stat(path(childConfig)); err != nil {
 		return nil
@@ -96,9 +90,8 @@ func ChildArgs() []string {
 	return mcpArgs(childConfig)
 }
 
-// Command starts the deckk session, picking up its last conversation when
-// there is one. Until Claude Code trusts the folder, deckk explains it
-// first, since Claude's question comes with no context of its own.
+// Until Claude Code trusts the folder, deckk explains it first, since Claude's
+// question comes with no context of its own.
 func Command(cfg *config.Config, exe string) string {
 	args := mcpArgs(hqConfig)
 	if hasConversation() {
@@ -120,8 +113,6 @@ func hasConversation() bool {
 	return false
 }
 
-// useStyle picks the brief output style in the deckk session's project
-// settings, keeping anything else the user set there.
 func useStyle() error {
 	settingsPath := path(filepath.Join(".claude", "settings.json"))
 	settings := map[string]any{}
@@ -148,8 +139,6 @@ func useStyle() error {
 
 const briefStyleName = "deckk brief"
 
-// briefStyle makes every answer read like a brief from someone who has
-// looked at all the sessions, rather than a coding assistant's reply.
 var briefStyle = strings.TrimSpace(`
 ---
 name: deckk brief

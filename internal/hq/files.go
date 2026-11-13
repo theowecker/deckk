@@ -14,15 +14,13 @@ import (
 	"time"
 )
 
-// A Suggestion is the next prompt the deckk session proposes for a session.
-// The deckk session writes these and the dashboard only reads them, so the
-// two processes never write the same file.
+// The deckk session writes these and the dashboard only reads them, so the two
+// processes never write the same file.
 type Suggestion struct {
 	Prompt string    `json:"prompt"`
 	Why    string    `json:"why,omitempty"`
 	At     time.Time `json:"at"`
-	// Safe means the deckk session judged it fine to send without review.
-	// It is only sent when the user's setting allows sending.
+	// Safe suggestions are only sent when the user's setting allows sending.
 	Safe bool `json:"safe,omitempty"`
 }
 
@@ -68,7 +66,6 @@ func saveSuggestions(all map[string]Suggestion) error {
 	return writeAtomic(path("suggestions.json"), data)
 }
 
-// An Event is something the deckk session should hear about.
 type Event struct {
 	At      time.Time `json:"at"`
 	Session string    `json:"session"`
@@ -83,7 +80,6 @@ const (
 	Closed   = "closed"
 )
 
-// Line reads like the dashboard would say it: "Checkout flow finished".
 func (e Event) Line() string {
 	line := e.Title + " " + e.Kind
 	if e.Detail != "" {
@@ -152,7 +148,6 @@ func readInbox() ([]Event, error) {
 	return events, scanner.Err()
 }
 
-// Unread returns the events past the cursor and moves the cursor to the end.
 func Unread() ([]Event, error) {
 	var unread []Event
 	err := locked(func() (err error) {
@@ -216,8 +211,8 @@ func WriteGoals(text string) error {
 	return writeAtomic(path("goals.md"), []byte(text))
 }
 
-// writeAtomic swaps in a whole new file, so a reader never sees half of one.
-// Each write gets its own temp file, so concurrent writers can't clash.
+// A reader never sees half a file, and each write gets its own temp file, so
+// concurrent writers can't clash.
 func writeAtomic(name string, data []byte) error {
 	if err := os.MkdirAll(filepath.Dir(name), 0o755); err != nil {
 		return err
@@ -259,7 +254,7 @@ func locked(fn func() error) error {
 	return fn()
 }
 
-// Recent returns the last n events, newest first, without moving the cursor.
+// Recent doesn't move the cursor.
 func Recent(n int) ([]Event, error) {
 	events, err := readInbox()
 	if err != nil {

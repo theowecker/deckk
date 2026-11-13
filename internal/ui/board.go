@@ -18,7 +18,6 @@ import (
 // their sessions is running or pinned.
 const boardFor = 7 * 24 * time.Hour
 
-// board groups recent sessions by project, the busiest projects first.
 func (m Model) board() []deck.Group {
 	now := time.Now()
 	recent := slices.DeleteFunc(slices.Clone(m.sessions), func(s claude.Session) bool {
@@ -38,7 +37,6 @@ func (m Model) board() []deck.Group {
 	return groups
 }
 
-// projectTitle heads a project on the board with how its sessions stand.
 func (m Model) projectTitle(g deck.Group) string {
 	var waiting, busy int
 	for _, s := range g.Sessions {
@@ -64,8 +62,8 @@ func (m Model) projectTitle(g deck.Group) string {
 	return pad() + head + " " + line
 }
 
-// boardRow is one session on the board: its title and what the deckk session
-// says about it, or its last prompt until it has said something.
+// Shows the session's last prompt until the deckk session has written a note on
+// it.
 func (m Model) boardRow(s claude.Session, selected bool, now time.Time, titles int) string {
 	bar, titleStyle := "  ", soft
 	if s.Running() {
@@ -99,7 +97,6 @@ func (m Model) boardRow(s claude.Session, selected bool, now time.Time, titles i
 
 var markdownMarks = regexp.MustCompile(`^\s*(#+\s*|[-*]\s+(\[[ x]\]\s+)?)|\*\*|` + "`")
 
-// goalLines show the goals file above the board, plain, a few lines of it.
 func (m Model) goalLines() []string {
 	const shown = 6
 	head := pad() + heading.Render("GOALS") + " " + rule.Render(strings.Repeat("─", max(m.width-gutter*2-7, 2)))

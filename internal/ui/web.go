@@ -19,20 +19,14 @@ import (
 	"github.com/theowecker/deckk/internal/web"
 )
 
-// A Publisher shows the dashboard's state somewhere else, such as the page
-// deckk serves on localhost.
 type Publisher interface {
 	Publish(state any)
 	URL() string
 	Close() error
 }
 
-// A WebStarter starts the page, so the setting can turn it on and off while
-// deckk runs.
 type WebStarter func() (Publisher, error)
 
-// WithWeb has the dashboard serve the page, when the setting allows, and take
-// its actions.
 func (m Model) WithWeb(start WebStarter) Model {
 	m.webStart = start
 	if m.cfg.WebOn() {
@@ -66,7 +60,6 @@ func (m *Model) stopWeb() {
 
 type webActionMsg web.Action
 
-// WebAction carries an action from the page into the dashboard.
 func WebAction(a web.Action) tea.Msg { return webActionMsg(a) }
 
 func (m Model) publish() {
@@ -75,7 +68,6 @@ func (m Model) publish() {
 	}
 }
 
-// webAction does what the page asked, the same way the keys would.
 func (m *Model) webAction(a webActionMsg) tea.Cmd {
 	switch a.Kind {
 	case web.Talk:
@@ -122,8 +114,8 @@ func (m *Model) webAction(a webActionMsg) tea.Cmd {
 	return nil
 }
 
-// newFromWeb starts Claude in a folder without taking the terminal away from
-// what it shows, and queues the first prompt for when Claude is up.
+// Leaves the terminal on what it shows, and queues the first prompt for when
+// Claude is up.
 func (m *Model) newFromWeb(folder, prompt string, send bool) tea.Cmd {
 	dir := filepath.Clean(expandHome(strings.TrimSpace(folder)))
 	if !filepath.IsAbs(dir) {
@@ -150,8 +142,8 @@ func (m *Model) newFromWeb(folder, prompt string, send bool) tea.Cmd {
 	}, "")
 }
 
-// closeFromWeb closes a session the way x does. The page asks first when
-// Claude is working, so Confirm stands for the second press.
+// The page asks first when Claude is working, so confirm stands for the second
+// press of x.
 func (m *Model) closeFromWeb(s claude.Session, confirm bool) tea.Cmd {
 	if !m.closable(s) {
 		m.setFlash(displayTitle(s)+" runs in another tab, so close it there", nil)
@@ -172,8 +164,6 @@ func (m Model) closable(s claude.Session) bool {
 	return hosted || popped
 }
 
-// promptFromWeb types a prompt the user wrote on the page into a session,
-// resuming it first when it isn't running.
 func (m *Model) promptFromWeb(s claude.Session, text string, send bool) tea.Cmd {
 	if strings.TrimSpace(text) == "" {
 		return nil
@@ -197,7 +187,6 @@ func (m *Model) promptFromWeb(s claude.Session, text string, send bool) tea.Cmd 
 	return m.deliver(d)
 }
 
-// chat sends the user's message from the page to the deckk session.
 func (m *Model) chat(text string) tea.Cmd {
 	if strings.TrimSpace(text) == "" {
 		return nil
@@ -424,7 +413,6 @@ func (m Model) deckkLabel() string {
 	return "idle"
 }
 
-// sentence turns the terminal's section titles into the page's sentence case.
 func sentence(title string) string {
 	if title == "" {
 		return title

@@ -12,11 +12,10 @@ import (
 	"github.com/theowecker/deckk/internal/hq"
 )
 
-// trackCollisions turns clashes the deckk session hasn't heard of into
-// events. A pair is news when it first clashes and again only when it shares
-// a file it didn't before, so two sessions working on through a clash don't
-// cost a turn per refresh. Sharing a checkout is often on purpose, so only
-// clashes count, and the ones already there when deckk opens are known.
+// A pair is news when it first clashes and again only when it shares a file it
+// didn't before, so two sessions working on through a clash don't cost a turn
+// per refresh. Sharing a checkout is often on purpose, so only clashes count,
+// and the ones already there when deckk opens are known.
 func (m *Model) trackCollisions() []hq.Event {
 	now := time.Now()
 	current := map[string]map[string]bool{}
@@ -46,7 +45,6 @@ func (m *Model) trackCollisions() []hq.Event {
 	return events
 }
 
-// clash is the first clash a session is in, if any.
 func (m Model) clash(s claude.Session) (deck.Collision, bool) {
 	for _, c := range deck.CollisionsOf(m.collisions, s.ID) {
 		if c.Clash() {
@@ -56,8 +54,6 @@ func (m Model) clash(s claude.Session) (deck.Collision, bool) {
 	return deck.Collision{}, false
 }
 
-// collisionLines describe a session's collisions for its preview: a line
-// per clash, and one line for every session sharing its checkout.
 func (m Model) collisionLines(s claude.Session) []string {
 	var lines, sharing []string
 	checkout := ""
@@ -79,7 +75,6 @@ func (m Model) collisionLines(s claude.Session) []string {
 	return lines
 }
 
-// clashBanner is the warning above the list, one line per clash.
 func (m Model) clashBanner() []string {
 	var lines []string
 	for _, c := range m.collisions {
@@ -90,7 +85,6 @@ func (m Model) clashBanner() []string {
 	return lines
 }
 
-// fileList names files by their base names, so a line stays readable.
 func fileList(files []string, limit int) string {
 	names := make([]string, 0, len(files))
 	for _, f := range files {

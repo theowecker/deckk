@@ -16,7 +16,7 @@ import (
 	"github.com/theowecker/deckk/internal/tmux"
 )
 
-// Renders the README screenshot from demo data. Run script/screenshot.
+// Run by script/screenshot.
 func TestScreenshot(t *testing.T) {
 	out := os.Getenv("DECKK_SCREENSHOT")
 	if out == "" {
@@ -68,7 +68,6 @@ func TestScreenshot(t *testing.T) {
 	}
 }
 
-// strip draws the tmux tab strip the way tmux/config.go styles it.
 func strip(width int) string {
 	tab := lipgloss.NewStyle().Background(lipgloss.Color("#30304A")).Foreground(lipgloss.Color("#B4B4C0"))
 	active := lipgloss.NewStyle().Background(lipgloss.Color("#E8875B")).Foreground(lipgloss.Color("#1E1E2E")).Bold(true)

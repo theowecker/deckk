@@ -1,5 +1,3 @@
-// Package web serves deckk's dashboard as a page on localhost. The terminal
-// dashboard publishes its state here and receives the page's actions back.
 package web
 
 import (
@@ -28,7 +26,6 @@ var static embed.FS
 // something else holds it.
 const Port = 4747
 
-// An Action is something the page asks the dashboard to do.
 type Action struct {
 	Kind string `json:"kind"`
 	ID   string `json:"id,omitempty"`
@@ -36,8 +33,7 @@ type Action struct {
 	// goals, depending on the kind.
 	Text string `json:"text,omitempty"`
 	// Send presses Enter after a prompt instead of leaving it to review.
-	Send bool `json:"send,omitempty"`
-	// Folder is where a new session starts.
+	Send   bool   `json:"send,omitempty"`
 	Folder string `json:"folder,omitempty"`
 	// Confirm closes a session even while Claude is working.
 	Confirm bool `json:"confirm,omitempty"`
@@ -58,14 +54,10 @@ const (
 	Close   = "close"
 )
 
-// Kinds are the actions the page may send.
 var Kinds = map[string]bool{Open: true, Dismiss: true, Talk: true, Pin: true, Archive: true, Rename: true, Prompt: true, Chat: true, Goals: true, Trust: true, New: true, Close: true}
 
-// A Search finds sessions across everything Claude has kept, not only the
-// ones the dashboard lists.
 type Search func(query string) ([]Found, error)
 
-// Found is a search result: enough to recognise a session and open it.
 type Found struct {
 	ID         string    `json:"id"`
 	Title      string    `json:"title"`
@@ -80,10 +72,8 @@ type Found struct {
 	Archived   bool      `json:"archived,omitempty"`
 }
 
-// ErrNotReady means the dashboard can't take actions yet.
 var ErrNotReady = errors.New("the dashboard isn't ready")
 
-// History is a session's recent exchanges, oldest first.
 type History func(id string) ([]Turn, error)
 
 type Turn struct {
@@ -104,7 +94,6 @@ type Server struct {
 	waiters map[chan struct{}]bool
 }
 
-// Start listens on localhost and serves until the process ends.
 func Start(tokenPath string, onAction func(Action) error, history History, search Search) (*Server, error) {
 	token, err := loadToken(tokenPath)
 	if err != nil {
@@ -129,17 +118,14 @@ func Start(tokenPath string, onAction func(Action) error, history History, searc
 	return s, nil
 }
 
-// Close stops serving at once, live streams included.
 func (s *Server) Close() error { return s.server.Close() }
 
 func newServer(token string, onAction func(Action) error) *Server {
 	return &Server{token: token, onAction: onAction, state: []byte("{}"), waiters: map[chan struct{}]bool{}}
 }
 
-// URL opens the page with the token it needs.
 func (s *Server) URL() string { return s.url }
 
-// Publish replaces the state the page shows and wakes the pages watching.
 func (s *Server) Publish(state any) {
 	data, err := json.Marshal(state)
 	if err != nil {
@@ -163,7 +149,6 @@ func (s *Server) current() []byte {
 	return s.state
 }
 
-// subscribe returns the state and a channel closed when it next changes.
 // Registering under the lock means no change slips by between the two.
 func (s *Server) subscribe() ([]byte, chan struct{}) {
 	s.mu.Lock()
@@ -233,8 +218,7 @@ func (s *Server) serveState(w http.ResponseWriter, _ *http.Request) {
 	_, _ = w.Write(s.current())
 }
 
-// serveStream sends the state whenever it changes, with a comment every so
-// often so idle connections stay open.
+// A comment every so often keeps idle connections open.
 func (s *Server) serveStream(w http.ResponseWriter, r *http.Request) {
 	flusher, ok := w.(http.Flusher)
 	if !ok {
@@ -316,7 +300,6 @@ func (s *Server) serveAction(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// loadToken keeps one token per install, readable only by the user.
 func loadToken(path string) (string, error) {
 	data, err := os.ReadFile(path)
 	if err == nil && len(strings.TrimSpace(string(data))) >= 32 {

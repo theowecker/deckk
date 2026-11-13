@@ -32,14 +32,10 @@ type Host interface {
 	MoveAfter(windowID, afterID string) error
 	SetTabKeys(preset string) error
 
-	// The deckk session beside the dashboard.
 	OpenHQ(cfg config.Config, focus bool) error
 	CloseHQ() error
 	HQPane() (tmux.Pane, bool, error)
-	// Notify shows a macOS notification.
 	Notify(title, subtitle, body string) error
-	// Deliver types text into a Claude prompt, given by pane ID or tty, if it
-	// is empty or still holds exactly replace.
 	Deliver(target, text, replace string, send bool) (tmux.Delivery, error)
 }
 
@@ -132,8 +128,8 @@ type loadedMsg struct {
 	// cfg is the config file again when something else changed it, such as
 	// the deckk session's intro turning the session off.
 	cfg *config.Config
-	// folders are where the page offers to start a session, read here
-	// because finding them lists directories.
+	// Read with the sessions, off the UI goroutine, because finding them lists
+	// directories.
 	folders []string
 }
 
@@ -518,9 +514,7 @@ func (m Model) selected() (claude.Session, bool) {
 	return m.flat[m.cursor], true
 }
 
-// changedConfig reloads the config file when it is newer than the last
-// refresh, so a change made outside the dashboard isn't overwritten by the
-// dashboard's next save.
+// A change made outside the dashboard isn't overwritten by its next save.
 func (m Model) changedConfig() *config.Config {
 	info, err := os.Stat(m.cfg.Path())
 	if err != nil || !info.ModTime().After(m.loadedAt) {

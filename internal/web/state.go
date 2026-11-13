@@ -2,28 +2,22 @@ package web
 
 import "time"
 
-// State is everything the page shows, as the dashboard last saw it.
-// It carries no timestamp of its own, so an unchanged dashboard publishes
-// identical bytes and the page isn't redrawn for nothing.
+// No timestamp, so an unchanged dashboard publishes identical bytes and the
+// page isn't redrawn for nothing.
 type State struct {
-	Counts     Counts  `json:"counts"`
-	NextUp     []Next  `json:"nextUp"`
-	Clashes    []Clash `json:"clashes"`
-	Groups     []Group `json:"groups"`
-	Projects   []Group `json:"projects"`
-	Goals      string  `json:"goals"`
-	Activity   []Event `json:"activity"`
-	Today      Today   `json:"today"`
-	DeckkState string  `json:"deckkState"`
-	// Deckk is the deckk session itself, for the chat.
-	Deckk Deckk `json:"deckk"`
-	// Background are recent runs nobody typed into, kept apart.
+	Counts     Counts    `json:"counts"`
+	NextUp     []Next    `json:"nextUp"`
+	Clashes    []Clash   `json:"clashes"`
+	Groups     []Group   `json:"groups"`
+	Projects   []Group   `json:"projects"`
+	Goals      string    `json:"goals"`
+	Activity   []Event   `json:"activity"`
+	Today      Today     `json:"today"`
+	DeckkState string    `json:"deckkState"`
+	Deckk      Deckk     `json:"deckk"`
 	Background []Session `json:"background"`
-	// Notice is the dashboard's latest message, such as why a prompt
-	// couldn't be typed in.
-	Notice Notice `json:"notice"`
-	// Folders are where a new session can start, most recent first.
-	Folders []string `json:"folders"`
+	Notice     Notice    `json:"notice"`
+	Folders    []string  `json:"folders"`
 }
 
 type Deckk struct {
@@ -46,8 +40,6 @@ type Counts struct {
 	Resumable int `json:"resumable"`
 }
 
-// Next is a Next up entry: a suggestion for a session, an offer to resume
-// one, or a proposed new session.
 type Next struct {
 	ID      string `json:"id"`
 	Kind    string `json:"kind"`
@@ -90,22 +82,18 @@ type Session struct {
 	Pinned     bool      `json:"pinned,omitempty"`
 	Suggested  bool      `json:"suggested,omitempty"`
 	Clash      string    `json:"clash,omitempty"`
-	// Summary is the deckk session's note on the session; Stale says the
-	// session has moved on since it was written.
-	Summary string `json:"summary,omitempty"`
-	Stale   bool   `json:"stale,omitempty"`
-	// The deckk session's suggestion for this session, if it has one.
+	// Stale says the session has moved on since the note was written.
+	Summary    string `json:"summary,omitempty"`
+	Stale      bool   `json:"stale,omitempty"`
 	Suggestion string `json:"suggestion,omitempty"`
 	Why        string `json:"why,omitempty"`
 	Ready      bool   `json:"ready,omitempty"`
 	Running    bool   `json:"running,omitempty"`
 	Archived   bool   `json:"archived,omitempty"`
 	// Hosted sessions can take a prompt from the page directly.
-	Hosted bool `json:"hosted,omitempty"`
-	// Closable sessions run in a window deckk can close.
+	Hosted   bool `json:"hosted,omitempty"`
 	Closable bool `json:"closable,omitempty"`
-	// Trusted sessions get deckk's safe suggestions sent without review.
-	Trusted bool `json:"trusted,omitempty"`
+	Trusted  bool `json:"trusted,omitempty"`
 }
 
 type Event struct {

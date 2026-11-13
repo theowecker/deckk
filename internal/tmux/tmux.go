@@ -15,8 +15,8 @@ import (
 
 const Session = "deckk"
 
-// Socket is the private tmux server's name. DECKK_SOCKET runs a second
-// deckk beside the real one, which development and tests rely on.
+// DECKK_SOCKET runs a second deckk beside the real one, which development and
+// tests rely on.
 var Socket = cmp.Or(os.Getenv("DECKK_SOCKET"), "deckk")
 
 var ErrMissing = errors.New("deckk needs tmux: brew install tmux")
@@ -165,7 +165,6 @@ func BringBack(windowID string) error {
 	return err
 }
 
-// MoveAfter puts a tab right after another, keeping indexes dense.
 func MoveAfter(windowID, afterID string) error {
 	_, err := run("move-window", "-a", "-s", windowID, "-t", afterID, ";", "move-window", "-r", "-t", "="+Session+":")
 	return err
@@ -286,9 +285,8 @@ func (Server) Close(windowID string) error             { return Close(windowID) 
 func (Server) SetLabels(labels map[string]Label) error { return SetLabels(labels) }
 func (Server) Detach() error                           { return Detach() }
 
-// PlaceTabs records each tab's columns on the strip, so the strip can tell
-// which tab a dragged one is over. Status-left is one cell and tabs are one
-// cell apart.
+// The strip uses these to tell which tab a dragged one is over. Status-left is
+// one cell and tabs are one cell apart.
 func PlaceTabs() error {
 	out, err := run("list-windows", "-t", "="+Session, "-F", "#{window_id}\t#{@deckk_cap}\t#{@deckk_x}:#{@deckk_x2}")
 	if err != nil {
@@ -319,7 +317,6 @@ func PlaceTabs() error {
 	return err
 }
 
-// SetBackground tells the config the terminal's background colour, as #rrggbb.
 func SetBackground(hex string) error {
 	_, err := run("set-option", "-g", "@deckk_bg", hex)
 	return err

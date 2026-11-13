@@ -14,8 +14,8 @@ import (
 	"github.com/theowecker/deckk/internal/hq"
 )
 
-// A proposed session shows in Next up as a session that doesn't exist yet.
-// Its ID carries this prefix so nothing mistakes it for a real one.
+// A proposed session's ID carries this prefix so nothing mistakes it for a real
+// one.
 const proposalPrefix = "proposal:"
 
 func isProposal(s claude.Session) bool { return strings.HasPrefix(s.ID, proposalPrefix) }
@@ -36,7 +36,6 @@ func (m Model) proposal(s claude.Session) (hq.Proposal, bool) {
 	return m.deckk.proposals[i], true
 }
 
-// openProposals are the proposals the user hasn't started or dismissed.
 func (m Model) openProposals() []claude.Session {
 	if !m.cfg.HQOn() {
 		return nil
@@ -51,8 +50,8 @@ func (m Model) openProposals() []claude.Session {
 	return list
 }
 
-// A prompt waits to be typed into a session that is starting, once Claude
-// in it is ready. It gives up if no session turns up.
+// Waits for a starting session's Claude to be ready, and gives up if no session
+// turns up.
 type awaitingPrompt struct {
 	key       string
 	sessionID string
@@ -64,8 +63,6 @@ type awaitingPrompt struct {
 
 const awaitFor = 2 * time.Minute
 
-// begin starts a proposed session, or resumes a stopped one, and queues the
-// prompt for when Claude is up.
 func (m *Model) begin(s claude.Session, sg hq.Suggestion) tea.Cmd {
 	now := time.Now()
 	wait := awaitingPrompt{key: s.ID, sessionID: s.ID, dir: s.Dir, after: now, prompt: sg.Prompt}
@@ -85,7 +82,6 @@ func (m *Model) begin(s claude.Session, sg hq.Suggestion) tea.Cmd {
 	return open
 }
 
-// fillStarted types queued prompts into sessions that have come up.
 func (m *Model) fillStarted() tea.Cmd {
 	now := time.Now()
 	var cmds []tea.Cmd
@@ -127,8 +123,7 @@ func (w awaitingPrompt) matches(s claude.Session) bool {
 	return s.Running() && sameDir(s.Cwd, w.dir) && !s.StartedAt.Before(w.after.Add(-5*time.Second))
 }
 
-// sameDir compares folders as the file system sees them, since Claude may
-// report one with symlinks resolved, as macOS does for /tmp.
+// Claude may report a folder with symlinks resolved, as macOS does for /tmp.
 func sameDir(a, b string) bool {
 	if filepath.Clean(a) == filepath.Clean(b) {
 		return true
@@ -138,8 +133,8 @@ func sameDir(a, b string) bool {
 	return errA == nil && errB == nil && ra == rb
 }
 
-// filled drops a queued prompt once typed in. Its session stays taken, so
-// another queued prompt for the same folder waits for a session of its own.
+// The session stays taken, so another queued prompt for the same folder waits
+// for a session of its own.
 func (m *Model) filled(key string) {
 	m.deckk.awaiting = slices.DeleteFunc(m.deckk.awaiting, func(w awaitingPrompt) bool {
 		if w.key == key {
@@ -149,8 +144,7 @@ func (m *Model) filled(key string) {
 	})
 }
 
-// withdraw takes a proposal back once it is started or dismissed, so the
-// deckk session no longer lists it as waiting to start.
+// Withdrawn so the deckk session no longer lists it as waiting to start.
 func withdraw(id string) tea.Cmd {
 	return func() tea.Msg {
 		if err := hq.Withdraw(id); err != nil {

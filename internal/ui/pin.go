@@ -11,14 +11,12 @@ import (
 
 type pinTabMsg string
 
-// A pinned tab keeps only the first word of its title.
 func pinnedName(s claude.Session) string {
 	first, _, _ := strings.Cut(strings.TrimSpace(displayTitle(s)), " ")
 	return fitName(first, 8)
 }
 
-// currentTab finds the tab the pin button was clicked on. It asks tmux
-// rather than trusting m.tabs, which can be a refresh behind.
+// Asks tmux rather than trusting m.tabs, which can be a refresh behind.
 func (m Model) currentTab() tea.Cmd {
 	return func() tea.Msg {
 		windows, err := m.host.Windows()
@@ -43,7 +41,6 @@ func (m *Model) pinTab(tty string) tea.Cmd {
 	return nil
 }
 
-// Pinned tabs sit together right after the dashboard, like a browser's.
 func (m *Model) togglePin(s claude.Session) tea.Cmd {
 	if err := m.store.TogglePin(s.ID); err != nil {
 		m.mark(err)

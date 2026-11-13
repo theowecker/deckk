@@ -15,11 +15,10 @@ import (
 	"github.com/theowecker/deckk/internal/deck"
 )
 
-// The band under the tab strip, in tmux style markup. Colors match the strip
-// in tmux/config.go, and band must match its status-format.
+// Colours match the strip in tmux/config.go, and band must match its
+// status-format.
 const band = "#24243A"
 
-// bandInfo is what the dashboard knows about a session beyond the session itself.
 type bandInfo struct {
 	width      int
 	pinned     bool
@@ -30,9 +29,7 @@ type bandInfo struct {
 	clash   bool
 }
 
-// tabInfo describes a hosted session: what it's doing, any collision or
-// suggestion, and where on the left, how Claude is set up and the pin button
-// on the right. The setup drops its last details until the band fits.
+// The setup on the right drops its last details until the band fits.
 func tabInfo(s claude.Session, now time.Time, b bandInfo) string {
 	left := " " + chip(s, now) + "  "
 	switch {

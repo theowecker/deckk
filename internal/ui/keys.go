@@ -132,12 +132,11 @@ func keyMsg(key string) tea.KeyMsg {
 	return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(key)}
 }
 
-// Shortcuts are single keys pressed one at a time. Letters arriving faster
-// than this are someone typing, most likely meant for the deckk session.
+// Letters arriving faster than this are someone typing, most likely meant for
+// the deckk session.
 const typingGap = 150 * time.Millisecond
 
-// typing reports a letter that follows a different one too closely to be a
-// shortcut. One key repeating, held or tapped fast like jjj, still counts,
+// One key repeating, held or tapped fast like jjj, still counts as a shortcut
 // until a word has started.
 func (m *Model) typing(msg tea.KeyMsg) bool {
 	if msg.Type != tea.KeyRunes || msg.Alt || len(msg.Runes) != 1 || m.typingGap == 0 {

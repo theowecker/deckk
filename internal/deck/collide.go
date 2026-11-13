@@ -7,21 +7,16 @@ import (
 	"github.com/theowecker/deckk/internal/claude"
 )
 
-// A Collision is two running sessions that could undo each other's work:
-// both edited the same files, or both work in one checkout, where a branch
-// switch, a stash or a test run in one changes what the other sees.
+// Sharing a checkout counts because a branch switch, a stash or a test run in
+// one changes what the other sees.
 type Collision struct {
-	A, B claude.Session
-	// Files both have edited since they started.
-	Files []string
-	// Checkout is the working tree they share, if they share one.
+	A, B     claude.Session
+	Files    []string
 	Checkout string
 }
 
-// Clash is the serious kind: the same files.
 func (c Collision) Clash() bool { return len(c.Files) > 0 }
 
-// Other is the session on the far side of a collision from id.
 func (c Collision) Other(id string) claude.Session {
 	if c.A.ID == id {
 		return c.B
@@ -29,9 +24,6 @@ func (c Collision) Other(id string) claude.Session {
 	return c.A
 }
 
-// Collisions pairs up running sessions that edit the same files or share a
-// checkout, clashes first. edits are each session's edited files by ID, and
-// root finds the checkout a folder belongs to.
 func Collisions(sessions []claude.Session, edits map[string][]string, root func(string) string) []Collision {
 	var live []claude.Session
 	roots := map[string]string{}
@@ -68,7 +60,6 @@ func shared(a, b []string) []string {
 	return both
 }
 
-// CollisionsOf lists the collisions one session is part of.
 func CollisionsOf(all []Collision, id string) []Collision {
 	var mine []Collision
 	for _, c := range all {

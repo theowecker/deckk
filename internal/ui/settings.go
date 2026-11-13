@@ -39,8 +39,6 @@ func (m *Model) cycleSetting() tea.Cmd {
 	return nil
 }
 
-// settingEffects apply a setting the moment it changes, for settings that
-// reach past the config file.
 var settingEffects = map[string]func(m *Model, value string) tea.Cmd{
 	"tab_keys": func(m *Model, preset string) tea.Cmd {
 		return m.do(func() error { return m.host.SetTabKeys(preset) }, "")

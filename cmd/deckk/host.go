@@ -58,8 +58,8 @@ func (host) SetTabKeys(preset string) error {
 	return terminal.RefreshProfile(preset)
 }
 
-// OpenHQ starts the deckk session beside the dashboard, writing its role and
-// tool config first so an upgraded deckk always hands it the current ones.
+// Writes the role and tool config first so an upgraded deckk always hands it
+// the current ones.
 func (h host) OpenHQ(cfg config.Config, focus bool) error {
 	if err := openHQ(&cfg); err != nil {
 		return err

@@ -12,9 +12,8 @@ import (
 	"github.com/theowecker/deckk/internal/config"
 )
 
-// Intro explains the deckk session before Claude Code first asks to trust
-// its folder, a question that is unsettling with no context. It reports
-// whether to go on; saying no turns the deckk session off.
+// Claude Code's trust question is unsettling with no context, so this explains
+// the deckk session first. Saying no turns it off.
 func Intro(in io.Reader, out io.Writer, cfg *config.Config) bool {
 	clay := lipgloss.NewStyle().Foreground(lipgloss.Color("#E8875B")).Bold(true)
 	text := lipgloss.NewStyle().Foreground(lipgloss.Color("#ECECEC"))

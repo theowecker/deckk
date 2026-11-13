@@ -25,12 +25,10 @@ const plainGlyph = "#{?#{==:#{@deckk_status},home},◆," +
 
 const name = "#{?@deckk_name,#{@deckk_name},#W}"
 
-// The held tab fades while it is dragged.
 const held = "#9A5A40"
 
-// tmux owns the mouse, so iTerm2 never sees a selection and Cmd+C has nothing
-// to copy. Cmd+C or Ctrl+C sends the selection to the macOS clipboard and,
-// like iTerm2, leaves it highlighted.
+// tmux owns the mouse, so the terminal never has a selection for Cmd+C. This
+// copies like iTerm2 does, leaving the selection highlighted.
 const copied = `{ send -X copy-pipe-no-clear ; display-message -d 1200 "Copied" }`
 
 const copyIfSelected = `{ if -F "#{selection_present}" ` + copied + ` }`
@@ -46,20 +44,14 @@ const clickStatus = `{ if -F "#{==:#{mouse_status_range},new}" { select-window -
 // makes every tab's place stale until deckk measures again.
 const dropTab = `{ set -gu @deckk_drag ; if -F "#{&&:#{active_window_index},#{!=:#{window_index},#{active_window_index}}}" { run -C "move-window -#{?#{e|>:#{window_index},#{active_window_index}},a,b} -s :#{active_window_index} -t :#{?#{window_index},#{window_index},1} ; move-window -r ; #{W:set -wu -t #{window_id} @deckk_x ; }" } }`
 
-// While a tab is held, @deckk_drag follows the pointer so the strip can show
-// where it would land.
 const dragTab = `{ if -F "#{window_index}" { set -gF @deckk_drag "#{mouse_x}" } }`
 
-// A tab is under the pointer when @deckk_drag falls inside the place deckk
-// measured for it in PlaceTabs.
 const hovered = "#{&&:#{@deckk_x},#{&&:#{@deckk_drag},#{&&:#{e|>=:#{@deckk_drag},#{@deckk_x}},#{e|<:#{@deckk_drag},#{@deckk_x2}}}}}"
 
 const dropTarget = "#{&&:#{!=:#{window_active},1}," + hovered + "}"
 
-// The info band is the strip's last row, so hiding it is one row less.
 const toggleInfo = `{ if -F "#{==:#{status},4}" { set -g status 3 } { set -g status 4 } }`
 
-// The ▴ button collapses the info band and ▾ brings it back.
 const infoButton = `#[range=user|info]#[bg=#30304A,fg=#8A8A9A]  #{?#{==:#{status},4},▴,▾}  #[norange]#[default] `
 
 // Claude never resets the pointer the dashboard sets. Switches the dashboard
@@ -76,9 +68,8 @@ set -g allow-passthrough on
 set -g set-clipboard on
 set -g history-limit 50000
 set -g mouse on
-# Scrolled back or selecting, a terminal shows no line counter, no marked
-# line and no cursor. tmux can't hide its copy cursor, so it becomes a bar in
-# the terminal's background colour, which deckk reads when it attaches.
+# tmux can't hide its copy cursor, so it becomes a bar in the terminal's
+# background colour.
 setw -gq copy-mode-position-format ""
 setw -gq copy-mode-mark-style default
 set-hook -g pane-mode-changed { if -F "#{&&:#{pane_in_mode},#{@deckk_bg}}" { set -p cursor-style bar ; set -pF cursor-colour "#{@deckk_bg}" } { set -pu cursor-style ; set -pu cursor-colour } }
@@ -143,11 +134,9 @@ bind -n MouseDown1Status ` + clickStatus + `
 bind -n MouseDown1StatusRight ` + clickStatus + `
 bind -n MouseDrag1Status ` + dragTab + `
 bind -n MouseDragEnd1Status ` + dropTab + `
-# A tab dropped below the strip goes nowhere.
 bind -n MouseDragEnd1Pane { if -F "#{@deckk_drag}" { set -gu @deckk_drag } { send -M } }
 bind -n C-Space if -F "#{!=:#{session_name},deckk}" "" { if -F "#{@deckk_dashboard}" "last-window" "select-window -t :0" }
-# Ctrl+Shift+Up and Down move between the list and the deckk session beside
-# it, the way Left and Right move between tabs. Elsewhere they reach the app.
+# Outside the dashboard these reach the app.
 bind -n C-S-Up ` + otherPane("C-S-Up") + `
 bind -n C-S-Down ` + otherPane("C-S-Down") + `
 
@@ -157,9 +146,8 @@ set-hook -g client-detached ` + resetPointer + `
 set-hook -g client-attached { copy-mode -q }
 `
 
-// strip is one row of the tab strip. The label row sits between two rows of
-// half blocks in each tab's color, which make the tabs look twice as tall.
-// Every row lists the same windows with the same click ranges.
+// The label row sits between two rows of half blocks in each tab's colour,
+// which make the tabs look twice as tall.
 func strip(tab, current, right string) string {
 	sep := "#{?loop_last_flag,,#{E:window-status-separator}}"
 	return "#[align=left range=left]#{T:status-left}#[norange default]#[list=on align=left]" +
@@ -168,20 +156,16 @@ func strip(tab, current, right string) string {
 		"#[nolist align=right range=right]" + right + "#[norange default]"
 }
 
-// The buttons' caps, as wide as "  ▴  " and "  + new  ".
 func buttonCaps(half string) string {
 	return "#[range=user|info]#[fg=#30304A]" + strings.Repeat(half, 5) + "#[norange default] " +
 		"#[range=user|new]#[fg=#30304A]" + strings.Repeat(half, 9) + "#[norange default] "
 }
 
-// Cap is a tab's top edge, as wide as its label in window-status-format.
 func Cap(name string) string {
 	return strings.Repeat("▄", ansi.StringWidth(strings.ReplaceAll(name, "##", "#"))+6)
 }
 
-// BindTabKeys sets the keys that move to the previous and next tab, from the
-// tab_keys setting. Ctrl+Shift+arrows reach tmux from any terminal and
-// nothing else uses them.
+// Ctrl+Shift+arrows reach tmux from any terminal and nothing else uses them.
 func BindTabKeys(preset string) error {
 	args := []string{}
 	for _, key := range []string{"C-S-Left", "C-S-Right", "C-PPage", "C-NPage"} {
@@ -213,17 +197,16 @@ func WriteConfig() (string, error) {
 	return path, os.WriteFile(path, []byte(tmuxConf), 0o644)
 }
 
-// The dashboard never enters copy mode. It has no history to scroll, and a
-// click while it restarts would otherwise freeze it on a blank screen. This
-// is the dashboard pane only: the deckk session beside it scrolls like any
-// session.
+// The dashboard never enters copy mode: it has no history, and a click while it
+// restarts would freeze it on a blank screen.
 func toApp(otherwise string) string {
 	return `{ if -F "#{||:#{pane_in_mode},#{mouse_any_flag},#{==:#{@deckk_pane},dashboard}}" { send -M } { ` + otherwise + ` } }`
 }
 
-// Typing while text is selected or the pane is scrolled back leaves copy mode
-// and goes to the app, as it would in iTerm2. tmux can't pass on whatever key
-// arrived, so every key a terminal sends is bound by name. Escape only clears, so it can't interrupt Claude.
+// Keys typed while scrolled back or selecting leave copy mode and reach the
+// app, as in iTerm2. tmux can't pass on the key that arrived, so every key a
+// terminal sends is bound by name. Escape only clears, so it can't interrupt
+// Claude.
 func copyModeBindings(table string) string {
 	var b strings.Builder
 	bind := func(key, command string) {
@@ -233,8 +216,8 @@ func copyModeBindings(table string) string {
 	bind("MouseDragEnd1Pane", "{ "+outside("other-end", "set-mark", "other-end", "stop-selection")+" }")
 	bind("DoubleClick1Pane", `{ select-pane ; send -X select-word ; `+outside("other-end", "set-mark", "other-end")+` }`)
 	bind("TripleClick1Pane", `{ select-pane ; send -X select-line ; `+outside("other-end", "set-mark", "other-end")+` }`)
-	// Shift-click extends the selection to the click, from where the drag
-	// began, even after scrolling.
+	// Anchored at the mark the drag left, since tmux re-anchors at the cursor,
+	// which moves when scrolling.
 	bind("S-MouseDown1Pane", `{ select-pane ; if -F "#{selection_present}" { send -X clear-selection ; `+
 		outside("jump-to-mark", "begin-selection", "jump-to-mark", "stop-selection")+` } }`)
 	bind("C-c", `{ if -F "#{selection_present}" `+copied+` { send -X cancel ; send-keys C-c } }`)
@@ -250,8 +233,6 @@ func copyModeBindings(table string) string {
 	return b.String()
 }
 
-// passedKeys are the named and modified keys a terminal sends, less the ones
-// deckk binds itself in every table.
 func passedKeys() []string {
 	var keys []string
 	for c := 'a'; c <= 'z'; c++ {

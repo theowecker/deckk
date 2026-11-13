@@ -6,9 +6,7 @@ import (
 	"path/filepath"
 )
 
-// Trusted reports whether the user has told Claude Code it may work in dir.
-// Claude asks once per folder and keeps the answer in its own settings,
-// which deckk only reads.
+// Claude keeps the answer in its own settings, which deckk only reads.
 func Trusted(dir string) bool {
 	path := filepath.Join(os.Getenv("HOME"), ".claude.json")
 	if custom := os.Getenv("CLAUDE_CONFIG_DIR"); custom != "" {

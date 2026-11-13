@@ -41,8 +41,6 @@ func Post(q Question) error {
 	return writeAtomic(questionPath(q.ID), data)
 }
 
-// Await polls for the deckk session's answer until ctx ends, and cleans up
-// either way.
 func Await(ctx context.Context, id string) (string, bool) {
 	defer func() { _ = os.Remove(questionPath(id)) }()
 	tick := time.NewTicker(time.Second)
@@ -77,7 +75,6 @@ func Answer(id, text string) error {
 	return writeAtomic(answerPath(id), []byte(text))
 }
 
-// Questions lists what sessions have asked or noted, oldest first.
 func Questions() ([]Question, error) {
 	paths, err := filepath.Glob(filepath.Join(Dir(), "questions", "*.json"))
 	if err != nil {
@@ -120,7 +117,7 @@ func sweepAnswers() {
 	}
 }
 
-// Delivered removes notes once read; waiting questions stay until answered.
+// Waiting questions stay until answered.
 func Delivered(notes []Question) {
 	for _, q := range notes {
 		if !q.Wait {

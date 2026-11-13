@@ -1,4 +1,3 @@
-// Package git reads the state of the checkout a session works in.
 package git
 
 import (
@@ -17,8 +16,7 @@ type Status struct {
 	Changed int
 	Ahead   int
 	Behind  int
-	// Worktree names the linked worktree, and Repo is the checkout it
-	// belongs to. Both are empty in a main checkout.
+	// Both are empty in a main checkout.
 	Worktree string
 	Repo     string
 }

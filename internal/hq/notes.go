@@ -8,8 +8,7 @@ import (
 	"time"
 )
 
-// A Note is the deckk session's own memory of a session: what it is for and
-// where it stands, so it doesn't reread transcripts that haven't moved.
+// Notes let the deckk session skip rereading transcripts that haven't moved.
 type Note struct {
 	Text string    `json:"text"`
 	At   time.Time `json:"at"`

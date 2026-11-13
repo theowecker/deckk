@@ -42,8 +42,7 @@ const (
 	Pinned
 	Recent
 	Archived
-	// NextUp lists sessions the deckk session has a suggestion for. The
-	// dashboard builds it, so Arrange never fills it.
+	// The dashboard builds NextUp, so Arrange never fills it.
 	NextUp
 )
 
@@ -60,7 +59,6 @@ type Group struct {
 	Hidden   int
 }
 
-// Collapse keeps a group to its running sessions plus the first limit others.
 func (g *Group) Collapse(limit int) {
 	var kept []claude.Session
 	shown := 0

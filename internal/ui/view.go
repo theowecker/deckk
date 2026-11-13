@@ -398,8 +398,6 @@ func (m Model) body() ([]string, []int) {
 	return lines, owners
 }
 
-// sectionTitle is a heading with its count, a rule out to the status column
-// and, when the section has one, its action key at the end.
 func (m Model) sectionTitle(g deck.Group, key, label string) string {
 	head := heading.Render(g.Title) + "  " + ghost.Render(fmt.Sprint(len(g.Sessions)+g.Hidden))
 	end := ""
@@ -415,9 +413,6 @@ func (m Model) rowRoom() int {
 	return max(m.width-gutter-2-2-2-statusWidth, 10)
 }
 
-// columns are how wide titles and folders are padded, so folders and
-// branches line up down the list. Titles never take more than three fifths
-// of the row, folders no more than 18 cells.
 func (m Model) columns() (int, int) {
 	titles, projects := 0, 0
 	for _, g := range m.groups {
@@ -487,8 +482,6 @@ func (m Model) row(s claude.Session, selected bool, now time.Time, titles, proje
 	return bar + glyph + " " + content + fill + "  " + lipgloss.PlaceHorizontal(statusWidth, lipgloss.Right, status)
 }
 
-// suggestionRow is a Next up row: the session and the prompt deckk
-// suggests for it, which is already typed in once it says ready.
 func (m Model) suggestionRow(s claude.Session, selected bool, titles int) string {
 	sg, _ := m.suggestion(s)
 	bar, titleStyle := "  ", text

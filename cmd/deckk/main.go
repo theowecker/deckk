@@ -199,11 +199,8 @@ func list(days int) error {
 	return w.Flush()
 }
 
-// searchLimit keeps a broad search quick to send and to read.
 const searchLimit = 80
 
-// search looks through every session Claude has kept, the way Find does:
-// your own sessions first, newest first, then background runs.
 func search(st *store.Store) web.Search {
 	return func(query string) ([]web.Found, error) {
 		labels := st.Labels()
@@ -259,8 +256,6 @@ func loadEverything(pinned map[string]bool) ([]claude.Session, error) {
 	return sessions, nil
 }
 
-// history is the page's view of a session: its last ten exchanges, each
-// clipped so a long reply can't swamp the page.
 func history(id string) ([]web.Turn, error) {
 	if !claude.IsSessionID(id) {
 		return nil, errors.New("no such session")

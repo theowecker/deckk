@@ -16,8 +16,6 @@ import (
 	"github.com/theowecker/deckk/internal/tmux"
 )
 
-// The dashboard's side of the deckk session: it tells the session what
-// changed, and carries its suggestions into the other sessions' prompts.
 type deckkState struct {
 	session     claude.Session
 	running     bool
@@ -42,9 +40,7 @@ type deckkState struct {
 	inflight map[string]bool
 
 	started, starting bool
-	// briefed is set once this dashboard has asked for, or skipped, the
-	// briefing on opening.
-	briefed bool
+	briefed           bool
 }
 
 func newDeckkState() deckkState {
@@ -86,8 +82,6 @@ const (
 	maxPending = 30
 )
 
-// takeDeckk pulls the deckk session out of the list, since it isn't one of
-// the user's sessions, and records what the files and pane say.
 func (m *Model) takeDeckk(sessions []claude.Session, snap deckkSnapshot) []claude.Session {
 	m.deckk.running = false
 	sessions = slices.DeleteFunc(sessions, func(s claude.Session) bool {
@@ -109,8 +103,7 @@ func (m *Model) takeDeckk(sessions []claude.Session, snap deckkSnapshot) []claud
 	return sessions
 }
 
-// trackEvents notes what changed since the last refresh. The first refresh
-// only learns the current state, so opening deckk isn't news.
+// The first refresh only learns the current state, so opening deckk isn't news.
 func (m *Model) trackEvents() []hq.Event {
 	d := &m.deckk
 	now := time.Now()
@@ -141,8 +134,6 @@ func (m *Model) trackEvents() []hq.Event {
 	return events
 }
 
-// report writes events as they happen, in order, for read_inbox, and queues
-// them for the next nudge while the deckk session is listening.
 func (m *Model) report(events []hq.Event) {
 	if len(events) == 0 || !m.cfg.HQOn() {
 		return
@@ -156,8 +147,8 @@ func (m *Model) report(events []hq.Event) {
 	}
 }
 
-// A delivery is text deckk types into a prompt. Every one goes through
-// deliver and delivered, so none can be lost or typed twice.
+// Every delivery goes through deliver and delivered, so none is lost or typed
+// twice.
 type delivery struct {
 	kind deliveryKind
 	// key is what the delivery is for within its kind: a session ID, or
@@ -176,19 +167,11 @@ type delivery struct {
 type deliveryKind int
 
 const (
-	// news tells the deckk session what changed.
 	news deliveryKind = iota
-	// briefing asks the deckk session to brief the user on opening.
 	briefing
-	// suggestion types the deckk session's next prompt into a session, or
-	// takes it back out when text is empty.
 	suggestion
-	// opening types the first prompt into a session that just started.
 	opening
-	// typed is a prompt the user wrote on the web page for a session.
 	typed
-	// chat is a message the user wrote on the web page for the deckk
-	// session.
 	chat
 )
 
@@ -263,14 +246,11 @@ func (m *Model) delivered(msg deliveredMsg) {
 	}
 }
 
-// A briefing on opening deckk is worth a turn after a real break, not after
-// every relaunch.
+// A briefing is worth a turn after a real break, not after every relaunch.
 const briefEvery = 3 * time.Hour
 
-// nudge tells the deckk session there is news, when it is idle and nobody is
-// typing to it. It reads the details itself with read_inbox. The first nudge
-// after a break asks it to brief the user instead. With updates off, only
-// sessions waiting on an answer get through, since they are blocked.
+// With updates off, only sessions waiting on an answer get through, since they
+// are blocked.
 func (m *Model) nudge() tea.Cmd {
 	d := &m.deckk
 	if !m.cfg.HQOn() || !d.open || !d.running || d.pane.Seen || deck.StateOf(d.session) != deck.YourTurn {
@@ -321,8 +301,6 @@ func (m *Model) nudge() tea.Cmd {
 	})
 }
 
-// note is what the deckk session last wrote about a session, and whether
-// the session has moved on since.
 func (m Model) note(s claude.Session) (note hq.Note, ok, stale bool) {
 	note, ok = m.deckk.notes[s.ID]
 	if !ok || !m.cfg.HQOn() {
@@ -353,10 +331,8 @@ func (m Model) briefing() string {
 		". Give them a short briefing and suggest or propose where the next step is clear."
 }
 
-// suggestion is the deckk session's current proposal for a session: the
-// next prompt for a waiting session, made since it last changed state; a
-// prompt to resume a stopped one with, made since it stopped; or a proposed
-// new session's first prompt. Dismissed ones don't count.
+// A waiting session's suggestion counts only if made since it last changed
+// state, a stopped one's only if made since it stopped.
 func (m Model) suggestion(s claude.Session) (hq.Suggestion, bool) {
 	if !m.cfg.HQOn() {
 		return hq.Suggestion{}, false
@@ -384,16 +360,12 @@ func (m Model) prefilled(s claude.Session, sg hq.Suggestion) bool {
 	return m.store.Prefilled[s.ID].At.Equal(sg.At)
 }
 
-// typedIn is what deckk left in a session's prompt this turn, if anything.
-// Once the session takes another turn the text was sent or is the user's.
+// Once the session takes another turn, the text was sent or is the user's.
 func (m Model) typedIn(s claude.Session) (store.Prefill, bool) {
 	p, ok := m.store.Prefilled[s.ID]
 	return p, ok && deck.StateOf(s) == deck.YourTurn && !s.StatusAt.After(p.At)
 }
 
-// prefill keeps each prompt nobody is looking at in step with the deckk
-// session: it types new suggestions in, replaces ones it typed earlier, and
-// takes back ones that were withdrawn or dismissed.
 func (m *Model) prefill() tea.Cmd {
 	if !m.cfg.Prefill() {
 		return nil
@@ -413,9 +385,6 @@ func (m *Model) prefill() tea.Cmd {
 	return tea.Batch(cmds...)
 }
 
-// maySend is whether the deckk session's safe suggestions for a session go
-// out without review: everywhere with the send setting, or for sessions the
-// user trusts.
 func (m Model) maySend(s claude.Session) bool {
 	return m.cfg.HQOn() && (m.cfg.Send() || m.store.Trusted[s.ID])
 }
@@ -435,9 +404,6 @@ func (m *Model) syncPrompt(s claude.Session, maySend bool) tea.Cmd {
 	return nil
 }
 
-// openWithSuggestion fills in a waiting suggestion on the way into a session,
-// since opening it is the user choosing to see it. A proposed or stopped
-// session starts first and gets its prompt once Claude is up.
 func (m *Model) openWithSuggestion(s claude.Session) tea.Cmd {
 	if sg, ok := m.suggestion(s); ok && (isProposal(s) || !s.Running()) {
 		return m.begin(s, sg)
@@ -463,8 +429,6 @@ func (m *Model) dismiss(s claude.Session) tea.Cmd {
 	return nil
 }
 
-// nextUp is the section at the top of the list: every session with a
-// suggestion, newest suggestion first.
 func (m Model) nextUp() (deck.Group, bool) {
 	list := m.nextUpSessions()
 	if m.view != sessionsView || m.byProject || len(list) == 0 {
@@ -498,9 +462,8 @@ func (m *Model) openDeckk() tea.Cmd {
 
 type deckkStartedMsg struct{ err error }
 
-// startDeckk opens the deckk session once per dashboard, as soon as a client
-// is attached. Once started it is never reopened behind the user's back, so
-// closing it sticks until c or the next launch.
+// Never reopened behind the user's back, so closing it sticks until c or the
+// next launch.
 func (m *Model) startDeckk() tea.Cmd {
 	if m.deckk.started || m.deckk.starting || !m.cfg.HQOn() {
 		return nil
@@ -529,15 +492,12 @@ func clipText(s string, n int) string {
 	return string(r[:n-1]) + "…"
 }
 
-// faded is when the dashboard draws itself in grey: while the deckk session
-// beside it is the active pane. A blur alone doesn't count, since switching
-// to another app blurs the dashboard too.
+// A blur alone doesn't count, since switching to another app blurs the
+// dashboard too.
 func (m Model) faded() bool {
 	return m.deckk.open && m.deckk.pane.Active
 }
 
-// focused is the dashboard getting the keyboard back, by a focus event or a
-// click, ahead of the next refresh.
 func (m *Model) focused() {
 	m.deckk.pane.Active = false
 }
@@ -547,8 +507,6 @@ type focusCheckMsg struct {
 	open bool
 }
 
-// checkFocus asks tmux where the keyboard went when the dashboard loses it,
-// so fading doesn't wait for the next refresh.
 func (m Model) checkFocus() tea.Cmd {
 	return func() tea.Msg {
 		pane, open, err := m.host.HQPane()
@@ -559,7 +517,6 @@ func (m Model) checkFocus() tea.Cmd {
 	}
 }
 
-// heldBack says why something from the page wasn't typed in.
 func heldBack(result tmux.Delivery) string {
 	switch result {
 	case tmux.Busy:
@@ -571,8 +528,6 @@ func heldBack(result tmux.Delivery) string {
 	}
 }
 
-// toggleTrust lets the deckk session send its safe suggestions to one
-// session without review, or takes that back.
 func (m *Model) toggleTrust(s claude.Session) {
 	m.mark(m.store.ToggleTrust(s.ID))
 	if m.store.Trusted[s.ID] {

@@ -1,6 +1,3 @@
-// Package terminal drives the terminal app deckk runs in: opening tabs for
-// sessions moved out of deckk, and finding or closing the tab a Claude
-// session runs in.
 package terminal
 
 import (
@@ -18,9 +15,8 @@ import (
 // for two minutes. Long enough to click Allow, short enough not to stall.
 const scriptTimeout = 15 * time.Second
 
-// CopySequence is what Cmd+C sends where deckk can remap it. tmux binds it as
-// a user key and copies its own selection. Any CSI that starts like a real key
-// confuses tmux's parser and the tail leaks into the pane; nothing uses 1337.
+// tmux binds this as a user key. Any CSI that starts like a real key confuses
+// tmux's parser and the tail leaks into the pane; nothing uses 1337.
 const CopySequence = "\x1b[1337~"
 
 var (
@@ -28,9 +24,8 @@ var (
 	ErrUnsupported = errors.New("deckk can't open tabs in this terminal")
 )
 
-// App is a scriptable terminal. Scripts are AppleScript run inside a tell
-// block. eachTab loops over every tab and runs {action} on the one whose
-// tty is {tty}, with w, t (and s, where tabs hold sessions) in scope.
+// Scripts are AppleScript run inside a tell block. eachTab runs {action} on the
+// tab whose tty is {tty}, with w, t (and s, where tabs hold sessions) in scope.
 type App struct {
 	Name    string
 	program string // $TERM_PROGRAM inside it
@@ -40,8 +35,7 @@ type App struct {
 	focus   string
 	close   string
 	open    string // {command} is the shell command for the new tab
-	// setup runs before deckk attaches and returns what undoes it.
-	setup func(out io.Writer, tabKeys string) (undo func())
+	setup   func(out io.Writer, tabKeys string) (undo func())
 }
 
 func Lookup(program string) (App, bool) {
@@ -53,12 +47,10 @@ func Lookup(program string) (App, bool) {
 	return App{}, false
 }
 
-// Current is the terminal deckk was started from.
 func Current() (App, bool) { return Lookup(os.Getenv("TERM_PROGRAM")) }
 
 func (a App) Program() string { return a.program }
 
-// Setup prepares the tab deckk is about to take over.
 func (a App) Setup(out io.Writer, tabKeys string) (undo func()) {
 	if a.setup == nil {
 		return func() {}
@@ -76,11 +68,10 @@ func (a App) OpenTab(command string) error {
 	return err
 }
 
-// Focus brings forward the tab on tty in whichever supported terminal has it.
 func Focus(tty string) error { return onTab(tty, func(a App) string { return a.focus }) }
 
-// Close shuts the tab on tty. Only call once Claude has quit, or the
-// terminal asks before closing a busy tab.
+// Only call once Claude has quit, or the terminal asks before closing a busy
+// tab.
 func Close(tty string) error { return onTab(tty, func(a App) string { return a.close }) }
 
 func onTab(tty string, action func(App) string) error {
@@ -134,8 +125,8 @@ func quote(s string) string {
 	return `"` + strings.NewReplacer(`\`, `\\`, `"`, `\"`).Replace(s) + `"`
 }
 
-// Notify shows a macOS notification. The text goes to AppleScript as
-// arguments rather than inside the script, so quotes in it can't break out.
+// The text goes to AppleScript as arguments rather than inside the script, so
+// quotes in it can't break out.
 func Notify(title, subtitle, body string) error {
 	script := `on run argv
 	display notification (item 3 of argv) with title (item 1 of argv) subtitle (item 2 of argv)
