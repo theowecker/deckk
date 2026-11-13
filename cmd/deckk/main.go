@@ -60,6 +60,9 @@ func run(args []string) error {
 	if len(args) > 0 && args[0] != "" && args[0][0] != '-' {
 		cmd, args = args[0], args[1:]
 	}
+	if len(args) == 1 && (args[0] == "--version" || args[0] == "-v") {
+		cmd, args = "version", nil
+	}
 
 	flags := flag.NewFlagSet("deckk", flag.ContinueOnError)
 	flags.Usage = func() { fmt.Fprint(os.Stderr, usage) }
