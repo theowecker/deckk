@@ -83,7 +83,7 @@ func (m Model) openWeb() tea.Cmd {
 
 func (m Model) webState() web.State {
 	now := time.Now()
-	st := web.State{Clashes: []web.Clash{}, NextUp: []web.Next{}, Groups: []web.Group{}, Activity: []web.Event{}}
+	st := web.State{Clashes: []web.Clash{}, NextUp: []web.Next{}, Groups: []web.Group{}, Projects: []web.Group{}, Activity: []web.Event{}}
 	sessions := slices.DeleteFunc(slices.Clone(m.sessions), func(s claude.Session) bool { return s.Background })
 
 	for _, s := range sessions {
@@ -133,6 +133,15 @@ func (m Model) webState() web.State {
 			group.Sessions = append(group.Sessions, m.webSession(s, now))
 		}
 		st.Groups = append(st.Groups, group)
+	}
+
+	for _, g := range m.board() {
+		g.Collapse(3)
+		project := web.Group{Title: g.Title, Hidden: g.Hidden}
+		for _, s := range g.Sessions {
+			project.Sessions = append(project.Sessions, m.webSession(s, now))
+		}
+		st.Projects = append(st.Projects, project)
 	}
 
 	st.Goals = m.deckk.goals

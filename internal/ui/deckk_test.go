@@ -420,3 +420,22 @@ func TestTheDeckkSessionsNoteShowsInThePreview(t *testing.T) {
 		t.Fatalf("preview %q", preview)
 	}
 }
+
+func TestTheBoardGroupsSessionsByProjectUnderTheGoals(t *testing.T) {
+	m, host := newTestModel(t)
+	m.startedAt = time.Time{}
+	if err := hq.WriteGoals("# This week\n- Ship the **checkout** redesign\n"); err != nil {
+		t.Fatal(err)
+	}
+	if err := hq.Remember("dddddddd", "cart fix, waiting on review"); err != nil {
+		t.Fatal(err)
+	}
+	m = refresh(t, m, host, nil)
+	m, _ = press(m, "tab")
+	view := ansi.Strip(m.View())
+	for _, want := range []string{"Board", "GOALS", "Ship the checkout redesign", "cart fix, waiting on review", "1 waiting", "2 working"} {
+		if !strings.Contains(view, want) {
+			t.Fatalf("board is missing %q:\n%s", want, view)
+		}
+	}
+}

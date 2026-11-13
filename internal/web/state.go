@@ -10,6 +10,7 @@ type State struct {
 	NextUp     []Next  `json:"nextUp"`
 	Clashes    []Clash `json:"clashes"`
 	Groups     []Group `json:"groups"`
+	Projects   []Group `json:"projects"`
 	Goals      string  `json:"goals"`
 	Activity   []Event `json:"activity"`
 	Today      Today   `json:"today"`

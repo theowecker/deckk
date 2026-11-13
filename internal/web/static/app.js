@@ -165,8 +165,27 @@ function sessionRow(s) {
   return row;
 }
 
+// The sessions can be grouped by how they stand or by project; the choice is
+// remembered in this browser.
+let grouping = "status";
+try { grouping = localStorage.getItem("deckk-grouping") || "status"; } catch {}
+
+function groupingControl() {
+  const choice = (value, label) => el("button", {
+    class: "segment", role: "radio", "aria-checked": grouping === value ? "true" : "false",
+    "data-focus": `grouping:${value}`,
+    onclick: () => {
+      grouping = value;
+      try { localStorage.setItem("deckk-grouping", value); } catch {}
+      render();
+    },
+  }, label);
+  return el("div", { class: "segmented", role: "radiogroup", "aria-label": "Group sessions" },
+    choice("status", "By status"), choice("project", "By project"));
+}
+
 function renderGroups(groups) {
-  $("groups").replaceChildren(...groups.map((g) =>
+  $("groups").replaceChildren(groupingControl(), ...groups.map((g) =>
     el("section", { "aria-label": g.title },
       el("h3", {}, g.title),
       el("ul", { class: "list" }, g.sessions.map(sessionRow),
@@ -258,7 +277,7 @@ function render() {
   renderTallies(state.counts);
   renderClashes(state.clashes || []);
   renderNext(state.nextUp || []);
-  renderGroups(state.groups || []);
+  renderGroups((grouping === "project" ? state.projects : state.groups) || []);
   renderToday(state.today || {});
   renderGoals(state.goals || "");
   renderActivity(state.activity || []);

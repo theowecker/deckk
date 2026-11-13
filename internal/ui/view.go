@@ -327,6 +327,12 @@ func (m Model) body() ([]string, []int) {
 		}
 	}
 
+	if m.view == boardView {
+		for _, line := range m.goalLines() {
+			add(line, noOwner)
+		}
+	}
+
 	index := 0
 	now := time.Now()
 	titles, projects := m.columns()
@@ -335,6 +341,8 @@ func (m Model) body() ([]string, []int) {
 			add("", -1)
 		}
 		switch {
+		case m.view == boardView:
+			add(m.projectTitle(g), noOwner)
 		case m.byProject:
 			add(m.sectionTitle(g, "", ""), noOwner)
 		case g.Section == deck.Running:
@@ -346,6 +354,16 @@ func (m Model) body() ([]string, []int) {
 		}
 		for _, s := range g.Sessions {
 			selected := index == m.cursor
+			if m.view == boardView {
+				add(m.boardRow(s, selected, now, titles), index)
+				if selected {
+					for _, line := range m.preview(s) {
+						add(line, index)
+					}
+				}
+				index++
+				continue
+			}
 			if g.Section == deck.NextUp {
 				add(m.suggestionRow(s, selected, titles), index)
 				if selected {
@@ -520,7 +538,7 @@ func (m Model) preview(s claude.Session) []string {
 	const indent = "    "
 	room := m.width - gutter*2 - len(indent)
 	var lines []string
-	if n, ok, stale := m.note(s); ok {
+	if n, ok, stale := m.note(s); ok && m.view != boardView {
 		line := accent.Render("◆ ") + soft.Render(n.Text)
 		if stale {
 			line += ghost.Render(" · from before its last turn")

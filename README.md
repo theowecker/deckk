@@ -46,7 +46,7 @@ place.
 | `R` | reopen everything that should be open |
 | `p` / `r` | pin or rename a session |
 | `/` | find any session, ever |
-| `tab` | switch between Sessions, Background and Find |
+| `tab` | switch between Sessions, Board, Background and Find |
 | `v` | group by status or by project |
 | `s` | settings |
 | `?` | all keys |
@@ -83,7 +83,11 @@ It also works on its own:
   short briefing on what's waiting and what to pick back up.
 
 It keeps a short note on each session it has looked at, so it only rereads
-sessions that moved since.
+sessions that moved since. The notes show in each session's preview, and the
+Board tab lays them out with your goals: every recent project, how its
+sessions stand, and one line on each. It answers you in briefs too, a
+headline and then what needs you, what's in flight, what's blocked and
+what's next.
 - Sessions deckk starts can ask it what to do next with an `ask_deckk` tool,
   and wait for its answer, or leave it a note with `tell_deckk`.
 
@@ -98,8 +102,8 @@ folder.
 
 Press `w`, or click Web ↗ next to the view tabs, to open the same dashboard
 as a page: Next up with each suggested prompt drawn as the message you'd
-send, clashes, every session with its last exchange, your goals and recent
-activity. It updates live, and Open and Dismiss act in deckk the way `↵` and
+send, clashes, every session by status or by project with the deckk
+session's note and its last exchange, your goals and recent activity. It updates live, and Open and Dismiss act in deckk the way `↵` and
 `d` do.
 
 The page is served by the dashboard on `127.0.0.1:4747` and nowhere else.

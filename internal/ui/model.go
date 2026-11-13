@@ -425,6 +425,9 @@ func (m *Model) rearrange() {
 			arrange = deck.ArrangeByProject
 		}
 		m.groups = arrange(m.inView(m.sessions), m.marks(), "", false)
+		if m.view == boardView {
+			m.groups = m.board()
+		}
 		if next, ok := m.nextUp(); ok {
 			m.groups = append([]deck.Group{next}, m.groups...)
 		}
@@ -451,6 +454,8 @@ func (m *Model) rearrange() {
 
 func (m Model) collapseLimit(g deck.Group) (int, bool) {
 	switch {
+	case m.view == boardView:
+		return 3, true
 	case m.byProject:
 		return 5, true
 	case g.Section == deck.Recent || g.Section == deck.Closed || g.Section == deck.Archived:

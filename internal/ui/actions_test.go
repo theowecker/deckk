@@ -477,6 +477,10 @@ func TestBackgroundSessionsGetTheirOwnView(t *testing.T) {
 	}
 
 	m, _ = press(m, "tab")
+	if m.view != boardView {
+		t.Fatalf("tab should reach Board first, got %v", m.view)
+	}
+	m, _ = press(m, "tab")
 	if m.view != backgroundView || len(m.flat) != 2 {
 		t.Fatalf("view %v shows %d", m.view, len(m.flat))
 	}

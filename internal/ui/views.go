@@ -19,14 +19,18 @@ type view int
 
 const (
 	sessionsView view = iota
+	// boardView is the overview: goals, then each project's sessions with
+	// what the deckk session says about them.
+	boardView
 	backgroundView
 	findView
+	viewCount
 )
 
 const findLimit = 100
 
-func (v view) next() view { return (v + 1) % 3 }
-func (v view) prev() view { return (v + 2) % 3 }
+func (v view) next() view { return (v + 1) % viewCount }
+func (v view) prev() view { return (v + viewCount - 1) % viewCount }
 
 func (m Model) inView(sessions []claude.Session) []claude.Session {
 	background := m.view == backgroundView
@@ -143,7 +147,7 @@ func (m Model) viewTabs() []viewTab {
 	if background > 0 {
 		label = fmt.Sprintf("Background %d", background)
 	}
-	return []viewTab{{sessionsView, "Sessions"}, {backgroundView, label}, {findView, "Find"}}
+	return []viewTab{{sessionsView, "Sessions"}, {boardView, "Board"}, {backgroundView, label}, {findView, "Find"}}
 }
 
 const viewTabGap = "    "

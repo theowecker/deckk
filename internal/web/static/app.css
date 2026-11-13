@@ -207,6 +207,26 @@ h3 {
 .button.primary { background: var(--blue-fill); color: #fff; box-shadow: none; }
 .button:active { filter: brightness(0.92); }
 
+/* A segmented control, like the one in a macOS toolbar. */
+.segmented {
+  display: inline-flex;
+  margin: 24px 0 0 0;
+  padding: 2px;
+  border-radius: 8px;
+  background: rgba(118, 118, 128, 0.12);
+}
+.segment {
+  border: 0;
+  border-radius: 6px;
+  padding: 4px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  background: none;
+  color: var(--label);
+  cursor: pointer;
+}
+.segment[aria-checked="true"] { background: var(--raised); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 0 0 0.5px var(--hairline); }
+
 /* Grouped lists, the way System Settings groups rows. */
 .list {
   margin: 0;
