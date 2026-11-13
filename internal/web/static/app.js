@@ -243,6 +243,8 @@ function renderNext(next) {
       el("div", { class: "said" },
         el("p", { class: `bubble ${kind === "ready" ? "ready" : "draft"}` }, n.prompt),
         n.why && el("p", { class: "why" }, n.why),
+        n.concerns > 0 && el("button", { class: "link flagged", "data-focus": `flag:${n.id}`, onclick: () => go("sessions", n.id) },
+          `⚑ The review flagged ${plural(n.concerns, "thing")}`),
       ),
     );
   })));

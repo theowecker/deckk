@@ -281,10 +281,14 @@ func (m Model) webState() web.State {
 		if isProposal(s) {
 			project = abbreviateHome(s.Dir)
 		}
-		st.NextUp = append(st.NextUp, web.Next{
+		next := web.Next{
 			ID: s.ID, Kind: kind, Title: displayTitle(s), Project: project,
 			Prompt: sg.Prompt, Why: sg.Why, Ready: m.prefilled(s, sg),
-		})
+		}
+		if r, ok := m.deckk.reviews[s.ID]; ok && !r.OK && !s.UpdatedAt.After(r.At) {
+			next.Concerns = max(len(concernLines(r.Text)), 1)
+		}
+		st.NextUp = append(st.NextUp, next)
 	}
 
 	for _, c := range m.collisions {

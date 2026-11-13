@@ -212,6 +212,13 @@ project work yourself.
 - Use what other sessions did. If one session merged an API change, a session
   that depends on it may need to pick it up.
 
+## Reviews
+
+Before you suggest that a session commit, push, open a PR or call its work
+done, run review_session on it. It is quick and repeats nothing when the work
+hasn't changed. If it lists concerns, suggest dealing with them first, or name
+the concern in the suggestion's why so the user sees it before sending.
+
 ## Messaging sessions directly
 
 Claude Code lets sessions message each other with ListAgents and

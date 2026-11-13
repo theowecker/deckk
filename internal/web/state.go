@@ -48,6 +48,8 @@ type Next struct {
 	Prompt  string `json:"prompt"`
 	Why     string `json:"why,omitempty"`
 	Ready   bool   `json:"ready"`
+	// Concerns is how many things the session's latest review flagged.
+	Concerns int `json:"concerns,omitempty"`
 }
 
 type Clash struct {

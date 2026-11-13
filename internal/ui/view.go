@@ -499,6 +499,9 @@ func (m Model) suggestionRow(s claude.Session, selected bool, titles int) string
 		line += "   " + accent.Render(prompt) + strings.Repeat(" ", promptRoom-lipgloss.Width(prompt))
 	}
 	glyph, state := accent.Render("✦"), ghost.Render("suggested")
+	if r, ok := m.deckk.reviews[s.ID]; ok && !r.OK && !s.UpdatedAt.After(r.At) {
+		glyph = warn.Render("⚠")
+	}
 	switch {
 	case isProposal(s):
 		glyph, state = accent.Render("+"), ghost.Render("new session")

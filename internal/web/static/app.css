@@ -499,3 +499,4 @@ div.empty-card { display: flex; align-items: center; justify-content: space-betw
 .review.concerns .review-head { color: var(--amber); }
 .review ul { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 3px; color: var(--label); }
 .flag { margin-left: 6px; color: var(--amber); font-size: 12px; }
+.said .flagged { color: var(--amber); font-size: 12px; }
