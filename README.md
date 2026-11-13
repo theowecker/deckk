@@ -246,6 +246,7 @@ open, find and close tabs for you:
 | Dashboard, tabs, resume, restore | yes | yes | yes | yes |
 | `o` moves a session to its own tab | yes | yes | a window | no |
 | Copy a selection | Cmd+C | Ctrl+C | Ctrl+C | Ctrl+C |
+| Search a session's history | Cmd+F or Ctrl+Shift+F | Ctrl+Shift+F | no | Ctrl+Shift+F, if it reports Shift |
 | Terminal's own selection | Option-drag | Shift-drag | Fn-drag | varies |
 
 Claude sessions running in iTerm2, Ghostty or Terminal tabs show up on the
