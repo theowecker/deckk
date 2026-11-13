@@ -79,6 +79,7 @@ type Model struct {
 	deckk       deckkState
 	collisions  []deck.Collision
 	clashes     map[string]bool
+	web         Publisher
 
 	lastClick  time.Time
 	lastClickY int
@@ -184,6 +185,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.report(append(m.trackEvents(), m.trackCollisions()...))
 			m.rearrange()
 			cmd = tea.Batch(m.syncLabels(), m.nudge(), m.prefill(), m.fillStarted(), m.startDeckk())
+			m.publish()
 		}
 		if msg.scheduled {
 			return m, tea.Batch(cmd, tick())
@@ -210,8 +212,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.deckkStarted(msg)
 		return m, nil
 
+	case webActionMsg:
+		cmd := m.webAction(msg)
+		m.publish()
+		return m, cmd
+
 	case deliveredMsg:
 		m.delivered(msg)
+		m.publish()
 		return m, nil
 
 	case pinTabMsg:

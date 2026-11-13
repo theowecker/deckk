@@ -31,6 +31,9 @@ func (m Model) updateMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 		if v, ok := m.viewTabAt(msg.X, msg.Y); ok {
 			return m.switchView(v)
 		}
+		if m.webLinkAt(msg.X, msg.Y) {
+			return m, m.openWeb()
+		}
 		if msg.Y == m.footerY() {
 			if key, ok := m.hintAt(msg.X); ok {
 				return m.dispatch(keyMsg(key))

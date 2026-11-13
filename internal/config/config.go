@@ -23,6 +23,7 @@ type Config struct {
 	Suggest    string `toml:"suggestions"`
 	Updates    string `toml:"updates"`
 	Ask        string `toml:"sessions_ask"`
+	Web        string `toml:"web_view"`
 	Days       int    `toml:"days"`
 
 	path string
@@ -68,6 +69,8 @@ func (c *Config) Nudge() bool { return c.HQOn() && c.Updates != Off }
 
 func (c *Config) AskDeckk() bool { return c.HQOn() && c.Ask != Off }
 
+func (c *Config) WebOn() bool { return c.Web != Off }
+
 var onOff = []string{On, Off}
 
 // Options are what the settings screen cycles through. An empty choice means
@@ -104,6 +107,9 @@ var Options = []Option{
 	{Key: "sessions_ask", Label: "Asking deckk", Deckk: true, Choices: onOff,
 		Names: map[string]string{On: "sessions deckk starts can ask it what's next", Off: "off"},
 		field: func(c *Config) *string { return &c.Ask }},
+	{Key: "web_view", Label: "Web view", Deckk: true, Choices: onOff,
+		Names: map[string]string{On: "on localhost, press w to open it", Off: "off, from the next launch"},
+		field: func(c *Config) *string { return &c.Web }},
 }
 
 func DefaultPath() string {

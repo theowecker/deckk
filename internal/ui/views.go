@@ -157,7 +157,30 @@ func (m Model) viewTabsLine() string {
 			parts = append(parts, dim.Render(t.label))
 		}
 	}
-	return pad() + strings.Join(parts, viewTabGap)
+	line := pad() + strings.Join(parts, viewTabGap)
+	if m.web != nil {
+		line += viewTabGap + viewTabGap + working.Render(webLink)
+	}
+	return line
+}
+
+// webLink opens the page deckk serves, from the end of the view tabs.
+const webLink = "Web ↗"
+
+func (m Model) webLinkAt(x, y int) bool {
+	if y != 0 || m.web == nil {
+		return false
+	}
+	start := lipgloss.Width(pad() + strings.Join(m.viewTabLabels(), viewTabGap) + viewTabGap + viewTabGap)
+	return x >= start && x < start+lipgloss.Width(webLink)
+}
+
+func (m Model) viewTabLabels() []string {
+	var labels []string
+	for _, t := range m.viewTabs() {
+		labels = append(labels, t.label)
+	}
+	return labels
 }
 
 // Must mirror viewTabsLine.

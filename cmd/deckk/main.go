@@ -5,9 +5,11 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"text/tabwriter"
 	"time"
 
@@ -22,6 +24,7 @@ import (
 	"github.com/theowecker/deckk/internal/terminal"
 	"github.com/theowecker/deckk/internal/tmux"
 	"github.com/theowecker/deckk/internal/ui"
+	"github.com/theowecker/deckk/internal/web"
 )
 
 var version = "dev"
@@ -136,7 +139,22 @@ func dashboard(days int, cfg *config.Config, program string) error {
 		return err
 	}
 	model := ui.New(claude.Home(), since(days), st, cfg, newHost(tmuxPath, program, cfg))
-	_, err = tea.NewProgram(model, tea.WithAltScreen(), tea.WithMouseAllMotion(), tea.WithReportFocus()).Run()
+	// The page's actions reach the dashboard like key presses, once the
+	// program that takes them exists.
+	var running atomic.Pointer[tea.Program]
+	if cfg.WebOn() {
+		tokenPath := filepath.Join(filepath.Dir(config.DefaultPath()), "web.token")
+		if server, err := web.Start(tokenPath, func(a web.Action) {
+			if p := running.Load(); p != nil {
+				p.Send(ui.WebAction(a))
+			}
+		}); err == nil {
+			model = model.WithWeb(server)
+		}
+	}
+	p := tea.NewProgram(model, tea.WithAltScreen(), tea.WithMouseAllMotion(), tea.WithReportFocus())
+	running.Store(p)
+	_, err = p.Run()
 	return err
 }
 

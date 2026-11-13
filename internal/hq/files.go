@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"syscall"
 	"time"
@@ -256,4 +257,15 @@ func locked(fn func() error) error {
 	}
 	defer func() { _ = syscall.Flock(int(f.Fd()), syscall.LOCK_UN) }()
 	return fn()
+}
+
+// Recent returns the last n events, newest first, without moving the cursor.
+func Recent(n int) ([]Event, error) {
+	events, err := readInbox()
+	if err != nil {
+		return nil, err
+	}
+	events = events[max(len(events)-n, 0):]
+	slices.Reverse(events)
+	return events, nil
 }

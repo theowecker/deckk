@@ -380,24 +380,26 @@ func (m *Model) dismiss(s claude.Session) tea.Cmd {
 // nextUp is the section at the top of the list: every session with a
 // suggestion, newest suggestion first.
 func (m Model) nextUp() (deck.Group, bool) {
-	if m.view != sessionsView || m.byProject {
+	list := m.nextUpSessions()
+	if m.view != sessionsView || m.byProject || len(list) == 0 {
 		return deck.Group{}, false
 	}
+	return deck.Group{Section: deck.NextUp, Title: deck.NextUp.String(), Sessions: list}, true
+}
+
+func (m Model) nextUpSessions() []claude.Session {
 	list := m.openProposals()
-	for _, s := range m.inView(m.sessions) {
-		if _, ok := m.suggestion(s); ok {
+	for _, s := range m.sessions {
+		if _, ok := m.suggestion(s); ok && !s.Background {
 			list = append(list, s)
 		}
-	}
-	if len(list) == 0 {
-		return deck.Group{}, false
 	}
 	at := func(s claude.Session) time.Time {
 		sg, _ := m.suggestion(s)
 		return sg.At
 	}
 	slices.SortFunc(list, func(a, b claude.Session) int { return at(b).Compare(at(a)) })
-	return deck.Group{Section: deck.NextUp, Title: deck.NextUp.String(), Sessions: list}, true
+	return list
 }
 
 func (m Model) openDeckk() tea.Cmd {

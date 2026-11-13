@@ -37,6 +37,7 @@ place.
 | drag a tab | drop it on another tab to move it there |
 | `n` | start Claude in a folder |
 | `c` | talk to the deckk session |
+| `w` | open the dashboard as a page in your browser |
 | `⌃⇧↑` / `⌃⇧↓` | move between the list and the deckk session |
 | `d` | dismiss deckk's suggestion for a session |
 | `x` | close a session (it stays resumable) |
@@ -92,6 +93,18 @@ it spends, so it hears about them at most every 90 seconds, batched. Its
 files, including `goals.md` and a `CLAUDE.md` you can add to, are in
 `~/.config/deckk/hq`. The first time it starts, Claude asks you to trust that
 folder.
+
+## In the browser
+
+Press `w`, or click Web ↗ next to the view tabs, to open the same dashboard
+as a page: Next up with each suggested prompt drawn as the message you'd
+send, clashes, every session with its last exchange, your goals and recent
+activity. It updates live, and Open and Dismiss act in deckk the way `↵` and
+`d` do.
+
+The page is served by the dashboard on `localhost:4747` and nowhere else. Its
+link carries a token kept in `~/.config/deckk/web.token`, so other pages in
+your browser can't use it. `web_view = "off"` turns it off.
 
 ## Terminals
 
@@ -150,6 +163,7 @@ deckk_session = ""
 suggestions = ""
 updates = ""
 sessions_ask = ""
+web_view = ""
 ```
 
 An empty value leaves it to your normal Claude settings. `extra_args` is added
