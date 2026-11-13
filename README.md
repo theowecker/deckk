@@ -137,10 +137,13 @@ It also works on its own:
   session's `review_session` tool gives its work a quick sanity check: a
   small model reads what the session says it did and its branch's changes
   since main, and answers OK or lists what looks off. The result shows on the
-  Board, in the session's preview and in the browser. With `reviews = "done"`
-  a session is reviewed when it opens a PR or finishes a turn saying its work
-  is done, and with `reviews = "auto"` after every turn that leaves changes.
-  Unchanged work is never reviewed twice.
+  Board and the session list, under the session's tab, in the browser and in
+  the deckk session's inbox, and macOS tells you when a review of a session
+  you aren't watching finds something. By default a session is also reviewed
+  on its own when it opens a PR or finishes a turn saying its work is done;
+  `reviews = "manual"` keeps reviews to when you ask, and `reviews = "auto"`
+  reviews after every turn that leaves changes. Unchanged work is never
+  reviewed twice.
 - **Questions.** Sessions deckk starts can ask it what to do next with an
   `ask_deckk` tool and wait for its answer, or leave it a note with
   `tell_deckk`.
@@ -231,7 +234,7 @@ default.
 | `sessions_ask` | `off` leaves the `ask_deckk` tools out of sessions deckk starts |
 | `web_view` | `off` stops the hub's server |
 | `notifications` | `off` stops the macOS notification when a session you aren't looking at starts waiting on you |
-| `reviews` | empty reviews only when you ask, `done` when a session says its work is done or opens a PR, `auto` after every turn that leaves changes |
+| `reviews` | empty reviews a session when it says its work is done or opens a PR, `manual` only when you ask, `auto` after every turn that leaves changes |
 
 The ⌘ keys for switching tabs take over iTerm2's own use of them, but only in
 the deckk tab.

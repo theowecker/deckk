@@ -55,13 +55,40 @@ func (m *Model) reviewed(msg reviewDoneMsg) {
 		return
 	}
 	m.deckk.reviews[msg.session.ID] = msg.review
-	if msg.quiet {
-		return
+	found := reviewFinding(msg.review)
+	m.report([]hq.Event{{At: msg.review.At, Session: msg.session.ID, Title: title, Kind: hq.Reviewed, Detail: found}})
+	if !msg.quiet {
+		m.setFlash("Review of "+title+": "+found, nil)
 	}
-	if msg.review.OK {
-		m.setFlash("Review of "+title+": nothing stands out", nil)
-	} else {
-		m.setFlash("Review of "+title+" found concerns", nil)
+}
+
+func reviewFinding(r hq.Review) string {
+	if r.OK {
+		return "nothing to flag"
+	}
+	concerns := concernLines(r.Text)
+	switch len(concerns) {
+	case 0:
+		return "found concerns"
+	case 1:
+		return "found 1 concern: " + concerns[0]
+	}
+	return fmt.Sprintf("found %d concerns, first: %s", len(concerns), concerns[0])
+}
+
+// A review that found concerns in a session the user isn't looking at is
+// worth a notification, since nothing else would bring them to it.
+func (m *Model) notifyReview(msg reviewDoneMsg) tea.Cmd {
+	if msg.err != nil || msg.review.OK || !m.cfg.NotifyOn() || m.watching(msg.session) {
+		return nil
+	}
+	s, title := msg.session, displayTitle(msg.session)+": review found concerns"
+	body := strings.TrimPrefix(reviewFinding(msg.review), "found ")
+	return func() tea.Msg {
+		if err := m.host.Notify(s.ID, title, s.Project(), body); err != nil {
+			return flashMsg{err: err}
+		}
+		return nil
 	}
 }
 
@@ -69,7 +96,7 @@ func (m *Model) reviewed(msg reviewDoneMsg) {
 // at a time, so a burst of finished sessions doesn't start a burst of reviews.
 func (m *Model) autoReview(events []hq.Event) tea.Cmd {
 	mode := m.cfg.Reviews
-	if mode == "" {
+	if mode == config.ReviewManual {
 		return nil
 	}
 	for _, e := range events {
@@ -102,6 +129,13 @@ func (m Model) reviewSummary(s claude.Session) (mark, line string, ok bool) {
 	}
 	r, found := m.deckk.reviews[s.ID]
 	if !found {
+		if n := s.Git.Changed; n > 0 && !isProposal(s) {
+			files := "files"
+			if n == 1 {
+				files = "file"
+			}
+			return "", ghost.Render(fmt.Sprintf("e reviews %d changed %s", n, files)), true
+		}
 		return "", "", false
 	}
 	later := ""

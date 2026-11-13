@@ -218,6 +218,8 @@ Before you suggest that a session commit, push, open a PR or call its work
 done, run review_session on it. It is quick and repeats nothing when the work
 hasn't changed. If it lists concerns, suggest dealing with them first, or name
 the concern in the suggestion's why so the user sees it before sending.
+deckk also reviews sessions on its own when they say their work is done; the
+inbox reports those as "was reviewed", and concerns there deserve the same.
 
 ## Messaging sessions directly
 

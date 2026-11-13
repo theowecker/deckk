@@ -77,7 +77,7 @@ func (m Model) boardRow(s claude.Session, selected bool, now time.Time, titles i
 	titles = min(titles, room*2/5)
 	title := ansi.Truncate(rowTitle(s), titles-2, "…")
 	line := titleStyle.Render(title) + strings.Repeat(" ", titles-2-lipgloss.Width(title))
-	if mark, _, ok := m.reviewSummary(s); ok {
+	if mark, _, _ := m.reviewSummary(s); mark != "" {
 		line += " " + mark
 	} else {
 		line += "  "

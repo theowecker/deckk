@@ -469,6 +469,9 @@ func (m Model) row(s claude.Session, selected bool, now time.Time, titles, proje
 	if _, ok := m.suggestion(s); ok {
 		meta = append(meta, accent.Render("✦"))
 	}
+	if mark, _, ok := m.reviewSummary(s); ok && mark != "" {
+		meta = append(meta, mark)
+	}
 	if m.store.Trusted[s.ID] && m.cfg.HQOn() {
 		meta = append(meta, ghost.Render("⇢ deckk sends"))
 	}

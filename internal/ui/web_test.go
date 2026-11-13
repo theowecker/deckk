@@ -209,8 +209,14 @@ func TestAReviewShowsOnTheBoardAndThePage(t *testing.T) {
 	m.reviewing[s.ID] = true
 	tm, _ := m.Update(reviewDoneMsg{session: s, review: hq.Review{At: time.Now(), Text: "- debug print left in api.go\n- no test for retries"}})
 	m = tm.(Model)
-	if m.reviewing[s.ID] || !strings.Contains(m.flash, "found concerns") {
+	if m.reviewing[s.ID] || !strings.Contains(m.flash, "found 2 concerns") {
 		t.Fatalf("reviewing %v, flash %q", m.reviewing, m.flash)
+	}
+	if recent, _ := hq.Recent(5); len(recent) == 0 || recent[0].Kind != hq.Reviewed || !strings.Contains(recent[0].Detail, "found 2 concerns") {
+		t.Fatalf("the deckk session and the page's activity should hear of the review: %+v", recent)
+	}
+	if band := tabInfo(s, time.Now(), m.bandInfo(s, false)); !strings.Contains(band, "⚑ review found 2 concerns") {
+		t.Fatalf("the session's band should show the review: %q", band)
 	}
 	mark, line, ok := m.reviewSummary(s)
 	if !ok || !strings.Contains(mark, "⚠") || !strings.Contains(line, "debug print left in api.go") || !strings.Contains(line, "+1 more") {
@@ -228,7 +234,7 @@ func TestAReviewShowsOnTheBoardAndThePage(t *testing.T) {
 
 func TestReviewsInDoneModeWaitForTheWorkToSoundFinished(t *testing.T) {
 	m, _ := newTestModel(t)
-	m.cfg.Reviews = config.ReviewDone
+	m.cfg.Reviews = ""
 	s, _ := m.sessionByID("dddddddd")
 	i := slices.IndexFunc(m.sessions, func(x claude.Session) bool { return x.ID == s.ID })
 	m.sessions[i].Git.Changed = 3

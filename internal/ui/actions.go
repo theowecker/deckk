@@ -345,6 +345,9 @@ func (m Model) stripWidth() int {
 
 func (m Model) bandInfo(s claude.Session, pinned bool) bandInfo {
 	b := bandInfo{width: m.stripWidth(), pinned: pinned}
+	if r, ok := m.deckk.reviews[s.ID]; ok && !s.UpdatedAt.After(r.At) {
+		b.review, b.concerns = "review "+reviewFinding(r), !r.OK
+	}
 	if sg, ok := m.suggestion(s); ok {
 		b.suggestion = sg.Prompt
 	}

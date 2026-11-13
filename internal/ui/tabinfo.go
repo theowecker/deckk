@@ -27,6 +27,9 @@ type bandInfo struct {
 	// over the same files rather than a shared checkout.
 	warning string
 	clash   bool
+	// review is the latest review's verdict, and concerns says it found any.
+	review   string
+	concerns bool
 }
 
 // The setup on the right drops its last details until the band fits.
@@ -37,6 +40,12 @@ func tabInfo(s claude.Session, now time.Time, b bandInfo) string {
 		left += styled("#E0AF68", "⚠ "+clipText(b.warning, 70)) + "   "
 	case b.warning != "":
 		left += styled("#8A8A9A", "⇄ "+clipText(b.warning, 50)) + "   "
+	}
+	switch {
+	case b.review != "" && b.concerns:
+		left += styled("#E0AF68", "⚑ "+clipText(b.review, 70)) + "   "
+	case b.review != "":
+		left += styled("#8A8A9A", "✓ "+b.review) + "   "
 	}
 	if b.suggestion != "" {
 		left += styled("#E8875B", "✦ deckk suggests: "+clipText(b.suggestion, 70)) + "   "

@@ -78,6 +78,7 @@ const (
 	Finished = "finished"
 	OpenedPR = "opened a PR"
 	Closed   = "closed"
+	Reviewed = "was reviewed"
 )
 
 func (e Event) Line() string {

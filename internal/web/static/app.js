@@ -271,6 +271,7 @@ function renderNow(s) {
         x.state === "waiting" ? `Waiting ${ago(x.since) === "now" ? "" : ago(x.since)}` : "Working"),
       el("strong", {}, x.title),
       el("span", { class: "tile-note" }, x.suggestion ? `✦ ${x.suggestion}` : x.summary || x.project),
+      x.review && !x.review.ok && !x.review.earlier && el("span", { class: "tile-flag" }, `⚑ The review flagged ${plural((x.review.concerns || []).length || 1, "thing")}`),
     ))));
 }
 

@@ -302,7 +302,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case reviewDoneMsg:
 		m.reviewed(msg)
 		m.publish()
-		return m, m.nextReview()
+		return m, tea.Batch(m.notifyReview(msg), m.nextReview())
 
 	case searchSoonMsg:
 		if m.view == findView && string(msg) == m.filter.Value() {

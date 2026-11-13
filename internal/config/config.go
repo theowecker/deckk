@@ -73,8 +73,8 @@ func (c *Config) WebOn() bool { return c.Web != Off }
 func (c *Config) NotifyOn() bool { return c.Notify != Off }
 
 const (
-	ReviewDone = "done"
-	ReviewAuto = "auto"
+	ReviewManual = "manual"
+	ReviewAuto   = "auto"
 )
 
 var onOff = []string{On, Off}
@@ -115,11 +115,11 @@ var Options = []Option{
 	{Key: "notifications", Label: "Notifications", Deckk: true, Choices: onOff,
 		Names: map[string]string{On: "when a session you aren't looking at waits on you", Off: "off"},
 		field: func(c *Config) *string { return &c.Notify }},
-	{Key: "reviews", Label: "Reviews", Deckk: true, Choices: []string{"", ReviewDone, ReviewAuto},
+	{Key: "reviews", Label: "Reviews", Deckk: true, Choices: []string{"", ReviewManual, ReviewAuto},
 		Names: map[string]string{
-			"":         "when you ask, with e",
-			ReviewDone: "when a session says its work is done or opens a PR",
-			ReviewAuto: "each time a session with changes finishes",
+			"":           "when a session says its work is done or opens a PR",
+			ReviewManual: "only when you ask, with e",
+			ReviewAuto:   "each time a session with changes finishes",
 		},
 		field: func(c *Config) *string { return &c.Reviews }},
 	{Key: "web_view", Label: "Web view", Deckk: true, Choices: onOff,
