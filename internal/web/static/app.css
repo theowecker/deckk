@@ -169,6 +169,7 @@ body[data-working] .cassette .reel { animation: reel 1.4s linear infinite; }
 .toolbar-row { display: flex; gap: 12px; align-items: center; margin-top: 18px; }
 #new-button { margin-left: auto; }
 
+.new-session[hidden] { display: none; }
 .new-session { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; animation: drop-in 0.3s var(--ease); }
 .new-session h2 { margin-bottom: 0; }
 .new-session .actions { justify-content: flex-end; }
@@ -361,28 +362,18 @@ div.empty-card { display: flex; align-items: center; justify-content: space-betw
 .detail-body { display: flex; flex-direction: column; gap: 12px; padding: 2px 16px 18px 42px; opacity: 0; transition: opacity 0.25s var(--ease); }
 .row.open .detail-body { opacity: 1; transition-delay: 0.08s; }
 
-.suggested {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 8px 12px;
-  align-items: center;
-  padding: 12px 14px;
-  border-radius: 12px;
-  background: var(--clay-soft);
-}
-.suggested .label { font-size: 12px; font-weight: 600; color: var(--clay); }
-.suggested .bubble { grid-column: 1 / -1; justify-self: end; }
-.suggested .why { grid-column: 1 / -1; justify-self: end; }
-
 .chat { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; max-height: 420px; overflow-y: auto; overscroll-behavior: contain; padding: 12px; border-radius: 12px; background: var(--canvas); scroll-behavior: smooth; }
 .chat .bubble { max-width: 82%; font-size: 13.5px; }
 .facts { display: flex; flex-wrap: wrap; gap: 4px 14px; color: var(--secondary); font-size: 12px; }
 .facts a { color: var(--blue); text-decoration: none; }
 .note { color: var(--amber); font-size: 13px; }
 
-/* Writing to a session or to deckk, like Messages' compose field. */
-.composer { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: end; }
+/* Writing to a session or to deckk, like Messages' compose field. deckk's
+   suggestion sits above it like a QuickType offer: tapping it fills the field. */
+.composer { display: flex; flex-direction: column; gap: 8px; }
+.field-row { display: flex; gap: 8px; align-items: flex-end; }
 .composer textarea {
+  flex: 1;
   resize: none;
   min-height: 36px;
   max-height: 160px;
@@ -395,11 +386,43 @@ div.empty-card { display: flex; align-items: center; justify-content: space-betw
   transition: background-color 0.2s var(--ease), box-shadow 0.2s var(--ease);
 }
 .composer textarea:focus { outline: none; background: var(--surface); box-shadow: 0 0 0 3px var(--blue-soft), 0 0 0 1px var(--blue); }
-.composer .actions { flex-wrap: nowrap; }
-/* The buttons match the field's one-line height and sit on its bottom edge,
-   so they line up however tall the message grows. */
-.composer .button { height: 36px; padding: 0 16px; border-radius: 18px; }
-.composer-hint { grid-column: 1 / -1; color: var(--secondary); font-size: 11.5px; padding-left: 14px; }
+.composer textarea[disabled] { opacity: 0.55; }
+
+.send { flex: none; display: grid; place-items: center; min-width: 36px; height: 36px; padding: 0 14px; border: 0; border-radius: 18px; background: var(--blue-fill); color: #fff; font: inherit; font-weight: 600; cursor: pointer; transition: transform 0.15s var(--spring), filter 0.2s; }
+.send:has(.send-arrow) { width: 36px; padding: 0; }
+.send:hover { filter: brightness(1.08); }
+.send:active { transform: scale(0.92); }
+.send[disabled] { opacity: 0.4; cursor: default; transform: none; }
+.send-arrow { width: 16px; height: 16px; background: currentColor; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 13.5V3M3.5 7.5 8 3l4.5 4.5' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat; }
+
+.offer-bar { display: flex; gap: 6px; align-items: flex-start; animation: drop-in 0.3s var(--ease); }
+.offered {
+  flex: 1; min-width: 0;
+  display: grid; gap: 2px; justify-items: start; text-align: left;
+  padding: 9px 14px 10px; border: 0; border-radius: 14px;
+  background: var(--clay-soft); color: var(--label); font: inherit; cursor: pointer;
+  box-shadow: inset 0 0 0 1px rgba(176, 74, 28, 0.16);
+  transition: background-color 0.2s var(--ease), transform 0.15s var(--spring);
+}
+.offered:hover { background: rgba(176, 74, 28, 0.14); }
+.offered:active { transform: scale(0.985); }
+.offered-label { font-size: 11.5px; font-weight: 600; color: var(--clay); }
+.offered-text { font-size: 13.5px; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.offered-why { font-size: 12px; color: var(--secondary); }
+.offer-dismiss { flex: none; width: 28px; height: 28px; margin-top: 4px; border: 0; border-radius: 50%; background: none; color: var(--secondary); font-size: 12px; cursor: pointer; }
+.offer-dismiss:hover { background: var(--fill); color: var(--label); }
+
+.composer-hint { color: var(--secondary); font-size: 11.5px; padding-left: 14px; }
+.link { border: 0; padding: 0; background: none; font: inherit; color: var(--blue); cursor: pointer; }
+.link:hover { text-decoration: underline; }
+.keys { color: var(--tertiary); }
+
+/* A switch, as in System Settings. */
+.switch { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; border: 0; padding: 4px 2px; background: none; font: inherit; font-size: 13px; color: var(--label); cursor: pointer; }
+.switch .track { position: relative; width: 32px; height: 19px; border-radius: 10px; background: var(--fill-strong); transition: background-color 0.25s var(--ease); }
+.switch .track::after { content: ""; position: absolute; top: 2px; left: 2px; width: 15px; height: 15px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25); transition: transform 0.25s var(--spring); }
+.switch[aria-checked="true"] .track { background: var(--green); }
+.switch[aria-checked="true"] .track::after { transform: translateX(13px); }
 
 .rename { display: flex; gap: 8px; }
 .rename input { flex: 1; padding: 5px 10px; border: 0; border-radius: 8px; background: var(--fill); }

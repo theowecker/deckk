@@ -244,6 +244,10 @@ func (m *Model) delivered(msg deliveredMsg) {
 			d.told[id] = true
 		}
 	case typed:
+		if msg.replace != "" {
+			m.mark(m.store.ForgetPrefill(msg.key))
+			m.mark(m.store.Dismiss(msg.key, msg.at))
+		}
 		m.setFlash("Typed into the prompt", nil)
 		if msg.send {
 			m.setFlash("Sent", nil)

@@ -124,7 +124,7 @@ It also works on its own:
   `tell_deckk`.
 
 Suggestions wait for you by default. Press `t` on a session you trust, or
-Let deckk send in the browser, and the deckk session's suggestions for it go
+turn on Auto-send in the browser, and the deckk session's suggestions for it go
 out on their own when it judges them safe. Text that would run a command is
 never sent, and the session is marked ⇢ while this is on.
 
@@ -155,11 +155,12 @@ It is the same deckk with room to spread out, and you can work from it:
   or working, and clashes, today's work and recent activity sit alongside.
 - **Sessions** finds and keeps your sessions. Search every session Claude has
   kept, group them by status or project, or look at background runs on their
-  own. Open one to see deckk's suggestion for it and its recent conversation,
-  and write to it: Enter sends, or Type in leaves the prompt for you to check
-  in deckk. A stopped session resumes first. Open, pin, rename, close and
-  archive from there too, or start a new session in any folder with its first
-  prompt.
+  own. Open one to see its recent conversation and write to it. deckk's
+  suggestion waits above the message box: click it, or press Tab, to put it
+  in the box, then edit it or press Enter to send. Option+Enter types it into
+  the session without sending. A stopped session resumes first. Open, pin,
+  rename, close and archive from there too, or start a new session in any
+  folder with its first prompt.
 - **deckk** is a chat with the deckk session, and the goals it keeps with you,
   which you can edit.
 

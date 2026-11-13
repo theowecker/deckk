@@ -188,7 +188,13 @@ func (m *Model) promptFromWeb(s claude.Session, text string, send bool) tea.Cmd 
 		m.setFlash(displayTitle(s)+" runs in another tab. Move it into deckk with m to write to it from here", nil)
 		return nil
 	}
-	return m.deliver(delivery{kind: typed, key: s.ID, target: s.TTY, text: text, send: send})
+	d := delivery{kind: typed, key: s.ID, target: s.TTY, text: text, send: send}
+	// The page offers deckk's suggestion to edit there, so what the user
+	// writes takes the place of the copy deckk typed into the prompt.
+	if prev, ok := m.typedIn(s); ok {
+		d.replace, d.at = prev.Text, prev.At
+	}
+	return m.deliver(d)
 }
 
 // chat sends the user's message from the page to the deckk session.

@@ -382,16 +382,30 @@ function keepScroll(chat, key) {
 }
 
 function composer(key, placeholder, onSubmit, hint) {
+  const offer = hint.suggestion;
+  const fill = () => {
+    area.value = offer.text;
+    drafts.set(key, offer.text);
+    area.focus();
+    area.setSelectionRange(area.value.length, area.value.length);
+  };
   const area = el("textarea", {
     rows: "1", placeholder, "data-focus": `compose:${key}`, "aria-label": placeholder,
     value: drafts.get(key) || "", disabled: Boolean(hint.disabled),
     oninput: (e) => drafts.set(key, e.target.value),
     onkeydown: (e) => {
-      // Enter sends and Shift+Enter starts a new line, as in Claude Code.
-      // Safari reports the Enter that picks an IME candidate as keyCode 229.
+      // Tab takes deckk's suggestion into an empty field, as Claude Code does.
+      if (e.key === "Tab" && !e.shiftKey && offer && !area.value) {
+        e.preventDefault();
+        fill();
+        return;
+      }
+      // Enter sends and Shift+Enter starts a new line, as in Claude Code;
+      // Option+Enter types it in without sending. Safari reports the Enter
+      // that picks an IME candidate as keyCode 229.
       if (e.key === "Enter" && !e.shiftKey && !e.isComposing && e.keyCode !== 229) {
         e.preventDefault();
-        submit(true);
+        submit(!(hint.typeIn && e.altKey));
       }
     },
   });
@@ -407,31 +421,33 @@ function composer(key, placeholder, onSubmit, hint) {
     }
   };
   return el("div", { class: "composer" },
-    area,
-    el("div", { class: "actions" }, hint.typeIn && el("button", { class: "button", "data-focus": `typein:${key}`, disabled: Boolean(hint.disabled), onclick: () => submit(false) }, "Type in"),
-      el("button", { class: "button primary", "data-focus": `send:${key}`, disabled: Boolean(hint.disabled), onclick: () => submit(true) }, hint.sendLabel || "Send")),
-    el("p", { class: "composer-hint" }, hint.text),
+    offer && el("div", { class: "offer-bar" },
+      el("button", { class: `offered${offer.ready ? " ready" : ""}`, "data-focus": `offer:${key}`, title: "Put this in the message box to edit or send", onclick: fill },
+        el("span", { class: "offered-label" }, offer.ready ? "✦ deckk typed this into the session's prompt" : "✦ deckk suggests"),
+        el("span", { class: "offered-text" }, offer.text),
+        offer.why && el("span", { class: "offered-why" }, offer.why)),
+      el("button", { class: "offer-dismiss", "data-focus": `offer-x:${key}`, "aria-label": "Dismiss deckk's suggestion", title: "Dismiss", onclick: offer.dismiss }, "✕")),
+    el("div", { class: "field-row" },
+      area,
+      el("button", { class: "send", "data-focus": `send:${key}`, disabled: Boolean(hint.disabled), "aria-label": hint.sendLabel || "Send", title: hint.sendLabel || "Send", onclick: () => submit(true) },
+        hint.sendLabel ? hint.sendLabel : el("span", { class: "send-arrow", "aria-hidden": "true" }))),
+    el("p", { class: "composer-hint" }, hint.text,
+      hint.typeIn && !hint.disabled && [" ", el("button", { class: "link", "data-focus": `typein:${key}`, onclick: () => submit(false) }, "Type in without sending"),
+        el("span", { class: "keys" }, " ⌥↵")]),
   );
 }
 
 function detailBody(s) {
   const verb = s.state === "stopped" ? "Resume" : "Open";
+  const offer = s.suggestion && { text: s.suggestion, why: s.why, ready: s.ready, dismiss: () => act("dismiss", { id: s.id }) };
   const body = el("div", { class: "detail-body" },
     s.clash && el("p", { class: "note" }, `⚠ ${s.clash}`),
-    s.suggestion && el("div", { class: "suggested" },
-      el("span", { class: "label" }, s.ready ? "Typed in, ready to send" : "deckk suggests"),
-      el("div", { class: "actions" },
-        el("button", { class: "button", "data-focus": `dismiss-s:${s.id}`, onclick: () => act("dismiss", { id: s.id }) }, "Dismiss"),
-        el("button", { class: "button primary", "data-focus": `open-s:${s.id}`, onclick: () => act("open", { id: s.id }, `${verb === "Open" ? "Opening" : "Resuming"} in deckk`) }, verb)),
-      el("p", { class: `bubble ${s.ready ? "ready" : "draft"}` }, s.suggestion),
-      s.why && el("p", { class: "why" }, s.why),
-    ),
     conversation(s),
-    composer(s.id, s.running ? "Write to this session" : "Resume and write to this session",
+    composer(s.id, s.running ? `Message ${s.title}` : `Resume ${s.title} with a message`,
       (text, send) => act("prompt", { id: s.id, text, send }),
       s.running && !s.hosted
-        ? { typeIn: true, disabled: true, text: "This session runs in another terminal tab. Press m on it in deckk to move it in, then write to it here." }
-        : { typeIn: true, text: "Enter sends, Shift+Enter adds a line. Type in leaves it in the session's prompt for you to check in deckk." }),
+        ? { typeIn: true, disabled: true, suggestion: offer, text: "This session runs in another terminal tab. Press m on it in deckk to move it in, then write to it here." }
+        : { typeIn: true, suggestion: offer, text: offer ? "Click the suggestion or press Tab to use it." : "Enter sends." }),
     el("div", { class: "facts" },
       el("span", {}, s.folder),
       s.pr && safeLink(s.prUrl) && el("a", { href: s.prUrl, target: "_blank", rel: "noopener noreferrer" }, `PR ${s.pr}`),
@@ -458,11 +474,14 @@ function detailBody(s) {
           el("button", { class: "button primary", "data-focus": `go:${s.id}`, onclick: () => act("open", { id: s.id }, `${verb === "Open" ? "Opening" : "Resuming"} in deckk`) }, `${verb} in deckk`),
           el("button", { class: "button quiet", "data-focus": `pin:${s.id}`, onclick: async () => { if (await act("pin", { id: s.id }, s.pinned ? "Unpinned" : "Pinned")) refreshSearch(); } }, s.pinned ? "Unpin" : "Pin"),
           el("button", { class: "button quiet", "data-focus": `more:${s.id}`, onclick: () => { renaming = s.id; render(true); focusOn(`rename:${s.id}`, true); } }, "Rename"),
-          s.running && el("button", { class: "button quiet", "data-focus": `trust:${s.id}`, title: "deckk sends its safe suggestions here without asking",
-            onclick: () => act("trust", { id: s.id }) }, s.trusted ? "Stop deckk sending" : "Let deckk send"),
           s.closable && el("button", { class: `button quiet${closing === s.id ? " danger" : ""}`, "data-focus": `close:${s.id}`,
             onclick: () => closeSession(s) }, closing === s.id ? "Claude is working. Close anyway" : "Close"),
-          !s.running && el("button", { class: "button quiet", "data-focus": `archive:${s.id}`, onclick: async () => { if (await act("archive", { id: s.id }, s.archived ? "Unarchived" : "Archived")) refreshSearch(); } }, s.archived ? "Unarchive" : "Archive")),
+          !s.running && el("button", { class: "button quiet", "data-focus": `archive:${s.id}`, onclick: async () => { if (await act("archive", { id: s.id }, s.archived ? "Unarchived" : "Archived")) refreshSearch(); } }, s.archived ? "Unarchive" : "Archive"),
+          s.running && el("button", {
+            class: "switch", role: "switch", "aria-checked": s.trusted ? "true" : "false", "data-focus": `trust:${s.id}`,
+            title: "When deckk judges its suggestion safe, it sends it here without waiting for you",
+            onclick: () => act("trust", { id: s.id }, s.trusted ? "deckk will wait for you here" : "deckk sends its safe suggestions here"),
+          }, el("span", { class: "track", "aria-hidden": "true" }), "Auto-send deckk's suggestions")),
   );
   return el("div", { class: "detail" }, el("div", { class: "detail-inner" }, body));
 }

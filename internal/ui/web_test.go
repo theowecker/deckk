@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/theowecker/deckk/internal/claude"
 	"github.com/theowecker/deckk/internal/config"
 	"github.com/theowecker/deckk/internal/hq"
 	"github.com/theowecker/deckk/internal/web"
@@ -162,5 +163,26 @@ func TestThePageStartsASessionWithItsFirstPrompt(t *testing.T) {
 	run(cmd)
 	if len(host.opened) != 1 {
 		t.Fatalf("a relative folder should be refused: %v", host.opened)
+	}
+}
+
+func TestWritingFromThePageReplacesDeckksTypedSuggestion(t *testing.T) {
+	m, host := newTestModel(t)
+	suggestInside(t, hq.Suggestion{Prompt: "run the tests", At: time.Now()})
+	m = refresh(t, m, host, waiting)
+	m = refresh(t, m, host, waiting)
+	if _, ok := m.typedIn(m.sessions[slices.IndexFunc(m.sessions, func(s claude.Session) bool { return s.ID == "dddddddd" })]); !ok {
+		t.Fatal("the suggestion should be typed in first")
+	}
+	tm, cmd := m.Update(WebAction(web.Action{Kind: web.Prompt, ID: "dddddddd", Text: "run only the fast tests", Send: true}))
+	for _, msg := range run(cmd) {
+		tm, _ = tm.Update(msg)
+	}
+	last := host.delivered[len(host.delivered)-1]
+	if last.text != "run only the fast tests" || last.replace != "run the tests" {
+		t.Fatalf("delivered %+v", last)
+	}
+	if _, kept := tm.(Model).store.Prefilled["dddddddd"]; kept {
+		t.Fatal("deckk's copy should be forgotten once the user's text replaces it")
 	}
 }
