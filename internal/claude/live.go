@@ -24,7 +24,10 @@ type Live struct {
 	StatusAt   int64  `json:"statusUpdatedAt"`
 	ProcStart  string `json:"procStart"`
 	Entrypoint string `json:"entrypoint"`
-	TTY        string `json:"-"`
+	// Kind is "interactive" for a session someone is typing into. Older
+	// versions of Claude don't write it.
+	Kind string `json:"kind"`
+	TTY  string `json:"-"`
 }
 
 func (l Live) applyTo(s *Session) {
@@ -33,6 +36,9 @@ func (l Live) applyTo(s *Session) {
 	s.Status = l.Status
 	if l.Entrypoint != "" {
 		s.Background = isBackground(l.Entrypoint)
+	}
+	if l.Kind != "" && l.Kind != "interactive" {
+		s.Background = true
 	}
 	if l.StartedAt > 0 {
 		s.StartedAt = time.UnixMilli(l.StartedAt)

@@ -155,3 +155,22 @@ func TestProjectDirs(t *testing.T) {
 		t.Fatalf("got %v", got)
 	}
 }
+
+func TestOnlyInteractiveSessionsAreYours(t *testing.T) {
+	cases := []struct {
+		live       Live
+		background bool
+	}{
+		{Live{Entrypoint: "cli", Kind: "interactive"}, false},
+		{Live{Entrypoint: "cli"}, false},
+		{Live{Entrypoint: "sdk-cli", Kind: "interactive"}, true},
+		{Live{Entrypoint: "cli", Kind: "background"}, true},
+	}
+	for _, c := range cases {
+		var s Session
+		c.live.applyTo(&s)
+		if s.Background != c.background {
+			t.Errorf("%+v: background %v", c.live, s.Background)
+		}
+	}
+}
