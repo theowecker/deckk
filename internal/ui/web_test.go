@@ -18,7 +18,7 @@ type fakePage struct {
 }
 
 func (p *fakePage) Publish(state any) { p.last = state }
-func (p *fakePage) URL() string       { return "http://127.0.0.1:4747/#t=x" }
+func (p *fakePage) URL() string       { return "http://127.0.0.1:4747/#c=x" }
 func (p *fakePage) Close() error      { p.closed = true; return nil }
 
 func TestThePageShowsNextUpAndCanDismissIt(t *testing.T) {

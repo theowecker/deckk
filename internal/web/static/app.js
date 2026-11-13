@@ -3,18 +3,25 @@
 // deckk's link carries the token after #, which never reaches a server. It
 // is kept per origin, which includes the port, and cleared from the address.
 let token = "";
-function readToken() {
-  const fromLink = new URLSearchParams(location.hash.slice(1)).get("t");
-  try {
-    if (fromLink) localStorage.setItem("deckk-token", fromLink);
-    token = fromLink || localStorage.getItem("deckk-token") || "";
-  } catch {
-    token = fromLink || token;
-  }
-  if (fromLink) history.replaceState(null, "", location.pathname);
-  return Boolean(fromLink);
+try {
+  token = localStorage.getItem("deckk-token") || "";
+} catch {}
+
+// deckk's link carries a one-time code after #, which never reaches a server
+// on its own; the page trades it for the token and drops it from the address.
+async function readLink() {
+  const params = new URLSearchParams(location.hash.slice(1));
+  const code = params.get("c");
+  if (!code) return false;
+  history.replaceState(null, "", location.pathname);
+  const response = await fetch("api/claim", {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code }),
+  }).catch(() => null);
+  if (!response || !response.ok) return false;
+  token = (await response.json()).token;
+  try { localStorage.setItem("deckk-token", token); } catch {}
+  return true;
 }
-readToken();
 
 const $ = (id) => document.getElementById(id);
 const sections = ["home", "sessions", "deckk"];
@@ -144,9 +151,9 @@ function showSection(animate) {
   if (name === "deckk") loadChat(true);
 }
 
-window.addEventListener("hashchange", () => {
-  if (readToken()) stream();
+window.addEventListener("hashchange", async () => {
   showSection(true);
+  if (await readLink()) stream();
 });
 
 function go(section, sessionID) {
@@ -921,6 +928,8 @@ async function stream() {
 }
 
 showSection(false);
-if (!token) status("lost", "Not connected", noToken);
-else stream();
+readLink().then(() => {
+  if (!token) status("lost", "Not connected", noToken);
+  else stream();
+});
 setInterval(() => render(), 30000);

@@ -107,13 +107,23 @@ func TestTheStreamSendsEachChange(t *testing.T) {
 	}
 }
 
-func TestTheLinkKeepsItsTokenFromTheServer(t *testing.T) {
-	s := newServer("0123456789abcdef0123456789abcdef", func(Action) error { return nil })
-	s.url = "http://127.0.0.1:4747/#t=" + s.token
-	if !strings.Contains(s.URL(), "/#t=") {
-		t.Fatalf("the token belongs after #, got %s", s.URL())
+func TestTheLinkCarriesACodeThatWorksOnce(t *testing.T) {
+	s, h, _ := testServer(t)
+	s.base = "http://127.0.0.1:4747/"
+	link := s.URL()
+	code, ok := strings.CutPrefix(link, s.base+"#c=")
+	if !ok || strings.Contains(link, s.token) {
+		t.Fatalf("the link should carry a code after # and never the token: %s", link)
 	}
-	h := s.routes(4747)
+	claim := func() *httptest.ResponseRecorder {
+		return request(h, "POST", "/api/claim", "", `{"code":"`+code+`"}`)
+	}
+	if w := claim(); w.Code != http.StatusOK || !strings.Contains(w.Body.String(), s.token) {
+		t.Fatalf("first claim: %d %s", w.Code, w.Body)
+	}
+	if w := claim(); w.Code != http.StatusForbidden {
+		t.Fatalf("a code works once, second claim got %d", w.Code)
+	}
 	if w := request(h, "GET", "/", "", ""); w.Header().Get("X-Frame-Options") != "DENY" || !strings.Contains(w.Header().Get("Content-Security-Policy"), "frame-ancestors 'none'") {
 		t.Fatal("the page must refuse to be framed")
 	}

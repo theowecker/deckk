@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"maps"
 	"net"
 	"net/http"
 	"os"
@@ -86,7 +87,7 @@ type Turn struct {
 
 type Server struct {
 	token    string
-	url      string
+	base     string
 	onAction func(Action) error
 	history  History
 	search   Search
@@ -95,6 +96,7 @@ type Server struct {
 	mu      sync.Mutex
 	state   []byte
 	waiters map[chan struct{}]bool
+	codes   map[string]time.Time
 }
 
 func Start(tokenPath string, onAction func(Action) error, history History, search Search) (*Server, error) {
@@ -112,9 +114,8 @@ func Start(tokenPath string, onAction func(Action) error, history History, searc
 	s := newServer(token, onAction)
 	s.history, s.search = history, search
 	// 127.0.0.1 rather than localhost, which may resolve to an IPv6 address
-	// some other program is listening on. The token goes after #, which
-	// browsers never send to a server; the page keeps it and clears it.
-	s.url = fmt.Sprintf("http://127.0.0.1:%d/#t=%s", port, token)
+	// some other program is listening on.
+	s.base = fmt.Sprintf("http://127.0.0.1:%d/", port)
 	// No write timeout: the live stream stays open for as long as the page.
 	s.server = &http.Server{Handler: s.routes(port), ReadHeaderTimeout: 5 * time.Second}
 	go func() { _ = s.server.Serve(ln) }()
@@ -124,10 +125,43 @@ func Start(tokenPath string, onAction func(Action) error, history History, searc
 func (s *Server) Close() error { return s.server.Close() }
 
 func newServer(token string, onAction func(Action) error) *Server {
-	return &Server{token: token, onAction: onAction, state: []byte("{}"), waiters: map[chan struct{}]bool{}}
+	return &Server{token: token, onAction: onAction, state: []byte("{}"), waiters: map[chan struct{}]bool{}, codes: map[string]time.Time{}}
 }
 
-func (s *Server) URL() string { return s.url }
+// The link carries a code the page trades once for the token, after #, which
+// browsers never send to a server. Browser history keeps only spent codes.
+func (s *Server) URL() string {
+	code := randomHex(16)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	now := time.Now()
+	maps.DeleteFunc(s.codes, func(_ string, at time.Time) bool { return now.Sub(at) > codeFor })
+	s.codes[code] = now
+	return s.base + "#c=" + code
+}
+
+const codeFor = 2 * time.Minute
+
+func (s *Server) serveClaim(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Code string `json:"code"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1024)).Decode(&body); err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+	s.mu.Lock()
+	at, ok := s.codes[body.Code]
+	delete(s.codes, body.Code)
+	s.mu.Unlock()
+	if !ok || time.Since(at) > codeFor {
+		http.Error(w, "This link was already used. Press w in deckk for a new one.", http.StatusForbidden)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	_ = json.NewEncoder(w).Encode(map[string]string{"token": s.token})
+}
 
 func (s *Server) Publish(state any) {
 	data, err := json.Marshal(state)
@@ -176,6 +210,7 @@ func (s *Server) routes(port int) http.Handler {
 	mux.HandleFunc("GET /api/history", s.authed(s.serveHistory))
 	mux.HandleFunc("GET /api/search", s.authed(s.serveSearch))
 	mux.HandleFunc("POST /api/action", s.authed(s.serveAction))
+	mux.HandleFunc("POST /api/claim", s.serveClaim)
 	return localOnly(port, mux)
 }
 
@@ -311,11 +346,7 @@ func loadToken(path string) (string, error) {
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return "", err
 	}
-	raw := make([]byte, 24)
-	if _, err := rand.Read(raw); err != nil {
-		return "", err
-	}
-	token := hex.EncodeToString(raw)
+	token := randomHex(24)
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return "", err
 	}
@@ -331,4 +362,11 @@ func loadToken(path string) (string, error) {
 		return "", err
 	}
 	return token, os.Rename(tmp.Name(), path)
+}
+
+// crypto/rand.Read never fails on macOS.
+func randomHex(n int) string {
+	raw := make([]byte, n)
+	_, _ = rand.Read(raw)
+	return hex.EncodeToString(raw)
 }

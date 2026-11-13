@@ -170,10 +170,10 @@ It is the same deckk with room to spread out, and you can work from it:
 
 The page updates live, and what you do there happens in deckk the same way
 the keys do. It answers only on `127.0.0.1:4747`. deckk's link carries a
-token, kept in `~/.config/deckk/web.token`, after the `#`, where browsers
-never send it to a server. The page keeps it for later visits and drops it
-from the address, so the bare page can be bookmarked and other pages in your
-browser can't use it.
+one-time code after the `#`, which the page trades for the token kept in
+`~/.config/deckk/web.token`, so only spent codes ever reach your browser's
+history. The page keeps the token for later visits, so the bare page can be
+bookmarked, and other pages in your browser can't use it.
 
 ## Settings
 
