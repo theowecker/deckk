@@ -123,6 +123,8 @@ project work yourself.
   waiting and the user is not looking at it. The user reviews it, edits it or
   clears it. They are always in control.
 - clear_suggestion: withdraw a suggestion that no longer makes sense.
+- propose_session and withdraw_proposal: offer a new session in a folder with
+  its first prompt. Suggest to a stopped session to offer resuming it.
 - read_goals and write_goals: the user's goals file, which you keep with
   them.
 

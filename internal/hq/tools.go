@@ -63,7 +63,7 @@ func parentTools() []mcp.Tool {
 		},
 		{
 			Name:        "suggest",
-			Description: "Propose the next prompt for a session. deckk types it into the session's prompt box when the session is waiting and the user is not looking at it. Replaces any earlier suggestion for that session.",
+			Description: "Propose the next prompt for a session. For a waiting session, deckk types it into the session's prompt box when the user is not looking at it. For a stopped session, deckk offers to resume it with this prompt. Replaces any earlier suggestion for that session.",
 			Params: []mcp.Param{
 				sessionParam,
 				{Name: "prompt", Kind: "string", Description: "One line, written as the user would type it to that session", Required: true},
@@ -82,6 +82,25 @@ func parentTools() []mcp.Tool {
 					return "", err
 				}
 				return "Cleared.", ClearSuggestion(id)
+			}),
+		},
+		{
+			Name: "propose_session",
+			Description: "Propose starting a new session: a folder and the first prompt for it. The user sees it under Next up and starts it with one key; deckk types the prompt in for them to send. " +
+				"Use it for work that belongs in its own session, such as a separate fix or a project nothing is running in. To pick an old session back up, suggest to it instead.",
+			Params: []mcp.Param{
+				{Name: "folder", Kind: "string", Description: "Where to start Claude, an absolute path or one starting with ~/", Required: true},
+				{Name: "prompt", Kind: "string", Description: "The first prompt, one line, as the user would type it", Required: true},
+				{Name: "why", Kind: "string", Description: "A few words on why, shown to the user"},
+			},
+			Run: ignoringContext(propose),
+		},
+		{
+			Name:        "withdraw_proposal",
+			Description: "Take back a proposed session that no longer makes sense.",
+			Params:      []mcp.Param{{Name: "proposal", Kind: "string", Description: "The proposal ID from list_sessions", Required: true}},
+			Run: ignoringContext(func(a mcp.Args) (string, error) {
+				return "Withdrawn.", Withdraw(a.String("proposal"))
 			}),
 		},
 		{
@@ -207,10 +226,10 @@ func listSessions(a mcp.Args) (string, error) {
 	})
 	collisions := deck.Collisions(sessions, claude.EditsOf(sessions), git.Root)
 	slices.SortFunc(sessions, func(x, y claude.Session) int { return y.UpdatedAt.Compare(x.UpdatedAt) })
-	if len(sessions) == 0 {
-		return "No sessions.", nil
-	}
 	var b strings.Builder
+	if len(sessions) == 0 {
+		b.WriteString("No sessions.\n")
+	}
 	for _, s := range sessions {
 		fmt.Fprintf(&b, "- [%s] %s\n  %s\n", claude.ShortID(s.ID), s.Title, describe(s, where, now))
 		if s.LastPrompt != "" {
@@ -229,6 +248,12 @@ func listSessions(a mcp.Args) (string, error) {
 		}
 		if sg, ok := suggestions[s.ID]; ok && !sg.At.Before(s.StatusAt) {
 			fmt.Fprintf(&b, "  your suggestion: %s\n", sg.Prompt)
+		}
+	}
+	if proposals, _ := LoadProposals(); len(proposals) > 0 {
+		b.WriteString("\nProposed sessions not started yet:\n")
+		for _, p := range proposals {
+			fmt.Fprintf(&b, "- [%s] in %s: %s\n", p.ID, p.Folder, p.Prompt)
 		}
 	}
 	return b.String(), nil
@@ -342,6 +367,23 @@ func suggest(a mcp.Args) (string, error) {
 	}
 	sg := Suggestion{Prompt: prompt, Why: a.String("why"), Safe: a.Bool("safe_to_send"), At: time.Now()}
 	return "Suggested. deckk will put it in that session's prompt when it can.", Suggest(id, sg)
+}
+
+func propose(a mcp.Args) (string, error) {
+	folder := a.String("folder")
+	if rest, ok := strings.CutPrefix(folder, "~/"); ok {
+		home, _ := os.UserHomeDir()
+		folder = filepath.Join(home, rest)
+	}
+	if info, err := os.Stat(folder); err != nil || !info.IsDir() || !filepath.IsAbs(folder) {
+		return "", fmt.Errorf("%s is not a folder", a.String("folder"))
+	}
+	prompt := strings.Join(strings.Fields(a.String("prompt")), " ")
+	if prompt == "" {
+		return "", errors.New("the prompt is empty")
+	}
+	p := Proposal{ID: newID(), Folder: filepath.Clean(folder), Prompt: prompt, Why: a.String("why"), At: time.Now()}
+	return "Proposed as " + p.ID + ". The user can start it from Next up.", Propose(p)
 }
 
 // resolve accepts a full session ID or a unique prefix of one.

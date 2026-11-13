@@ -37,6 +37,12 @@ func refresh(t *testing.T, m Model, host *fakeHost, change func([]claude.Session
 	if change != nil {
 		change(sessions)
 	}
+	return load(t, m, host, sessions)
+}
+
+// load is a refresh that finds exactly these sessions.
+func load(t *testing.T, m Model, host *fakeHost, sessions []claude.Session) Model {
+	t.Helper()
 	tm, cmd := m.Update(loadedMsg{sessions: sessions, windows: host.windows, started: time.Now(), deckk: m.snapshot(), edits: host.edits})
 	for _, msg := range run(cmd) {
 		if _, ok := msg.(deliveredMsg); ok {
@@ -234,7 +240,12 @@ func TestPressingCOpensTheDeckkSession(t *testing.T) {
 
 func suggestInside(t *testing.T, sg hq.Suggestion) {
 	t.Helper()
-	if err := hq.Suggest("dddddddd", sg); err != nil {
+	suggestFor(t, "dddddddd", sg)
+}
+
+func suggestFor(t *testing.T, id string, sg hq.Suggestion) {
+	t.Helper()
+	if err := hq.Suggest(id, sg); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -341,3 +352,5 @@ func TestNoBacklogWhileUpdatesAreOff(t *testing.T) {
 		t.Fatalf("pending %v", m.deckk.pending)
 	}
 }
+
+func tmuxWindow(id, tty string) tmux.Window { return tmux.Window{ID: id, TTY: tty, Session: "deckk"} }

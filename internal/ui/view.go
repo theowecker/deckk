@@ -162,7 +162,9 @@ func (m Model) hints() []hint {
 		return []hint{{"enter", "open"}, {"↑↓", "move"}, {"esc", "back"}, {"tab", "next view"}}
 	}
 	var hints []hint
-	if s, ok := m.selected(); ok {
+	if s, ok := m.selected(); ok && isProposal(s) {
+		hints = []hint{{"enter", "start it"}, {"d", "dismiss"}}
+	} else if ok {
 		_, hosted := m.window(s)
 		_, popped := m.poppedOut(s)
 		switch {
@@ -469,11 +471,16 @@ func (m Model) suggestionRow(s claude.Session, selected bool, titles int) string
 		prompt := ansi.Truncate("› "+sg.Prompt, promptRoom, "…")
 		line += "   " + accent.Render(prompt) + strings.Repeat(" ", promptRoom-lipgloss.Width(prompt))
 	}
-	state := ghost.Render("suggested")
-	if m.prefilled(s, sg) {
+	glyph, state := accent.Render("✦"), ghost.Render("suggested")
+	switch {
+	case isProposal(s):
+		glyph, state = accent.Render("+"), ghost.Render("new session")
+	case !s.Running():
+		state = ghost.Render("resume")
+	case m.prefilled(s, sg):
 		state = accent.Render("ready")
 	}
-	return bar + accent.Render("✦") + " " + line + "  " + lipgloss.PlaceHorizontal(statusWidth, lipgloss.Right, state)
+	return bar + glyph + " " + line + "  " + lipgloss.PlaceHorizontal(statusWidth, lipgloss.Right, state)
 }
 
 func (m Model) status(s claude.Session, now time.Time) (string, string) {
@@ -507,6 +514,9 @@ func (m Model) preview(s claude.Session) []string {
 	const indent = "    "
 	room := m.width - gutter*2 - len(indent)
 	var lines []string
+	if isProposal(s) {
+		lines = append(lines, pad()+indent+dim.Render("in "+abbreviateHome(s.Dir)))
+	}
 	for _, line := range m.collisionLines(s) {
 		style := ghost
 		if strings.HasPrefix(line, "⚠") {

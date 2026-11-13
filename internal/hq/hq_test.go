@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/theowecker/deckk/internal/mcp"
 )
 
 func TestAQuestionWaitsForItsAnswer(t *testing.T) {
@@ -111,4 +113,28 @@ func read(t *testing.T, name string) string {
 		t.Fatal(err)
 	}
 	return string(data)
+}
+
+func TestProposingASession(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	if _, err := propose(mcp.Args{"folder": "/no/such/folder", "prompt": "go"}); err == nil {
+		t.Fatal("a missing folder should be refused")
+	}
+	folder := t.TempDir()
+	if _, err := propose(mcp.Args{"folder": folder, "prompt": "  fix\nthe crash  "}); err != nil {
+		t.Fatal(err)
+	}
+	if err := Propose(Proposal{ID: "old", Folder: folder, Prompt: "stale", At: time.Now().Add(-4 * 24 * time.Hour)}); err != nil {
+		t.Fatal(err)
+	}
+	list, err := LoadProposals()
+	if err != nil || len(list) != 1 || list[0].Prompt != "fix the crash" {
+		t.Fatalf("got %v %v", list, err)
+	}
+	if err := Withdraw(list[0].ID); err != nil {
+		t.Fatal(err)
+	}
+	if list, _ := LoadProposals(); len(list) != 0 {
+		t.Fatalf("withdrawn proposal still listed: %v", list)
+	}
 }

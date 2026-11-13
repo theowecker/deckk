@@ -183,7 +183,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.collisions = deck.Collisions(m.sessions, msg.edits, git.Root)
 			m.report(append(m.trackEvents(), m.trackCollisions()...))
 			m.rearrange()
-			cmd = tea.Batch(m.syncLabels(), m.nudge(), m.prefill(), m.startDeckk())
+			cmd = tea.Batch(m.syncLabels(), m.nudge(), m.prefill(), m.fillStarted(), m.startDeckk())
 		}
 		if msg.scheduled {
 			return m, tea.Batch(cmd, tick())

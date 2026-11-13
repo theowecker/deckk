@@ -24,6 +24,8 @@ type deckkState struct {
 	open        bool
 	suggestions map[string]hq.Suggestion
 	questions   []hq.Question
+	proposals   []hq.Proposal
+	awaiting    []awaitingPrompt
 
 	states   map[string]deck.State
 	prs      map[string]string
@@ -46,6 +48,7 @@ func newDeckkState() deckkState {
 type deckkSnapshot struct {
 	suggestions map[string]hq.Suggestion
 	questions   []hq.Question
+	proposals   []hq.Proposal
 	pane        tmux.Pane
 	open        bool
 }
@@ -54,6 +57,7 @@ func (m Model) snapshot() deckkSnapshot {
 	var snap deckkSnapshot
 	snap.suggestions, _ = hq.LoadSuggestions()
 	snap.questions, _ = hq.Questions()
+	snap.proposals, _ = hq.LoadProposals()
 	snap.pane, snap.open, _ = m.host.HQPane()
 	return snap
 }
@@ -84,6 +88,7 @@ func (m *Model) takeDeckk(sessions []claude.Session, snap deckkSnapshot) []claud
 		m.deckk.suggestions = snap.suggestions
 	}
 	m.deckk.questions = snap.questions
+	m.deckk.proposals = snap.proposals
 	m.deckk.pane, m.deckk.open = snap.pane, snap.open
 	return sessions
 }
@@ -177,6 +182,8 @@ func (m *Model) delivered(msg deliveredMsg) {
 	case msg.err != nil:
 		m.setFlash("", msg.err)
 	case msg.result != tmux.Delivered:
+	case strings.HasPrefix(msg.key, openPrefix):
+		m.filled(msg.key)
 	case msg.key == nudgeKey:
 		d := &m.deckk
 		d.nudgedAt = time.Now()
@@ -227,11 +234,25 @@ func (m *Model) nudge() tea.Cmd {
 	})
 }
 
-// suggestion is the deckk session's current proposal for a session: made
-// since the session last changed state, while it waits, and not dismissed.
+// suggestion is the deckk session's current proposal for a session: the
+// next prompt for a waiting session, made since it last changed state; a
+// prompt to resume a stopped one with, made since it stopped; or a proposed
+// new session's first prompt. Dismissed ones don't count.
 func (m Model) suggestion(s claude.Session) (hq.Suggestion, bool) {
+	if !m.cfg.HQOn() {
+		return hq.Suggestion{}, false
+	}
 	sg, ok := m.deckk.suggestions[s.ID]
-	if !ok || !m.cfg.HQOn() || deck.StateOf(s) != deck.YourTurn || sg.At.Before(s.StatusAt) {
+	if p, proposed := m.proposal(s); proposed {
+		sg, ok = hq.Suggestion{Prompt: p.Prompt, Why: p.Why, At: p.At}, true
+	}
+	switch state := deck.StateOf(s); {
+	case !ok:
+		return hq.Suggestion{}, false
+	case isProposal(s):
+	case state == deck.YourTurn && !sg.At.Before(s.StatusAt):
+	case state == deck.Stopped && sg.At.After(s.UpdatedAt):
+	default:
 		return hq.Suggestion{}, false
 	}
 	if at, dismissed := m.store.Dismissed[s.ID]; dismissed && at.Equal(sg.At) {
@@ -289,8 +310,12 @@ func (m *Model) syncPrompt(s claude.Session, maySend bool) tea.Cmd {
 }
 
 // openWithSuggestion fills in a waiting suggestion on the way into a session,
-// since opening it is the user choosing to see it.
+// since opening it is the user choosing to see it. A proposed or stopped
+// session starts first and gets its prompt once Claude is up.
 func (m *Model) openWithSuggestion(s claude.Session) tea.Cmd {
+	if sg, ok := m.suggestion(s); ok && (isProposal(s) || !s.Running()) {
+		return m.begin(s, sg)
+	}
 	if _, hosted := m.window(s); !hosted || !m.cfg.Prefill() {
 		return m.open(s)
 	}
@@ -315,7 +340,7 @@ func (m Model) nextUp() (deck.Group, bool) {
 	if m.view != sessionsView || m.byProject {
 		return deck.Group{}, false
 	}
-	var list []claude.Session
+	list := m.openProposals()
 	for _, s := range m.inView(m.sessions) {
 		if _, ok := m.suggestion(s); ok {
 			list = append(list, s)
@@ -324,9 +349,11 @@ func (m Model) nextUp() (deck.Group, bool) {
 	if len(list) == 0 {
 		return deck.Group{}, false
 	}
-	slices.SortFunc(list, func(a, b claude.Session) int {
-		return m.deckk.suggestions[b.ID].At.Compare(m.deckk.suggestions[a.ID].At)
-	})
+	at := func(s claude.Session) time.Time {
+		sg, _ := m.suggestion(s)
+		return sg.At
+	}
+	slices.SortFunc(list, func(a, b claude.Session) int { return at(b).Compare(at(a)) })
 	return deck.Group{Section: deck.NextUp, Title: deck.NextUp.String(), Sessions: list}, true
 }
 

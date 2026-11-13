@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"strings"
+
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -9,6 +11,10 @@ func (m Model) updateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	key := msg.String()
 	confirm := m.confirm
 	m.confirm = ""
+	if s, ok := m.selected(); ok && isProposal(s) && strings.Contains("xompra", key) && len(key) == 1 {
+		m.setFlash("That session doesn't exist yet. Press ↵ to start it or d to dismiss it", nil)
+		return m, nil
+	}
 	switch key {
 	case "q", "ctrl+c":
 		return m, m.detach()

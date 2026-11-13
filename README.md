@@ -72,6 +72,12 @@ It also works on its own:
   the prompt into that session while you're looking elsewhere, without sending
   it, so it's ready when you switch over. Clear it, edit it or press Enter.
   Sessions with a suggestion are listed under Next up and marked ✦.
+- It can also propose work: a new session in a folder with its first prompt,
+  or picking a stopped session back up. Those wait under Next up too, and `↵`
+  starts one with the prompt typed in.
+- When two running sessions edit the same files, deckk warns you above the
+  list and on both tabs, and tells the deckk session so it can suggest which
+  one should wait.
 - Sessions deckk starts can ask it what to do next with an `ask_deckk` tool,
   and wait for its answer, or leave it a note with `tell_deckk`.
 
