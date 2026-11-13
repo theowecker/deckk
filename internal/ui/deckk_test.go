@@ -37,7 +37,7 @@ func refresh(t *testing.T, m Model, host *fakeHost, change func([]claude.Session
 	if change != nil {
 		change(sessions)
 	}
-	tm, cmd := m.Update(loadedMsg{sessions: sessions, windows: host.windows, started: time.Now(), deckk: m.snapshot()})
+	tm, cmd := m.Update(loadedMsg{sessions: sessions, windows: host.windows, started: time.Now(), deckk: m.snapshot(), edits: host.edits})
 	for _, msg := range run(cmd) {
 		if _, ok := msg.(deliveredMsg); ok {
 			tm, _ = tm.Update(msg)

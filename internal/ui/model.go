@@ -10,6 +10,7 @@ import (
 	"github.com/theowecker/deckk/internal/claude"
 	"github.com/theowecker/deckk/internal/config"
 	"github.com/theowecker/deckk/internal/deck"
+	"github.com/theowecker/deckk/internal/git"
 	"github.com/theowecker/deckk/internal/store"
 	"github.com/theowecker/deckk/internal/tmux"
 )
@@ -76,6 +77,8 @@ type Model struct {
 	closing     map[string]bool
 	lastSeen    map[string]time.Time
 	deckk       deckkState
+	collisions  []deck.Collision
+	clashes     map[string]bool
 
 	lastClick  time.Time
 	lastClickY int
@@ -100,7 +103,7 @@ func New(home string, since time.Time, st *store.Store, cfg *config.Config, host
 		home: home, since: since, store: st, cfg: cfg, host: host, filter: ti,
 		labels: map[string]tmux.Label{}, seen: map[string]bool{}, startedAt: time.Now(),
 		wasRunning: map[string]bool{}, closing: map[string]bool{}, lastSeen: map[string]time.Time{},
-		deckk: newDeckkState(),
+		deckk: newDeckkState(), clashes: map[string]bool{},
 	}
 }
 
@@ -111,6 +114,7 @@ type loadedMsg struct {
 	scheduled bool
 	started   time.Time
 	deckk     deckkSnapshot
+	edits     map[string][]string
 }
 
 type labelsSetMsg map[string]tmux.Label
@@ -137,7 +141,7 @@ func (m Model) load(scheduled bool) tea.Cmd {
 			return loadedMsg{err: err, scheduled: scheduled, started: started}
 		}
 		windows, err := m.host.Windows()
-		return loadedMsg{sessions, windows, err, scheduled, started, m.snapshot()}
+		return loadedMsg{sessions, windows, err, scheduled, started, m.snapshot(), claude.EditsOf(sessions)}
 	}
 }
 
@@ -176,7 +180,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.trackWorkspace()
 			m.trackClosed()
 			m.trackSeen()
-			m.recordEvents(m.trackEvents())
+			m.collisions = deck.Collisions(m.sessions, msg.edits, git.Root)
+			m.report(append(m.trackEvents(), m.trackCollisions()...))
 			m.rearrange()
 			cmd = tea.Batch(m.syncLabels(), m.nudge(), m.prefill(), m.startDeckk())
 		}

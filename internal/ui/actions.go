@@ -268,7 +268,7 @@ func (m Model) syncLabels() tea.Cmd {
 			case compact && !w.PoppedOut():
 				name = strconv.Itoa(position)
 			}
-			label = tmux.Label{Name: name, Status: tabStatus(s), Reel: "◐", Info: tabInfo(s, now, pinned, m.stripWidth(), m.suggestionText(s))}
+			label = tmux.Label{Name: name, Status: tabStatus(s), Reel: "◐", Info: tabInfo(s, now, m.bandInfo(s, pinned))}
 			if m.unread(s) && !w.Active {
 				label.Status = "fresh"
 			}
@@ -304,11 +304,17 @@ func (m Model) stripWidth() int {
 	return m.width
 }
 
-func (m Model) suggestionText(s claude.Session) string {
+func (m Model) bandInfo(s claude.Session, pinned bool) bandInfo {
+	b := bandInfo{width: m.stripWidth(), pinned: pinned}
 	if sg, ok := m.suggestion(s); ok {
-		return sg.Prompt
+		b.suggestion = sg.Prompt
 	}
-	return ""
+	if c, ok := m.clash(s); ok {
+		b.warning, b.clash = "also edited by "+displayTitle(c.Other(s.ID))+": "+fileList(c.Files, 2), true
+	} else if all := deck.CollisionsOf(m.collisions, s.ID); len(all) > 0 {
+		b.warning = "shares its checkout with " + displayTitle(all[0].Other(s.ID))
+	}
+	return b
 }
 
 func tabStatus(s claude.Session) string {

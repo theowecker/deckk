@@ -13,6 +13,7 @@ import (
 
 	"github.com/theowecker/deckk/internal/claude"
 	"github.com/theowecker/deckk/internal/deck"
+	"github.com/theowecker/deckk/internal/git"
 	"github.com/theowecker/deckk/internal/mcp"
 	"github.com/theowecker/deckk/internal/tmux"
 )
@@ -204,6 +205,7 @@ func listSessions(a mcp.Args) (string, error) {
 	sessions = slices.DeleteFunc(sessions, func(s claude.Session) bool {
 		return Is(s.Cwd) || s.Background || !s.Running() && !a.Bool("include_recent")
 	})
+	collisions := deck.Collisions(sessions, claude.EditsOf(sessions), git.Root)
 	slices.SortFunc(sessions, func(x, y claude.Session) int { return y.UpdatedAt.Compare(x.UpdatedAt) })
 	if len(sessions) == 0 {
 		return "No sessions.", nil
@@ -216,6 +218,14 @@ func listSessions(a mcp.Args) (string, error) {
 		}
 		if s.LastReply != "" {
 			fmt.Fprintf(&b, "  last reply: %s\n", clip(s.LastReply, 300))
+		}
+		for _, c := range deck.CollisionsOf(collisions, s.ID) {
+			other := c.Other(s.ID)
+			if c.Clash() {
+				fmt.Fprintf(&b, "  COLLISION: [%s] %s also edited %s\n", claude.ShortID(other.ID), other.Title, strings.Join(c.Files, ", "))
+			} else {
+				fmt.Fprintf(&b, "  shares the checkout %s with [%s] %s\n", c.Checkout, claude.ShortID(other.ID), other.Title)
+			}
 		}
 		if sg, ok := suggestions[s.ID]; ok && !sg.At.Before(s.StatusAt) {
 			fmt.Fprintf(&b, "  your suggestion: %s\n", sg.Prompt)

@@ -145,6 +145,15 @@ inbox has news. Read it, look at the sessions involved, suggest where the next
 step is clear, and answer in one to three short lines. Don't ask the user
 questions in reply to an update.
 
+## Collisions
+
+list_sessions marks sessions that edited the same files as COLLISION, and
+read_inbox reports new ones. Two Claudes editing the same files undo each
+other's work. When you see one, tell the user which session should go on,
+and suggest a prompt for the other: wait, rebase once the first is done, or
+move to its own worktree. Sessions that only share a checkout are usually
+fine; mention it only if one of them switches branches or stashes.
+
 ## Talking with the user
 
 Be brief. When asked what needs them, rank the waiting sessions by what

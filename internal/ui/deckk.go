@@ -117,19 +117,21 @@ func (m *Model) trackEvents() []hq.Event {
 		}
 	}
 	d.seeded = true
-	if m.cfg.Nudge() && d.open {
-		d.pending = append(d.pending, events...)
-		d.pending = d.pending[max(len(d.pending)-maxPending, 0):]
-	}
 	return events
 }
 
-// recordEvents writes events as they happen, in order, for read_inbox.
-func (m *Model) recordEvents(events []hq.Event) {
-	if len(events) > 0 && m.cfg.HQOn() {
-		if err := hq.AppendEvents(events); err != nil {
-			m.setFlash("", err)
-		}
+// report writes events as they happen, in order, for read_inbox, and queues
+// them for the next nudge while the deckk session is listening.
+func (m *Model) report(events []hq.Event) {
+	if len(events) == 0 || !m.cfg.HQOn() {
+		return
+	}
+	if err := hq.AppendEvents(events); err != nil {
+		m.setFlash("", err)
+	}
+	if d := &m.deckk; m.cfg.Nudge() && d.open {
+		d.pending = append(d.pending, events...)
+		d.pending = d.pending[max(len(d.pending)-maxPending, 0):]
 	}
 }
 

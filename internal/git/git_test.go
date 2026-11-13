@@ -35,3 +35,20 @@ func TestWorktreeFindsTheMainCheckout(t *testing.T) {
 		t.Fatalf("the main checkout is no worktree, got %q %q", main, name)
 	}
 }
+
+func TestRoot(t *testing.T) {
+	repo := t.TempDir()
+	if err := os.Mkdir(filepath.Join(repo, ".git"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	deep := filepath.Join(repo, "a", "b")
+	if err := os.MkdirAll(deep, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if got := Root(deep); got != repo {
+		t.Fatalf("got %q", got)
+	}
+	if got := Root(t.TempDir()); got != "" {
+		t.Fatalf("outside git got %q", got)
+	}
+}

@@ -19,16 +19,34 @@ import (
 // in tmux/config.go, and band must match its status-format.
 const band = "#24243A"
 
-// tabInfo describes a hosted session: what it's doing, deckk's suggestion
-// and where on the left, how Claude is set up and the pin button on the
-// right. The setup drops its last details until the band fits the width.
-func tabInfo(s claude.Session, now time.Time, pinned bool, width int, suggestion string) string {
+// bandInfo is what the dashboard knows about a session beyond the session itself.
+type bandInfo struct {
+	width      int
+	pinned     bool
+	suggestion string
+	// warning is a collision with another session, and clash says it is
+	// over the same files rather than a shared checkout.
+	warning string
+	clash   bool
+}
+
+// tabInfo describes a hosted session: what it's doing, any collision or
+// suggestion, and where on the left, how Claude is set up and the pin button
+// on the right. The setup drops its last details until the band fits.
+func tabInfo(s claude.Session, now time.Time, b bandInfo) string {
 	left := " " + chip(s, now) + "  "
-	if suggestion != "" {
-		left += styled("#E8875B", "✦ deckk suggests: "+clipText(suggestion, 70)) + "   "
+	switch {
+	case b.warning != "" && b.clash:
+		left += styled("#E0AF68", "⚠ "+clipText(b.warning, 70)) + "   "
+	case b.warning != "":
+		left += styled("#8A8A9A", "⇄ "+clipText(b.warning, 50)) + "   "
+	}
+	if b.suggestion != "" {
+		left += styled("#E8875B", "✦ deckk suggests: "+clipText(b.suggestion, 70)) + "   "
 	}
 	left += strings.Join(where(s), "   ")
-	button := pinButton(pinned)
+	button := pinButton(b.pinned)
+	width := b.width
 	details := setup(s, now)
 	for {
 		right := strings.Join(details, "#[fg=#4A4A5E] · ")

@@ -33,6 +33,7 @@ var (
 	preview = lipgloss.NewStyle().Foreground(muted).Italic(true)
 	reply   = lipgloss.NewStyle().Foreground(muted)
 	soft    = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "#3A3A3A", Dark: "#C4C4CC"})
+	warn    = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "#B54708", Dark: "#E0AF68"})
 	heading = lipgloss.NewStyle().Foreground(muted).Bold(true)
 	rule    = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "#D6D6D6", Dark: "#3A3A52"})
 )
@@ -302,7 +303,17 @@ func (m Model) body() ([]string, []int) {
 				"   "+text.Render("R")+" "+ghost.Render("reopen all"), restoreOwner)
 			add("", noOwner)
 		}
-		if !m.byProject && (len(m.groups) == 0 || m.groups[0].Section != deck.Running) {
+		if clashes := m.clashBanner(); len(clashes) > 0 {
+			for _, line := range clashes[:min(len(clashes), 3)] {
+				add(pad()+warn.Render("⚠ ")+text.Render(ansi.Truncate(line, m.width-gutter*2-2, "…")), noOwner)
+			}
+			if len(clashes) > 3 {
+				add(pad()+"  "+ghost.Render(fmt.Sprintf("%d more", len(clashes)-3)), noOwner)
+			}
+			add("", noOwner)
+		}
+		running := slices.ContainsFunc(m.groups, func(g deck.Group) bool { return g.Section == deck.Running })
+		if !m.byProject && !running {
 			add(pad()+dim.Render("Nothing is open in deckk yet. Press n to start Claude in a folder, or ↵ on any session below to bring it here."), noOwner)
 			add("", noOwner)
 		}
@@ -430,6 +441,9 @@ func (m Model) row(s claude.Session, selected bool, now time.Time, titles, proje
 	if _, ok := m.suggestion(s); ok {
 		meta = append(meta, accent.Render("✦"))
 	}
+	if _, ok := m.clash(s); ok {
+		meta = append(meta, warn.Render("⚠"))
+	}
 	if metaRoom := room - used - 3; metaRoom > 3 {
 		info := strings.TrimRight(ansi.Truncate(strings.Join(meta, "  "), metaRoom, "…"), " ")
 		content += "   " + info
@@ -493,6 +507,13 @@ func (m Model) preview(s claude.Session) []string {
 	const indent = "    "
 	room := m.width - gutter*2 - len(indent)
 	var lines []string
+	for _, line := range m.collisionLines(s) {
+		style := ghost
+		if strings.HasPrefix(line, "⚠") {
+			style = warn
+		}
+		lines = append(lines, pad()+indent+style.Render(ansi.Truncate(line, room, "…")))
+	}
 	if sg, ok := m.suggestion(s); ok && sg.Why != "" {
 		lines = append(lines, pad()+indent+accent.Render(ansi.Truncate("✦ "+sg.Why, room, "…")))
 	}

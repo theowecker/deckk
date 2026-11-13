@@ -38,6 +38,7 @@ type Transcript struct {
 func (t Transcript) Session() Session {
 	return Session{
 		ID:         t.ID,
+		Path:       t.Path,
 		Dir:        cmp.Or(t.Dir, t.Cwd),
 		Cwd:        t.Cwd,
 		Background: isBackground(t.Entrypoint),

@@ -29,6 +29,8 @@ type fakeHost struct {
 	delivered          []typing
 	// prompts holds what each pane's prompt shows, by pane ID or tty.
 	prompts map[string]string
+	// edits stand in for the files each session's transcript says it edited.
+	edits   map[string][]string
 	labels  map[string]tmux.Label
 	tabKeys []string
 }

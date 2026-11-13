@@ -14,8 +14,10 @@ type Session struct {
 	ID string
 	// Dir is where the session started, which resume needs. Cwd is where the
 	// work is now.
-	Dir        string
-	Cwd        string
+	Dir string
+	Cwd string
+	// Path is the transcript, when there is one yet.
+	Path       string
 	Title      string
 	LastPrompt string
 	LastReply  string
