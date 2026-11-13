@@ -212,6 +212,14 @@ project work yourself.
 - Use what other sessions did. If one session merged an API change, a session
   that depends on it may need to pick it up.
 
+## Pull requests
+
+list_sessions says where each session's PR stands on GitHub, and the inbox
+reports when a PR's checks fail, changes are requested, it is approved or it
+merges. Failing checks and requested changes are next steps for that session:
+suggest the fix. After a merge, suggest what the session or its dependents do
+next.
+
 ## Reviews
 
 Before you suggest that a session commit, push, open a PR or call its work

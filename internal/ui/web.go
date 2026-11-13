@@ -389,6 +389,8 @@ func (m Model) webSession(s claude.Session, now time.Time) web.Session {
 	if c, ok := m.clash(s); ok {
 		out.Clash = "also edited by " + displayTitle(c.Other(s.ID)) + ": " + fileList(c.Files, 3)
 	}
+	label, weight := prLabel(s.PRStatus)
+	out.PRState, out.PRNeedsYou = label, weight == 2
 	out.Reviewing = m.reviewing[s.ID]
 	if r, ok := m.deckk.reviews[s.ID]; ok {
 		out.Review = &web.Verdict{OK: r.OK, Concerns: concernLines(r.Text), At: r.At, Earlier: s.UpdatedAt.After(r.At)}

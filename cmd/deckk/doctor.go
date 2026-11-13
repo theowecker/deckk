@@ -48,6 +48,10 @@ func doctor(out io.Writer, cfg *config.Config, cfgErr error) bool {
 	_, gitErr := exec.LookPath("git")
 	add(check{ok: gitErr == nil, optional: true, good: "git is installed", bad: "git isn't installed",
 		fixIt: "Without it deckk can't show branches, changes or reviews"})
+	_, ghErr := exec.LookPath("gh")
+	ghAuthed := ghErr == nil && exec.Command("gh", "auth", "status").Run() == nil
+	add(check{ok: ghAuthed, optional: true, good: "gh is signed in, so deckk can follow PRs", bad: "deckk can't read PR checks or reviews",
+		fixIt: "brew install gh, then gh auth login"})
 	_, notifierErr := exec.LookPath("terminal-notifier")
 	add(check{ok: notifierErr == nil, optional: true, good: "Clicking a notification opens its session",
 		bad: "Clicking a notification opens Script Editor", fixIt: "brew install terminal-notifier"})

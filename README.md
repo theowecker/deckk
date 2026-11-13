@@ -94,6 +94,11 @@ just type: keys go to Claude whether or not you've scrolled back.
   it has been working or waiting, its folder, branch, uncommitted changes,
   commits ahead or behind, worktree and pull request, and on the right the
   model, effort, permission mode, context size and uptime.
+- **Pull requests.** For a session with a PR, deckk asks GitHub through `gh`
+  whether its checks pass, changes were requested, it was approved or merged,
+  and shows it under the tab and on the session's row. Failing checks and
+  requested changes notify you and reach the deckk session, which suggests
+  the fix.
 - **Clashes.** When two running sessions edit the same files, deckk warns you
   above the list and on both tabs. Sessions that only share a folder get a
   quiet note in the preview.

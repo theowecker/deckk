@@ -79,10 +79,19 @@ const (
 	OpenedPR = "opened a PR"
 	Closed   = "closed"
 	Reviewed = "was reviewed"
+
+	ChecksFailed     = "'s PR checks failed"
+	ChangesRequested = "'s PR needs changes"
+	Approved         = "'s PR was approved"
+	Merged           = "'s PR was merged"
 )
 
 func (e Event) Line() string {
-	line := e.Title + " " + e.Kind
+	sep := " "
+	if strings.HasPrefix(e.Kind, "'") {
+		sep = ""
+	}
+	line := e.Title + sep + e.Kind
 	if e.Detail != "" {
 		line += ": " + e.Detail
 	}

@@ -13,6 +13,7 @@ import (
 	"github.com/theowecker/deckk/internal/config"
 	"github.com/theowecker/deckk/internal/deck"
 	"github.com/theowecker/deckk/internal/git"
+	"github.com/theowecker/deckk/internal/github"
 	"github.com/theowecker/deckk/internal/store"
 	"github.com/theowecker/deckk/internal/tmux"
 )
@@ -81,6 +82,7 @@ type Model struct {
 	reviewing   map[string]bool
 	reviewQueue []string
 	reviewOpen  string
+	prSeen      map[string]github.PR
 	lastSeen    map[string]time.Time
 	deckk       deckkState
 	collisions  []deck.Collision
@@ -138,6 +140,7 @@ type loadedMsg struct {
 	// Read with the sessions, off the UI goroutine, because finding them lists
 	// directories.
 	folders []string
+	prs     map[string]github.PR
 }
 
 type labelsSetMsg map[string]tmux.Label
@@ -165,10 +168,11 @@ func (m Model) load(scheduled bool) tea.Cmd {
 			return loadedMsg{err: err, scheduled: scheduled, started: started}
 		}
 		windows, err := m.host.Windows()
-		msg := loadedMsg{sessions, windows, err, scheduled, started, m.snapshot(), claude.EditsOf(sessions), m.changedConfig(), nil}
+		msg := loadedMsg{sessions, windows, err, scheduled, started, m.snapshot(), claude.EditsOf(sessions), m.changedConfig(), nil, nil}
 		if web {
 			msg.folders = candidateDirs(sessions)
 		}
+		msg.prs = github.Statuses(prURLs(sessions, started))
 		return msg
 	}
 }
@@ -205,6 +209,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.cfg = msg.cfg
 			}
 			m.sessions = m.takeDeckk(msg.sessions, msg.deckk)
+			for i, s := range m.sessions {
+				m.sessions[i].PRStatus = msg.prs[s.PRURL]
+			}
 			m.store.ApplyNames(m.sessions)
 			m.windows, m.popped = byTTY(msg.windows)
 			for _, s := range msg.sessions {
@@ -221,7 +228,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.trackClosed()
 			m.trackSeen()
 			m.collisions = deck.Collisions(m.sessions, msg.edits, git.Root)
-			events := m.trackEvents()
+			events := append(m.trackEvents(), m.trackPRs()...)
 			m.report(append(events, m.trackCollisions()...))
 			m.rearrange()
 			cmd = tea.Batch(m.syncLabels(), m.nudge(), m.prefill(), m.fillStarted(), m.startDeckk(), m.notify(events), m.autoReview(events))

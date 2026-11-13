@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/theowecker/deckk/internal/git"
+	"github.com/theowecker/deckk/internal/github"
 )
 
 type Session struct {
@@ -31,7 +32,9 @@ type Session struct {
 
 	PID int
 	// Peer is the name other Claude sessions use to message this one.
-	Peer      string
+	Peer string
+	// PRStatus is what GitHub says about the session's PR, when deckk asked.
+	PRStatus  github.PR
 	TTY       string
 	Status    string
 	StatusAt  time.Time

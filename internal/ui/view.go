@@ -469,6 +469,13 @@ func (m Model) row(s claude.Session, selected bool, now time.Time, titles, proje
 	if _, ok := m.suggestion(s); ok {
 		meta = append(meta, accent.Render("✦"))
 	}
+	if label, weight := prLabel(s.PRStatus); weight == 2 || label == "merged" {
+		style := dim
+		if weight == 2 {
+			style = errText
+		}
+		meta = append(meta, style.Render(s.PR+" "+label))
+	}
 	if mark, _, ok := m.reviewSummary(s); ok && mark != "" {
 		meta = append(meta, mark)
 	}

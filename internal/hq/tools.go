@@ -14,6 +14,7 @@ import (
 	"github.com/theowecker/deckk/internal/claude"
 	"github.com/theowecker/deckk/internal/deck"
 	"github.com/theowecker/deckk/internal/git"
+	"github.com/theowecker/deckk/internal/github"
 	"github.com/theowecker/deckk/internal/mcp"
 	"github.com/theowecker/deckk/internal/tmux"
 )
@@ -241,6 +242,16 @@ func listSessions(a mcp.Args) (string, error) {
 		return Is(s.Cwd) || s.Background || !s.Running() && !a.Bool("include_recent")
 	})
 	collisions := deck.Collisions(sessions, claude.EditsOf(sessions), git.Root)
+	var urls []string
+	for _, s := range sessions {
+		if s.PRURL != "" {
+			urls = append(urls, s.PRURL)
+		}
+	}
+	prs := github.Statuses(urls)
+	for i := range sessions {
+		sessions[i].PRStatus = prs[sessions[i].PRURL]
+	}
 	slices.SortFunc(sessions, func(x, y claude.Session) int { return y.UpdatedAt.Compare(x.UpdatedAt) })
 	var b strings.Builder
 	if len(sessions) == 0 {
@@ -308,7 +319,18 @@ func describe(s claude.Session, where map[string]string, now time.Time) string {
 		}
 	}
 	if s.PR != "" {
-		parts = append(parts, "PR "+s.PR)
+		pr := "PR " + s.PR
+		switch st := s.PRStatus; {
+		case st.State == "merged" || st.State == "closed" || st.State == "draft":
+			pr += " " + st.State
+		case st.Checks == "failing":
+			pr += " checks failing: " + strings.Join(st.Failing, ", ")
+		case st.Review != "":
+			pr += " " + st.Review
+		case st.Checks != "":
+			pr += " checks " + st.Checks
+		}
+		parts = append(parts, pr)
 	}
 	if s.Git.Changed > 0 {
 		parts = append(parts, fmt.Sprintf("%d uncommitted changes", s.Git.Changed))

@@ -120,7 +120,11 @@ func where(s claude.Session) []string {
 		parts = append(parts, styled("#8A8A9A", "worktree ")+styled("#B4B4C0", g.Worktree))
 	}
 	if s.PR != "" {
-		parts = append(parts, styled("#E8875B", "PR "+s.PR))
+		pr := styled("#E8875B", "PR "+s.PR)
+		if label, weight := prLabel(s.PRStatus); label != "" {
+			pr += styled([]string{"#8A8A9A", "#9ECE6A", "#F97066"}[weight], " "+label)
+		}
+		parts = append(parts, pr)
 	}
 	return parts
 }

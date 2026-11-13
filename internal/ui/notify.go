@@ -18,7 +18,8 @@ func (m *Model) notify(events []hq.Event) tea.Cmd {
 	now := time.Now()
 	var cmds []tea.Cmd
 	for _, e := range events {
-		if e.Kind != hq.Finished || now.Sub(m.notified[e.Session]) < notifyEvery {
+		pr := e.Kind == hq.ChecksFailed || e.Kind == hq.ChangesRequested
+		if e.Kind != hq.Finished && !pr || now.Sub(m.notified[e.Session]) < notifyEvery {
 			continue
 		}
 		s, ok := m.sessionByID(e.Session)
@@ -27,6 +28,9 @@ func (m *Model) notify(events []hq.Event) tea.Cmd {
 		}
 		m.notified[e.Session] = now
 		title, body := displayTitle(s)+" is waiting", e.Detail
+		if pr {
+			title = displayTitle(s) + e.Kind
+		}
 		if body == "" {
 			body = "Claude finished in " + s.Project()
 		}

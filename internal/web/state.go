@@ -66,25 +66,29 @@ type Group struct {
 }
 
 type Session struct {
-	ID         string    `json:"id"`
-	Title      string    `json:"title"`
-	Project    string    `json:"project"`
-	Folder     string    `json:"folder"`
-	Branch     string    `json:"branch,omitempty"`
-	State      string    `json:"state"`
-	Status     string    `json:"status"`
-	Since      time.Time `json:"since"`
-	PR         string    `json:"pr,omitempty"`
-	PRURL      string    `json:"prUrl,omitempty"`
-	LastPrompt string    `json:"lastPrompt,omitempty"`
-	LastReply  string    `json:"lastReply,omitempty"`
-	Model      string    `json:"model,omitempty"`
-	Context    int       `json:"context,omitempty"`
-	Changed    int       `json:"changed,omitempty"`
-	Where      string    `json:"where,omitempty"`
-	Pinned     bool      `json:"pinned,omitempty"`
-	Suggested  bool      `json:"suggested,omitempty"`
-	Clash      string    `json:"clash,omitempty"`
+	ID      string    `json:"id"`
+	Title   string    `json:"title"`
+	Project string    `json:"project"`
+	Folder  string    `json:"folder"`
+	Branch  string    `json:"branch,omitempty"`
+	State   string    `json:"state"`
+	Status  string    `json:"status"`
+	Since   time.Time `json:"since"`
+	PR      string    `json:"pr,omitempty"`
+	PRURL   string    `json:"prUrl,omitempty"`
+	// PRState says where the PR stands, and PRNeedsYou that it's waiting on
+	// the user, like failing checks or requested changes.
+	PRState    string `json:"prState,omitempty"`
+	PRNeedsYou bool   `json:"prNeedsYou,omitempty"`
+	LastPrompt string `json:"lastPrompt,omitempty"`
+	LastReply  string `json:"lastReply,omitempty"`
+	Model      string `json:"model,omitempty"`
+	Context    int    `json:"context,omitempty"`
+	Changed    int    `json:"changed,omitempty"`
+	Where      string `json:"where,omitempty"`
+	Pinned     bool   `json:"pinned,omitempty"`
+	Suggested  bool   `json:"suggested,omitempty"`
+	Clash      string `json:"clash,omitempty"`
 	// Stale says the session has moved on since the note was written.
 	Summary    string `json:"summary,omitempty"`
 	Stale      bool   `json:"stale,omitempty"`
