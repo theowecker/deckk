@@ -125,8 +125,6 @@ func quote(s string) string {
 	return `"` + strings.NewReplacer(`\`, `\\`, `"`, `\"`).Replace(s) + `"`
 }
 
-// The text goes to AppleScript as arguments rather than inside the script, so
-// quotes in it can't break out.
 type Notification struct {
 	Title, Subtitle, Body string
 	// Group replaces an earlier notification with the same group.
@@ -148,6 +146,8 @@ func (a App) Notify(n Notification) error {
 		}
 		return exec.Command(path, args...).Run()
 	}
+	// The text goes to AppleScript as arguments rather than inside the script,
+	// so quotes in it can't break out.
 	script := `on run argv
 	display notification (item 3 of argv) with title (item 1 of argv) subtitle (item 2 of argv)
 end run`

@@ -3,6 +3,7 @@ package ui
 import (
 	"maps"
 	"os"
+	"slices"
 	"time"
 
 	"github.com/charmbracelet/bubbles/textinput"
@@ -471,7 +472,7 @@ func (m *Model) trackWorkspace() {
 	// Every session vanishing at once is tmux or the machine going down,
 	// not the user closing them, so the workspace keeps them to reopen.
 	if len(hosted) == 0 && len(removed) > 1 {
-		return
+		removed = slices.DeleteFunc(removed, func(id string) bool { return !m.closing[id] })
 	}
 	for _, id := range removed {
 		delete(m.seen, id)
