@@ -489,3 +489,6 @@ div.empty-card { display: flex; align-items: center; justify-content: space-betw
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
+
+.group-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-right: 14px; }
+.group-head .link, .more .link { font-size: 12px; font-weight: 500; }

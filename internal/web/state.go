@@ -60,6 +60,7 @@ type Group struct {
 	Title    string    `json:"title"`
 	Sessions []Session `json:"sessions"`
 	Hidden   int       `json:"hidden"`
+	Folder   string    `json:"folder,omitempty"`
 }
 
 type Session struct {

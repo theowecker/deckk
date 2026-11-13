@@ -560,9 +560,12 @@ function renderGroups(s) {
   }
   $("groups").replaceChildren(...groups.map((g) =>
     el("section", { "aria-label": g.title },
-      el("h3", {}, g.title),
+      el("h3", { class: "group-head" }, g.title,
+        g.folder && el("button", { class: "link", "data-focus": `here:${g.folder}`, onclick: () => newSession(g.folder) }, "New session here")),
       el("ul", { class: "card" }, g.sessions.map(sessionRow),
-        g.hidden > 0 && el("li", { class: "more" }, `${g.hidden} more. Search to find them.`),
+        g.hidden > 0 && el("li", { class: "more" }, g.folder
+          ? el("button", { class: "link", "data-focus": `all:${g.folder}`, onclick: () => searchFor(g.title) }, `Show all ${g.sessions.length + g.hidden}`)
+          : `${g.hidden} more. Search to find them.`),
       ),
     )));
 }
@@ -593,7 +596,15 @@ function refreshSearch() {
   if (found) setTimeout(runSearch, 300);
 }
 
-function newSession() {
+function searchFor(text) {
+  $("search").value = text;
+  query = text;
+  runSearch();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function newSession(folder) {
+  if (folder) drafts.set("new-folder", folder);
   starting = true;
   if (current() !== "sessions") location.hash = "sessions";
   render(true);

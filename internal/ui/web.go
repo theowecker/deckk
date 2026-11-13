@@ -305,6 +305,9 @@ func (m Model) webState() web.State {
 	for _, g := range m.board() {
 		g.Collapse(3)
 		project := web.Group{Title: g.Title, Hidden: g.Hidden}
+		if len(g.Sessions) > 0 {
+			project.Folder = abbreviateHome(g.Sessions[0].Cwd)
+		}
 		for _, s := range g.Sessions {
 			project.Sessions = append(project.Sessions, m.webSession(s, now))
 		}
