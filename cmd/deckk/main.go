@@ -17,7 +17,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/muesli/termenv"
+	"github.com/charmbracelet/x/term"
 
 	"github.com/theowecker/deckk/internal/claude"
 	"github.com/theowecker/deckk/internal/config"
@@ -105,6 +105,9 @@ func launch(days int, cfg *config.Config) error {
 	if tmux.Inside() {
 		return tmux.Select(":0")
 	}
+	if !term.IsTerminal(os.Stdin.Fd()) || !term.IsTerminal(os.Stdout.Fd()) {
+		return errors.New("deckk needs a terminal: run it in a terminal tab, not from a script or launcher that redirects its input or output")
+	}
 
 	exe, err := os.Executable()
 	if err != nil {
@@ -131,10 +134,8 @@ func launch(days int, cfg *config.Config) error {
 	if err := tmux.BindTabKeys(cfg.TabKeys); err != nil {
 		return err
 	}
-	if bg := termenv.NewOutput(os.Stdout).BackgroundColor(); bg != nil {
-		if _, none := bg.(termenv.NoColor); !none {
-			_ = tmux.SetBackground(termenv.ConvertToRGB(bg).Hex())
-		}
+	if bg, ok := terminal.Background(os.Stdin, os.Stdout, 300*time.Millisecond); ok {
+		_ = tmux.SetBackground(bg)
 	}
 	defer app.Setup(os.Stdout, cfg.TabKeys)()
 	return tmux.Attach(tmuxPath)
