@@ -234,11 +234,14 @@ func Rank(sessions []claude.Session, score func(claude.Session) int) {
 	})
 }
 
+// ToRestore is what was open in deckk and isn't running, each session once.
+// Sessions the user closed stay closed.
 func ToRestore(sessions []claude.Session, marks Marks) []claude.Session {
 	var out []claude.Session
+	seen := map[string]bool{}
 	for _, s := range sessions {
-		wanted := marks.Open[s.ID] || marks.recentlyClosed(s)
-		if wanted && !s.Running() && !marks.Archived[s.ID] && !s.Background {
+		if marks.Open[s.ID] && !seen[s.ID] && !s.Running() && !marks.Archived[s.ID] && !s.Background {
+			seen[s.ID] = true
 			out = append(out, s)
 		}
 	}

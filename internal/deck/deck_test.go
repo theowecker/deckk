@@ -54,7 +54,14 @@ func TestRecentlyClosedSectionAndRestore(t *testing.T) {
 	for _, s := range ToRestore(sessions(), closed) {
 		restore = append(restore, s.ID)
 	}
-	assertSlice(t, restore, []string{"old"})
+	assertSlice(t, restore, nil)
+
+	closed.Open = map[string]bool{"new": true}
+	restore = nil
+	for _, s := range ToRestore(append(sessions(), sessions()...), closed) {
+		restore = append(restore, s.ID)
+	}
+	assertSlice(t, restore, []string{"new"})
 }
 
 func TestArrangeByProjectPutsBusyProjectsFirst(t *testing.T) {

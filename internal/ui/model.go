@@ -76,6 +76,7 @@ type Model struct {
 	wasRunning  map[string]bool
 	trackedOnce bool
 	closing     map[string]bool
+	resuming    map[string]time.Time
 	lastSeen    map[string]time.Time
 	deckk       deckkState
 	collisions  []deck.Collision
@@ -113,7 +114,7 @@ func New(home string, since time.Time, st *store.Store, cfg *config.Config, host
 	return Model{
 		home: home, since: since, store: st, cfg: cfg, host: host, filter: ti,
 		labels: map[string]tmux.Label{}, seen: map[string]bool{}, startedAt: time.Now(),
-		wasRunning: map[string]bool{}, closing: map[string]bool{}, lastSeen: map[string]time.Time{},
+		wasRunning: map[string]bool{}, closing: map[string]bool{}, resuming: map[string]time.Time{}, lastSeen: map[string]time.Time{},
 		typingGap: typingGap, notified: map[string]time.Time{},
 		deckk: newDeckkState(), clashes: map[string]map[string]bool{},
 	}
@@ -465,8 +466,15 @@ func (m *Model) trackWorkspace() {
 	for id := range m.seen {
 		if !hosted[id] {
 			removed = append(removed, id)
-			delete(m.seen, id)
 		}
+	}
+	// Every session vanishing at once is tmux or the machine going down,
+	// not the user closing them, so the workspace keeps them to reopen.
+	if len(hosted) == 0 && len(removed) > 1 {
+		return
+	}
+	for _, id := range removed {
+		delete(m.seen, id)
 	}
 	if err := m.store.SetOpen(added, removed); err != nil {
 		m.setFlash("", err)

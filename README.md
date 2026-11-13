@@ -45,7 +45,7 @@ place.
 | `n` | start Claude in a folder, or find an old session to resume (→ shows a folder's sessions) |
 | `x` | close a session (it stays resumable) |
 | `p` / `r` | pin or rename a session |
-| `R` | reopen everything that should be open |
+| `R` | reopen what was open before a reboot or restart |
 | `o` / `O` | give one session, or all of them, its own terminal tab |
 | `m` / `M` | bring one session, or all of them, back into deckk |
 | `c` | talk to the deckk session |
@@ -98,8 +98,10 @@ just type: keys go to Claude whether or not you've scrolled back.
   runs, SDK runs, plugins and scripts, get their own Background view so they
   don't crowd your own. Find still searches everything.
 - **Restarts.** Sessions in deckk keep running if you quit your terminal.
-  After a reboot, the dashboard lists what was open, plus anything closed in
-  the last day, and `R` reopens all of it.
+  After a reboot, or when tmux itself restarts, the dashboard lists what was
+  open and `R` reopens exactly that, each session once. Sessions you closed
+  stay closed; the last day's are listed under Recently closed to reopen one
+  by one.
 
 ## The deckk session
 

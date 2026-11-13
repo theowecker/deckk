@@ -663,7 +663,7 @@ func helpBody(frame int) ([]string, []int) {
 			{"x", "close a session running in deckk. It stays resumable"},
 			{"o   O", "give this session, or every one, its own tab"},
 			{"m   M", "bring this session, or all of them, from other tabs into deckk"},
-			{"R", "reopen everything: last workspace and anything closed today"},
+			{"R", "reopen what was open before a reboot or restart"},
 			{"p", "pin a session to keep it in the Pinned list and shrink its tab"},
 			{"r", "rename a session. Leave it empty to go back to Claude's title"},
 			{"a", "archive a session. Find still lists it"},

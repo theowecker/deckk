@@ -172,6 +172,9 @@ func (m *Model) promptFromWeb(s claude.Session, text string, send bool) tea.Cmd 
 		now := time.Now()
 		m.deckk.awaiting = append(m.deckk.awaiting, awaitingPrompt{key: "web:" + s.ID + now.Format(time.RFC3339Nano), sessionID: s.ID, dir: s.Dir, after: now, prompt: text, send: send})
 		m.setFlash("Resuming "+displayTitle(s)+"; your prompt goes in once Claude is ready", nil)
+		if !m.claimResume(s.ID) {
+			return nil
+		}
 		return m.do(func() error { return m.resume(s, false) }, "")
 	}
 	if _, hosted := m.window(s); !hosted {

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -36,6 +37,9 @@ func (m Model) open(s claude.Session) tea.Cmd {
 			}
 			return flashMsg{err: err}
 		}
+	}
+	if !m.claimResume(s.ID) {
+		return func() tea.Msg { return flashMsg{text: displayTitle(s) + " is already resuming"} }
 	}
 	return leaving(m.do(func() error { return m.resume(s, true) }, ""))
 }
@@ -199,9 +203,23 @@ func (m Model) elsewhere(s claude.Session) bool {
 	return s.Running() && !m.inDeckk(s)
 }
 
+// A session takes a few seconds to show as running after a resume, and
+// resuming it again in that time starts a second copy of the conversation.
+const resumeWait = 2 * time.Minute
+
+func (m Model) claimResume(id string) bool {
+	now := time.Now()
+	if now.Sub(m.resuming[id]) < resumeWait {
+		return false
+	}
+	m.resuming[id] = now
+	return true
+}
+
 func (m Model) restore(sessions []claude.Session) tea.Cmd {
+	sessions = slices.DeleteFunc(slices.Clone(sessions), func(s claude.Session) bool { return !m.claimResume(s.ID) })
 	if len(sessions) == 0 {
-		return func() tea.Msg { return flashMsg{text: "Everything is already open"} }
+		return func() tea.Msg { return flashMsg{text: "Everything is already open or on its way"} }
 	}
 	return m.do(func() error {
 		for _, s := range sessions {

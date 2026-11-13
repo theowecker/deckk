@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -168,7 +169,7 @@ func TestWorkspaceForgetsOnlySessionsItSawClose(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	host.windows = host.windows[:1:1]
+	host.windows = []tmux.Window{host.windows[0], host.windows[2]}
 	tm, _ := m.Update(loadedMsg{sessions: m.sessions, windows: host.windows})
 	m = tm.(Model)
 	if m.store.Open["dddddddd"] {
@@ -309,8 +310,8 @@ func TestSessionsThatStopLandInRecentlyClosed(t *testing.T) {
 	if i < 0 || m.groups[i].Sessions[0].ID != "eeeeeeee" {
 		t.Fatal("it should be listed under RECENTLY CLOSED")
 	}
-	if !slices.ContainsFunc(deck.ToRestore(m.sessions, m.marks()), func(s claude.Session) bool { return s.ID == "eeeeeeee" }) {
-		t.Fatal("R should bring a recently closed session back")
+	if slices.ContainsFunc(deck.ToRestore(m.sessions, m.marks()), func(s claude.Session) bool { return s.ID == "eeeeeeee" }) {
+		t.Fatal("R brings back what was open in deckk, not sessions that were closed")
 	}
 }
 
@@ -685,5 +686,48 @@ func TestFindListsSessionsThatOnlyMentionTheQueryLast(t *testing.T) {
 	m = tm.(Model)
 	if len(m.groups) != 1 || m.groups[0].Title != "MENTIONED IN THE CONVERSATION" || m.groups[0].Sessions[0].ID != quiet.ID {
 		t.Fatalf("groups %+v", m.groups)
+	}
+}
+
+func TestEverySessionVanishingAtOnceStaysInTheWorkspace(t *testing.T) {
+	m, host := newTestModel(t)
+	open := maps.Clone(m.store.Open)
+	if len(open) < 2 {
+		t.Fatalf("the test needs two sessions in deckk, has %v", open)
+	}
+	host.windows = host.windows[:1:1]
+	var gone []claude.Session
+	for _, s := range m.sessions {
+		if open[s.ID] {
+			s.PID, s.TTY = 0, ""
+		}
+		gone = append(gone, s)
+	}
+	tm, _ := m.Update(loadedMsg{sessions: gone, windows: host.windows})
+	m = tm.(Model)
+	for id := range open {
+		if !m.store.Open[id] {
+			t.Fatalf("%s left the workspace when tmux went down", id)
+		}
+	}
+}
+
+func TestResumingTwiceInARowStartsOneCopy(t *testing.T) {
+	m, host := newTestModel(t)
+	stoppedOnes := m.sessions
+	for id := range maps.Clone(m.store.Open) {
+		stoppedOnes = stopped(stoppedOnes, id)
+	}
+	m = reload(m, stoppedOnes, host.windows[:1:1])
+	want := len(deck.ToRestore(m.sessions, m.marks()))
+	if want == 0 {
+		t.Fatal("something should be waiting to reopen")
+	}
+	m, cmd := press(m, "R")
+	run(cmd)
+	_, cmd = press(m, "R")
+	run(cmd)
+	if len(host.opened) != want {
+		t.Fatalf("pressing R twice opened %d sessions, want %d: %v", len(host.opened), want, host.opened)
 	}
 }
