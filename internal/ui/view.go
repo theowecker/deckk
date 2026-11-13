@@ -86,7 +86,7 @@ func (m Model) header() string {
 	left := m.headerLeft()
 	deckLines := miniDeck(m.frame, busy)
 	deckWidth := lipgloss.Width(deckLines[0])
-	if m.width < lipgloss.Width(left)+deckWidth+gutter*2 {
+	if m.width < max(lipgloss.Width(left), lipgloss.Width(m.viewTabsLine()))+deckWidth+gutter*2 {
 		return m.viewTabsLine() + "\n" + left + "\n"
 	}
 	lines := make([]string, 3)
@@ -194,7 +194,11 @@ func (m Model) hints() []hint {
 		view = "by status"
 	}
 	// Least important last, since a narrow window cuts the end off.
-	return append(hints, hint{"n", "new"}, hint{"c", "ask deckk"}, hint{"?", "all keys"}, hint{"q", "quit"}, hint{"s", "settings"}, hint{"/", "find"}, hint{"v", view})
+	hints = append(hints, hint{"n", "new"}, hint{"c", "ask deckk"}, hint{"?", "all keys"}, hint{"q", "quit"}, hint{"s", "settings"}, hint{"/", "find"})
+	if m.view != boardView {
+		hints = append(hints, hint{"v", view})
+	}
+	return hints
 }
 
 const hintSeparator = "   "
@@ -636,7 +640,7 @@ func helpBody(frame int) ([]string, []int) {
 			{"p", "pin a session to keep it in the Pinned list and shrink its tab"},
 			{"r", "rename a session. Leave it empty to go back to Claude's title"},
 			{"a", "archive a session. Find still lists it"},
-			{"tab", "switch between Sessions, Background and Find"},
+			{"tab", "switch between Sessions, Board, Background and Find"},
 			{"+", "show every session, or only the latest few"},
 			{"/   f", "find any session, ever, by title, project, prompt or reply"},
 			{"v", "group sessions by status or by project"},

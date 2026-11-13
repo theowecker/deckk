@@ -57,9 +57,6 @@ func Setup(exe string) error {
 	if err := writeAtomic(path(filepath.Join(".claude", "output-styles", "deckk-brief.md")), []byte(briefStyle)); err != nil {
 		return err
 	}
-	if err := useStyle(); err != nil {
-		return err
-	}
 	for role, name := range map[string]string{RoleHQ: hqConfig, RoleChild: childConfig} {
 		mcp, err := json.MarshalIndent(map[string]any{
 			"mcpServers": map[string]any{
@@ -73,6 +70,9 @@ func Setup(exe string) error {
 			return err
 		}
 	}
+	// The brief style is a nicety; settings the user broke by hand mustn't
+	// keep the deckk session from opening.
+	_ = useStyle()
 	return nil
 }
 
@@ -126,6 +126,9 @@ func useStyle() error {
 		}
 	} else if !errors.Is(err, fs.ErrNotExist) {
 		return err
+	}
+	if settings == nil {
+		settings = map[string]any{}
 	}
 	if settings["outputStyle"] == briefStyleName {
 		return nil

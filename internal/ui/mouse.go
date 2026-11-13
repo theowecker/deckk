@@ -28,7 +28,8 @@ func (m Model) updateMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 	case tea.MouseButtonWheelDown:
 		m.moveActive(1)
 	case tea.MouseButtonLeft:
-		if v, ok := m.viewTabAt(msg.X, msg.Y); ok {
+		overlay := m.settings || m.picker != nil || m.help
+		if v, ok := m.viewTabAt(msg.X, msg.Y); ok && !overlay {
 			return m.switchView(v)
 		}
 		if m.webLinkAt(msg.X, msg.Y) {

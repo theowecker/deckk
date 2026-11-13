@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -112,5 +114,17 @@ func TestTwoProposalsForOneFolderGetASessionEach(t *testing.T) {
 	load(t, m, host, append(slices.Clone(m.sessions), two))
 	if len(host.delivered) != 2 || host.delivered[1].target != "/dev/ttys112" || host.delivered[1].text != "second" {
 		t.Fatalf("delivered %v", host.delivered)
+	}
+}
+
+func TestAProposedFolderMatchesThroughASymlink(t *testing.T) {
+	real := t.TempDir()
+	link := filepath.Join(t.TempDir(), "app")
+	if err := os.Symlink(real, link); err != nil {
+		t.Fatal(err)
+	}
+	resolved, _ := filepath.EvalSymlinks(real)
+	if !sameDir(resolved, link) || sameDir(resolved, t.TempDir()) {
+		t.Fatal("a folder and a link to it are the same place")
 	}
 }

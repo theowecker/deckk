@@ -123,7 +123,18 @@ func (w awaitingPrompt) matches(s claude.Session) bool {
 	if w.sessionID != "" {
 		return s.ID == w.sessionID && s.Running()
 	}
-	return s.Running() && filepath.Clean(s.Cwd) == filepath.Clean(w.dir) && !s.StartedAt.Before(w.after.Add(-5*time.Second))
+	return s.Running() && sameDir(s.Cwd, w.dir) && !s.StartedAt.Before(w.after.Add(-5*time.Second))
+}
+
+// sameDir compares folders as the file system sees them, since Claude may
+// report one with symlinks resolved, as macOS does for /tmp.
+func sameDir(a, b string) bool {
+	if filepath.Clean(a) == filepath.Clean(b) {
+		return true
+	}
+	ra, errA := filepath.EvalSymlinks(a)
+	rb, errB := filepath.EvalSymlinks(b)
+	return errA == nil && errB == nil && ra == rb
 }
 
 // filled drops a queued prompt once typed in. Its session stays taken, so

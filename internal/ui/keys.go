@@ -36,6 +36,9 @@ func (m Model) updateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.showAll = !m.showAll
 		m.rearrange()
 	case "v":
+		if m.view == boardView {
+			break
+		}
 		m.byProject = !m.byProject
 		m.offset = 0
 		m.rearrange()

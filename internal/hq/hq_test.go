@@ -195,3 +195,18 @@ func TestSetupPicksTheBriefStyleAndKeepsOtherSettings(t *testing.T) {
 		t.Fatalf("style %q", style[:40])
 	}
 }
+
+func TestBrokenSettingsDontKeepTheDeckkSessionClosed(t *testing.T) {
+	for _, broken := range []string{"", "null", "{ // a comment\n}"} {
+		t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+		if err := writeAtomic(filepath.Join(Dir(), ".claude", "settings.json"), []byte(broken)); err != nil {
+			t.Fatal(err)
+		}
+		if err := Setup("/bin/deckk"); err != nil {
+			t.Fatalf("settings %q: %v", broken, err)
+		}
+		if _, err := os.Stat(filepath.Join(Dir(), "hq-mcp.json")); err != nil {
+			t.Fatalf("settings %q: tool config missing", broken)
+		}
+	}
+}

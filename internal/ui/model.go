@@ -81,7 +81,6 @@ type Model struct {
 	clashes     map[string]map[string]bool
 	clashesSeen bool
 	web         Publisher
-	blurred     bool
 
 	lastClick  time.Time
 	lastClickY int
@@ -267,7 +266,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateMouse(msg)
 
 	case tea.BlurMsg:
-		m.pointer, m.blurred = "", true
+		m.pointer = ""
+		return m, m.checkFocus()
+
+	case focusCheckMsg:
+		m.deckk.pane, m.deckk.open = msg.pane, msg.open
 		return m, nil
 
 	case tea.FocusMsg:
