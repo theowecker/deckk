@@ -19,11 +19,15 @@ import (
 // in tmux/config.go, and band must match its status-format.
 const band = "#24243A"
 
-// tabInfo describes a hosted session: what it's doing and where on the left,
-// how Claude is set up and the pin button on the right. The setup drops its
-// last details until the band fits the width.
-func tabInfo(s claude.Session, now time.Time, pinned bool, width int) string {
-	left := " " + chip(s, now) + "  " + strings.Join(where(s), "   ")
+// tabInfo describes a hosted session: what it's doing, deckk's suggestion
+// and where on the left, how Claude is set up and the pin button on the
+// right. The setup drops its last details until the band fits the width.
+func tabInfo(s claude.Session, now time.Time, pinned bool, width int, suggestion string) string {
+	left := " " + chip(s, now) + "  "
+	if suggestion != "" {
+		left += styled("#E8875B", "✦ deckk suggests: "+clipText(suggestion, 70)) + "   "
+	}
+	left += strings.Join(where(s), "   ")
 	button := pinButton(pinned)
 	details := setup(s, now)
 	for {
@@ -32,7 +36,7 @@ func tabInfo(s claude.Session, now time.Time, pinned bool, width int) string {
 			right += "  "
 		}
 		right += button
-		if len(details) == 0 || bandWidth(left)+bandWidth(right)+2 <= width {
+		if len(details) == 0 || bandWidth(left)+bandWidth(right)+4 <= width {
 			return left + "#[align=right]" + right
 		}
 		details = details[:len(details)-1]

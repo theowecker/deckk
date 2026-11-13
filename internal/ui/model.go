@@ -29,6 +29,14 @@ type Host interface {
 	BringBack(windowID string) error
 	MoveAfter(windowID, afterID string) error
 	SetTabKeys(preset string) error
+
+	// The deckk session beside the dashboard.
+	OpenHQ(focus bool) error
+	CloseHQ() error
+	HQPane() (tmux.Pane, bool, error)
+	// Deliver types text into a pane's prompt if nothing is typed there yet,
+	// and reports whether it did.
+	Deliver(target, text string, send bool) (bool, error)
 }
 
 type Model struct {
@@ -67,6 +75,7 @@ type Model struct {
 	trackedOnce bool
 	closing     map[string]bool
 	lastSeen    map[string]time.Time
+	deckk       deckkState
 
 	lastClick  time.Time
 	lastClickY int
@@ -91,6 +100,7 @@ func New(home string, since time.Time, st *store.Store, cfg *config.Config, host
 		home: home, since: since, store: st, cfg: cfg, host: host, filter: ti,
 		labels: map[string]tmux.Label{}, seen: map[string]bool{}, startedAt: time.Now(),
 		wasRunning: map[string]bool{}, closing: map[string]bool{}, lastSeen: map[string]time.Time{},
+		deckk: newDeckkState(),
 	}
 }
 
@@ -100,6 +110,7 @@ type loadedMsg struct {
 	err       error
 	scheduled bool
 	started   time.Time
+	deckk     deckkSnapshot
 }
 
 type labelsSetMsg map[string]tmux.Label
@@ -126,7 +137,7 @@ func (m Model) load(scheduled bool) tea.Cmd {
 			return loadedMsg{err: err, scheduled: scheduled, started: started}
 		}
 		windows, err := m.host.Windows()
-		return loadedMsg{sessions, windows, err, scheduled, started}
+		return loadedMsg{sessions, windows, err, scheduled, started, m.snapshot()}
 	}
 }
 
@@ -157,7 +168,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.flash, m.flashErr = "", false
 			}
 			m.loadedAt = msg.started
-			m.sessions = msg.sessions
+			m.sessions = m.takeDeckk(msg.sessions, msg.deckk)
 			m.store.ApplyNames(m.sessions)
 			m.windows, m.popped = byTTY(msg.windows)
 			m.tabs = msg.windows
@@ -165,8 +176,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.trackWorkspace()
 			m.trackClosed()
 			m.trackSeen()
+			events := m.trackEvents()
 			m.rearrange()
-			cmd = m.syncLabels()
+			cmd = tea.Batch(m.syncLabels(), m.recordEvents(events), m.nudge(), m.prefill(), m.startDeckk())
 		}
 		if msg.scheduled {
 			return m, tea.Batch(cmd, tick())
@@ -188,6 +200,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Batch(spin(), m.syncLabels())
 		}
 		return m, spin()
+
+	case deckkStartedMsg:
+		m.deckkStarted(msg)
+		return m, nil
+
+	case nudgedMsg:
+		m.nudged(msg)
+		return m, nil
+
+	case prefilledMsg:
+		m.donePrefill(msg)
+		return m, nil
 
 	case pinTabMsg:
 		cmd := m.pinTab(string(msg))
@@ -386,6 +410,9 @@ func (m *Model) rearrange() {
 			arrange = deck.ArrangeByProject
 		}
 		m.groups = arrange(m.inView(m.sessions), m.marks(), "", false)
+		if next, ok := m.nextUp(); ok {
+			m.groups = append([]deck.Group{next}, m.groups...)
+		}
 	}
 	if !m.showAll && m.view != findView {
 		for i := range m.groups {

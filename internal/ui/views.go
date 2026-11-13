@@ -12,6 +12,7 @@ import (
 
 	"github.com/theowecker/deckk/internal/claude"
 	"github.com/theowecker/deckk/internal/deck"
+	"github.com/theowecker/deckk/internal/hq"
 )
 
 type view int
@@ -58,7 +59,7 @@ func (m Model) findEverything() tea.Cmd {
 			return flashMsg{err: err}
 		}
 		m.store.ApplyNames(sessions)
-		return foundMsg(sessions)
+		return foundMsg(slices.DeleteFunc(sessions, func(s claude.Session) bool { return hq.Is(s.Cwd) }))
 	}
 }
 

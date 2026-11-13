@@ -179,13 +179,16 @@ func (m Model) hints() []hint {
 			pin = "unpin"
 		}
 		hints = append(hints, hint{"p", pin}, hint{"r", "rename"})
+		if _, ok := m.suggestion(s); ok {
+			hints = append([]hint{hints[0], {"d", "dismiss suggestion"}}, hints[1:]...)
+		}
 	}
 	view := "by project"
 	if m.byProject {
 		view = "by status"
 	}
 	// Least important last, since a narrow window cuts the end off.
-	return append(hints, hint{"n", "new"}, hint{"?", "all keys"}, hint{"q", "quit"}, hint{"s", "settings"}, hint{"/", "find"}, hint{"v", view})
+	return append(hints, hint{"n", "new"}, hint{"c", "ask deckk"}, hint{"?", "all keys"}, hint{"q", "quit"}, hint{"s", "settings"}, hint{"/", "find"}, hint{"v", view})
 }
 
 const hintSeparator = "   "
@@ -324,6 +327,16 @@ func (m Model) body() ([]string, []int) {
 		}
 		for _, s := range g.Sessions {
 			selected := index == m.cursor
+			if g.Section == deck.NextUp {
+				add(m.suggestionRow(s, selected, titles), index)
+				if selected {
+					for _, line := range m.preview(s) {
+						add(line, index)
+					}
+				}
+				index++
+				continue
+			}
 			add(m.row(s, selected, now, titles, projects), index)
 			if selected {
 				for _, line := range m.preview(s) {
@@ -414,6 +427,9 @@ func (m Model) row(s claude.Session, selected bool, now time.Time, titles, proje
 	if s.Running() && m.store.Pinned[s.ID] {
 		meta = append(meta, ghost.Render("◆"))
 	}
+	if _, ok := m.suggestion(s); ok {
+		meta = append(meta, accent.Render("✦"))
+	}
 	if metaRoom := room - used - 3; metaRoom > 3 {
 		info := strings.TrimRight(ansi.Truncate(strings.Join(meta, "  "), metaRoom, "…"), " ")
 		content += "   " + info
@@ -421,6 +437,29 @@ func (m Model) row(s claude.Session, selected bool, now time.Time, titles, proje
 	}
 	fill := strings.Repeat(" ", max(room-used, 0))
 	return bar + glyph + " " + content + fill + "  " + lipgloss.PlaceHorizontal(statusWidth, lipgloss.Right, status)
+}
+
+// suggestionRow is a Next up row: the session and the prompt deckk
+// suggests for it, which is already typed in once it says ready.
+func (m Model) suggestionRow(s claude.Session, selected bool, titles int) string {
+	sg, _ := m.suggestion(s)
+	bar, titleStyle := "  ", text
+	if selected {
+		bar, titleStyle = accent.Render("▌ "), bold
+	}
+	room := m.rowRoom()
+	titles = min(titles, room)
+	title := ansi.Truncate(rowTitle(s), titles, "…")
+	line := titleStyle.Render(title) + strings.Repeat(" ", titles-lipgloss.Width(title))
+	if promptRoom := room - titles - 3; promptRoom > 3 {
+		prompt := ansi.Truncate("› "+sg.Prompt, promptRoom, "…")
+		line += "   " + accent.Render(prompt) + strings.Repeat(" ", promptRoom-lipgloss.Width(prompt))
+	}
+	state := ghost.Render("suggested")
+	if m.prefilled(s, sg) {
+		state = accent.Render("ready")
+	}
+	return bar + accent.Render("✦") + " " + line + "  " + lipgloss.PlaceHorizontal(statusWidth, lipgloss.Right, state)
 }
 
 func (m Model) status(s claude.Session, now time.Time) (string, string) {
@@ -454,6 +493,9 @@ func (m Model) preview(s claude.Session) []string {
 	const indent = "    "
 	room := m.width - gutter*2 - len(indent)
 	var lines []string
+	if sg, ok := m.suggestion(s); ok && sg.Why != "" {
+		lines = append(lines, pad()+indent+accent.Render(ansi.Truncate("✦ "+sg.Why, room, "…")))
+	}
 	if s.LastPrompt != "" {
 		lines = append(lines, pad()+indent+preview.Render(ansi.Truncate("› "+s.LastPrompt, room, "…")))
 	}
@@ -524,6 +566,8 @@ func helpBody(frame int) ([]string, []int) {
 		{"ON THE DASHBOARD", [][2]string{
 			{"↵  or double-click", "switch to a session, jump to its tab, or resume it here"},
 			{"n", "start Claude in a folder, or type a new path to create one"},
+			{"c", "talk to the deckk session beside the list, or start it"},
+			{"d", "dismiss deckk's suggestion for a session"},
 			{"x", "close a session running in deckk. It stays resumable"},
 			{"o   O", "give this session, or every one, its own tab"},
 			{"m   M", "bring this session, or all of them, from other tabs into deckk"},

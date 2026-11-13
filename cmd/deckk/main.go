@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"text/tabwriter"
@@ -15,6 +16,8 @@ import (
 	"github.com/theowecker/deckk/internal/claude"
 	"github.com/theowecker/deckk/internal/config"
 	"github.com/theowecker/deckk/internal/deck"
+	"github.com/theowecker/deckk/internal/hq"
+	"github.com/theowecker/deckk/internal/mcp"
 	"github.com/theowecker/deckk/internal/store"
 	"github.com/theowecker/deckk/internal/terminal"
 	"github.com/theowecker/deckk/internal/tmux"
@@ -61,11 +64,14 @@ func run(args []string) error {
 
 	switch cmd {
 	case "":
-		return launch(*days, cfg.TabKeys)
+		return launch(*days, cfg)
 	case "dashboard":
 		return dashboard(*days, cfg, *program)
 	case "ls":
 		return list(*days)
+	case "mcp":
+		cwd, _ := os.Getwd()
+		return mcp.Serve(os.Stdin, os.Stdout, "deckk", version, hq.Tools(cwd))
 	case "stop":
 		return tmux.Kill()
 	case "version":
@@ -79,7 +85,7 @@ func run(args []string) error {
 	}
 }
 
-func launch(days int, tabKeys string) error {
+func launch(days int, cfg *config.Config) error {
 	tmuxPath, err := tmux.Path()
 	if err != nil {
 		return err
@@ -95,25 +101,25 @@ func launch(days int, tabKeys string) error {
 	app, _ := terminal.Current()
 	dashboardCmd := shellQuote(exe) + " dashboard --days " + strconv.Itoa(days) + " --terminal " + shellQuote(app.Program())
 
-	config, err := tmux.WriteConfig()
+	tmuxConf, err := tmux.WriteConfig()
 	if err != nil {
 		return err
 	}
 	if tmux.HasSession() {
-		if err := tmux.Reload(config); err != nil {
+		if err := tmux.Reload(tmuxConf); err != nil {
 			return err
 		}
 		if err := tmux.RestartDashboard(dashboardCmd); err != nil {
 			return err
 		}
-	} else if err := tmux.Start(config, dashboardCmd); err != nil {
+	} else if err := tmux.Start(tmuxConf, dashboardCmd); err != nil {
 		return err
 	}
 
-	if err := tmux.BindTabKeys(tabKeys); err != nil {
+	if err := tmux.BindTabKeys(cfg.TabKeys); err != nil {
 		return err
 	}
-	defer app.Setup(os.Stdout, tabKeys)()
+	defer app.Setup(os.Stdout, cfg.TabKeys)()
 	return tmux.Attach(tmuxPath)
 }
 
@@ -129,7 +135,7 @@ func dashboard(days int, cfg *config.Config, program string) error {
 	if err != nil {
 		return err
 	}
-	model := ui.New(claude.Home(), since(days), st, cfg, newHost(tmuxPath, program))
+	model := ui.New(claude.Home(), since(days), st, cfg, newHost(tmuxPath, program, cfg))
 	_, err = tea.NewProgram(model, tea.WithAltScreen(), tea.WithMouseAllMotion(), tea.WithReportFocus()).Run()
 	return err
 }
@@ -144,6 +150,7 @@ func list(days int) error {
 		return err
 	}
 	st.ApplyNames(sessions)
+	sessions = slices.DeleteFunc(sessions, func(s claude.Session) bool { return hq.Is(s.Cwd) })
 	marks := deck.Marks{Pinned: st.Pinned, Archived: st.Archived}
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	now := time.Now()

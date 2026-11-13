@@ -13,6 +13,7 @@ import (
 
 	"github.com/theowecker/deckk/internal/claude"
 	"github.com/theowecker/deckk/internal/deck"
+	"github.com/theowecker/deckk/internal/hq"
 	"github.com/theowecker/deckk/internal/terminal"
 	"github.com/theowecker/deckk/internal/tmux"
 )
@@ -48,7 +49,16 @@ func (m Model) resume(s claude.Session, focus bool) error {
 	if !isDir(s.Dir) {
 		return fmt.Errorf("can't resume %s: %s no longer exists", displayTitle(s), abbreviateHome(s.Dir))
 	}
-	return m.host.Open(s.Dir, tabName(displayTitle(s)), m.cfg.Claude("--resume", s.ID), focus)
+	return m.host.Open(s.Dir, tabName(displayTitle(s)), m.claude("--resume", s.ID), focus)
+}
+
+// claude is the command for a session deckk starts, with the tools to ask
+// the deckk session what's next when that is on.
+func (m Model) claude(args ...string) string {
+	if m.cfg.AskDeckk() {
+		args = append(args, hq.ChildArgs()...)
+	}
+	return m.cfg.Claude(args...)
 }
 
 func (m Model) newSession(dir string, create bool) tea.Cmd {
@@ -58,7 +68,7 @@ func (m Model) newSession(dir string, create bool) tea.Cmd {
 				return err
 			}
 		}
-		return m.host.Open(dir, tabName(filepath.Base(dir)), m.cfg.Claude(), true)
+		return m.host.Open(dir, tabName(filepath.Base(dir)), m.claude(), true)
 	}, ""))
 }
 
@@ -227,7 +237,7 @@ func (m Model) syncLabels() tea.Cmd {
 			byTTY[s.TTY] = s
 		}
 	}
-	strip, room := 0, m.width
+	strip, room := 0, m.stripWidth()
 	for _, w := range windows {
 		if w.Dashboard || w.PoppedOut() {
 			continue
@@ -258,7 +268,7 @@ func (m Model) syncLabels() tea.Cmd {
 			case compact && !w.PoppedOut():
 				name = strconv.Itoa(position)
 			}
-			label = tmux.Label{Name: name, Status: tabStatus(s), Reel: "◐", Info: tabInfo(s, now, pinned, m.width)}
+			label = tmux.Label{Name: name, Status: tabStatus(s), Reel: "◐", Info: tabInfo(s, now, pinned, m.stripWidth(), m.suggestionText(s))}
 			if m.unread(s) && !w.Active {
 				label.Status = "fresh"
 			}
@@ -281,6 +291,24 @@ func (m Model) syncLabels() tea.Cmd {
 		}
 		return labelsSetMsg(changed)
 	}
+}
+
+// The strip spans the whole window, which is wider than the dashboard once
+// the deckk session sits beside it.
+func (m Model) stripWidth() int {
+	for _, w := range m.tabs {
+		if w.Dashboard && w.Width > 0 {
+			return w.Width
+		}
+	}
+	return m.width
+}
+
+func (m Model) suggestionText(s claude.Session) string {
+	if sg, ok := m.suggestion(s); ok {
+		return sg.Prompt
+	}
+	return ""
 }
 
 func tabStatus(s claude.Session) string {

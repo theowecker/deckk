@@ -19,6 +19,10 @@ type Config struct {
 	Permission string `toml:"permission_mode"`
 	ExtraArgs  string `toml:"extra_args"`
 	TabKeys    string `toml:"tab_keys"`
+	HQ         string `toml:"deckk_session"`
+	Suggest    string `toml:"suggestions"`
+	Updates    string `toml:"updates"`
+	Ask        string `toml:"sessions_ask"`
 	Days       int    `toml:"days"`
 
 	path string
@@ -44,6 +48,28 @@ const (
 	TabKeysOff      = "off"
 )
 
+// The deckk session's settings. Empty is the default for each.
+const (
+	On  = ""
+	Off = "off"
+
+	SuggestPrefill = ""
+	SuggestSend    = "send"
+	SuggestList    = "list"
+)
+
+func (c *Config) HQOn() bool { return c.HQ != Off }
+
+// Prefill and Send say how far a suggestion may go on its own.
+func (c *Config) Prefill() bool { return c.HQOn() && c.Suggest != SuggestList }
+func (c *Config) Send() bool    { return c.HQOn() && c.Suggest == SuggestSend }
+
+func (c *Config) Nudge() bool { return c.HQOn() && c.Updates != Off }
+
+func (c *Config) AskDeckk() bool { return c.HQOn() && c.Ask != Off }
+
+var onOff = []string{On, Off}
+
 // Options are what the settings screen cycles through. An empty choice means
 // leave it to Claude's own settings. Modes that skip permission checks are
 // left out on purpose; extra_args can still set them.
@@ -61,6 +87,23 @@ var Options = []Option{
 			TabKeysOff:      "off",
 		},
 		field: func(c *Config) *string { return &c.TabKeys }},
+	{Key: "deckk_session", Label: "deckk session", Deckk: true, Choices: onOff,
+		Names: map[string]string{On: "on, beside the dashboard", Off: "off"},
+		field: func(c *Config) *string { return &c.HQ }},
+	{Key: "suggestions", Label: "Suggestions", Deckk: true,
+		Choices: []string{SuggestPrefill, SuggestSend, SuggestList},
+		Names: map[string]string{
+			SuggestPrefill: "typed into the prompt for you to send",
+			SuggestSend:    "sent on their own when deckk marks them safe",
+			SuggestList:    "only listed under Next up",
+		},
+		field: func(c *Config) *string { return &c.Suggest }},
+	{Key: "updates", Label: "Updates", Deckk: true, Choices: onOff,
+		Names: map[string]string{On: "tell the deckk session when sessions finish", Off: "off, it only acts when you ask"},
+		field: func(c *Config) *string { return &c.Updates }},
+	{Key: "sessions_ask", Label: "Asking deckk", Deckk: true, Choices: onOff,
+		Names: map[string]string{On: "sessions deckk starts can ask it what's next", Off: "off"},
+		field: func(c *Config) *string { return &c.Ask }},
 }
 
 func DefaultPath() string {

@@ -42,10 +42,13 @@ const (
 	Pinned
 	Recent
 	Archived
+	// NextUp lists sessions the deckk session has a suggestion for. The
+	// dashboard builds it, so Arrange never fills it.
+	NextUp
 )
 
 func (s Section) String() string {
-	return [...]string{"RUNNING", "IN OTHER TABS", "RECENTLY CLOSED", "PINNED", "RECENT", "ARCHIVED"}[s]
+	return [...]string{"RUNNING", "IN OTHER TABS", "RECENTLY CLOSED", "PINNED", "RECENT", "ARCHIVED", "NEXT UP"}[s]
 }
 
 const ClosedFor = 24 * time.Hour

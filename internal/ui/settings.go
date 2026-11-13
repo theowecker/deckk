@@ -29,16 +29,24 @@ func (m *Model) cycleSetting() tea.Cmd {
 		m.setFlash("", err)
 		return nil
 	}
-	if o.Key != "tab_keys" {
-		return nil
+	if effect, ok := settingEffects[o.Key]; ok {
+		return effect(m, m.cfg.Value(o))
 	}
-	preset := m.cfg.Value(o)
-	return func() tea.Msg {
-		if err := m.host.SetTabKeys(preset); err != nil {
-			return flashMsg{err: err}
+	return nil
+}
+
+// settingEffects apply a setting the moment it changes, for settings that
+// reach past the config file.
+var settingEffects = map[string]func(m *Model, value string) tea.Cmd{
+	"tab_keys": func(m *Model, preset string) tea.Cmd {
+		return m.do(func() error { return m.host.SetTabKeys(preset) }, "")
+	},
+	"deckk_session": func(m *Model, value string) tea.Cmd {
+		if value == config.Off {
+			return m.do(m.host.CloseHQ, "")
 		}
-		return nil
-	}
+		return m.do(func() error { return m.host.OpenHQ(false) }, "")
+	},
 }
 
 func (m Model) settingsBody() ([]string, []int) {
@@ -67,7 +75,7 @@ func (m Model) settingsBody() ([]string, []int) {
 		} else if v != "" {
 			value = accent.Render(v)
 		}
-		lines = append(lines, bar+label.Render(fmt.Sprintf("%-14s", o.Label))+value)
+		lines = append(lines, bar+label.Render(fmt.Sprintf("%-*s", labelWidth()+2, o.Label))+value)
 		owners = append(owners, i)
 	}
 	for _, note := range []string{
@@ -79,4 +87,12 @@ func (m Model) settingsBody() ([]string, []int) {
 		owners = append(owners, noOwner)
 	}
 	return lines, owners
+}
+
+func labelWidth() int {
+	widest := 0
+	for _, o := range config.Options {
+		widest = max(widest, len(o.Label))
+	}
+	return widest
 }

@@ -43,7 +43,14 @@ func (m Model) updateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.settings, m.offset = true, 0
 	case "enter":
 		if s, ok := m.selected(); ok {
-			return m, m.open(s)
+			cmd := m.openWithSuggestion(s)
+			return m, cmd
+		}
+	case "c":
+		return m, m.openDeckk()
+	case "d":
+		if s, ok := m.selected(); ok {
+			m.dismiss(s)
 		}
 	case "x":
 		if s, ok := m.selected(); ok {

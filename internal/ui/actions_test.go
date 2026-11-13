@@ -571,7 +571,7 @@ func TestPinButtonPinsAndShrinksTheTabYouAreOn(t *testing.T) {
 
 func TestBandDropsDetailsToFit(t *testing.T) {
 	s := claude.Session{Status: "busy", Cwd: "/tmp/x", Model: "claude-opus-5-5", Context: 120000, StartedAt: time.Now().Add(-time.Hour)}
-	wide, narrow := tabInfo(s, time.Now(), false, 200), tabInfo(s, time.Now(), false, 50)
+	wide, narrow := tabInfo(s, time.Now(), false, 200, ""), tabInfo(s, time.Now(), false, 50, "")
 	if !strings.Contains(wide, "up ") || strings.Contains(narrow, "up ") || !strings.Contains(narrow, " pin ") {
 		t.Fatalf("wide %q\nnarrow %q", wide, narrow)
 	}

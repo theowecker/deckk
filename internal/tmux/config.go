@@ -85,10 +85,11 @@ bind -n User0 { if -F "#{pane_in_mode}" ` + copyIfSelected + ` }
 bind -n DoubleClick1Pane ` + toApp(`select-pane -t = ; copy-mode -H ; send -X select-word`) + `
 bind -n TripleClick1Pane ` + toApp(`select-pane -t = ; copy-mode -H ; send -X select-line`) + `
 bind -n MouseDrag1Pane ` + toApp(`copy-mode -M`) + `
-# deckk is one pane per window, so the mouse never splits, moves or resizes.
+# Only the dashboard window splits, for the deckk session, so the mouse can
+# resize that split but never makes or moves panes.
 unbind -n C-MouseDrag1Pane
 unbind -n M-MouseDrag1Pane
-unbind -n MouseDrag1Border
+bind -n MouseDrag1Border resize-pane -M
 unbind -n M-MouseDown3Pane
 unbind -n MouseDown3StatusLeft
 unbind -n M-MouseDown3Status
@@ -194,7 +195,7 @@ func WriteConfig() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	path := filepath.Join(dir, "deckk", "tmux.conf")
+	path := filepath.Join(dir, "deckk", Socket+".conf")
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return "", err
 	}

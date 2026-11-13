@@ -2,6 +2,7 @@ package ui
 
 import (
 	"path/filepath"
+	"reflect"
 	"testing"
 	"time"
 
@@ -22,8 +23,15 @@ type fakeHost struct {
 	popped   []string
 	brought  []string
 	moved    []string
-	labels   map[string]tmux.Label
-	tabKeys  []string
+
+	hqOpened, hqClosed int
+	hqPane             tmux.Pane
+	delivered          []delivery
+	// typed stands in for text the user has typed into every prompt.
+	typed     string
+	overwrite bool
+	labels    map[string]tmux.Label
+	tabKeys   []string
 }
 
 func (h *fakeHost) PopOut(id string) error    { h.popped = append(h.popped, id); return nil }
@@ -35,6 +43,19 @@ func (h *fakeHost) MoveAfter(id, after string) error {
 }
 
 func (h *fakeHost) Focus(string) error { return nil }
+
+func (h *fakeHost) OpenHQ(focus bool) error { h.hqOpened++; return nil }
+func (h *fakeHost) CloseHQ() error          { h.hqClosed++; return nil }
+
+func (h *fakeHost) HQPane() (tmux.Pane, bool, error) { return h.hqPane, h.hqPane.ID != "", nil }
+
+func (h *fakeHost) Deliver(target, text string, send bool) (bool, error) {
+	if h.typed != "" && !h.overwrite {
+		return false, nil
+	}
+	h.delivered = append(h.delivered, delivery{target, text, send})
+	return true, nil
+}
 
 func (h *fakeHost) SetTabKeys(preset string) error {
 	h.tabKeys = append(h.tabKeys, preset)
@@ -71,6 +92,7 @@ func newTestModel(t *testing.T) (Model, *fakeHost) {
 func newTestModelWith(t *testing.T, prepare func(*store.Store)) (Model, *fakeHost) {
 	t.Helper()
 	t.Setenv("TMUX", "")
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	st, err := store.Open(filepath.Join(t.TempDir(), "state.json"))
 	if err != nil {
 		t.Fatal(err)
@@ -100,6 +122,7 @@ func newTestModelWith(t *testing.T, prepare func(*store.Store)) (Model, *fakeHos
 	if err != nil {
 		t.Fatal(err)
 	}
+	cfg.Ask = config.Off
 	var tm tea.Model = New("", time.Time{}, st, cfg, host)
 	tm, _ = tm.Update(tea.WindowSizeMsg{Width: 100, Height: 24})
 	tm, cmd := tm.Update(loadedMsg{sessions: sessions, windows: host.windows})
@@ -116,13 +139,14 @@ func run(cmd tea.Cmd) []tea.Msg {
 	go func() { done <- cmd() }()
 	select {
 	case msg := <-done:
-		batch, ok := msg.(tea.BatchMsg)
-		if !ok {
+		// tea.Sequence's message is unexported but is a slice of commands too.
+		v := reflect.ValueOf(msg)
+		if v.Kind() != reflect.Slice || v.Type().Elem() != reflect.TypeFor[tea.Cmd]() {
 			return []tea.Msg{msg}
 		}
 		var msgs []tea.Msg
-		for _, c := range batch {
-			msgs = append(msgs, run(c)...)
+		for i := range v.Len() {
+			msgs = append(msgs, run(v.Index(i).Interface().(tea.Cmd))...)
 		}
 		return msgs
 	case <-time.After(50 * time.Millisecond):
@@ -147,4 +171,9 @@ func indexOf(m Model, id string) int {
 func selectID(m Model, id string) Model {
 	m.move(indexOf(m, id) - m.cursor)
 	return m
+}
+
+type delivery struct {
+	target, text string
+	send         bool
 }

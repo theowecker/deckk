@@ -1,7 +1,11 @@
 package main
 
 import (
+	"os"
+
 	"github.com/theowecker/deckk/internal/claude"
+	"github.com/theowecker/deckk/internal/config"
+	"github.com/theowecker/deckk/internal/hq"
 	"github.com/theowecker/deckk/internal/terminal"
 	"github.com/theowecker/deckk/internal/tmux"
 )
@@ -10,11 +14,12 @@ type host struct {
 	tmux.Server
 	tmuxPath string
 	app      terminal.App
+	cfg      *config.Config
 }
 
-func newHost(tmuxPath, program string) host {
+func newHost(tmuxPath, program string, cfg *config.Config) host {
 	app, _ := terminal.Lookup(program)
-	return host{tmuxPath: tmuxPath, app: app}
+	return host{tmuxPath: tmuxPath, app: app, cfg: cfg}
 }
 
 func (host) Focus(tty string) error { return terminal.Focus(tty) }
@@ -52,4 +57,40 @@ func (host) SetTabKeys(preset string) error {
 		return err
 	}
 	return terminal.RefreshProfile(preset)
+}
+
+// OpenHQ starts the deckk session beside the dashboard, writing its role and
+// tool config first so an upgraded deckk always hands it the current ones.
+func (h host) OpenHQ(focus bool) error {
+	if err := openHQ(h.cfg); err != nil {
+		return err
+	}
+	if focus {
+		return tmux.OpenHQ(hq.Dir(), hq.Command(h.cfg), true)
+	}
+	return nil
+}
+
+func openHQ(cfg *config.Config) error {
+	exe, err := os.Executable()
+	if err != nil {
+		return err
+	}
+	if err := hq.Setup(exe); err != nil {
+		return err
+	}
+	return tmux.OpenHQ(hq.Dir(), hq.Command(cfg), false)
+}
+
+func (host) CloseHQ() error { return tmux.CloseHQ() }
+
+func (host) HQPane() (tmux.Pane, bool, error) { return tmux.HQ() }
+
+// Deliver types text into a pane's prompt, only while nothing is typed there.
+func (host) Deliver(target, text string, send bool) (bool, error) {
+	empty, err := tmux.PromptIsEmpty(target)
+	if err != nil || !empty {
+		return false, err
+	}
+	return true, tmux.Type(target, text, send)
 }

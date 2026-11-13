@@ -22,6 +22,10 @@ type Store struct {
 	Closed   map[string]time.Time `json:"closed"`
 	// Running survives a restart so sessions it kills can still be restored.
 	Running map[string]bool `json:"running"`
+	// Suggestions from the deckk session that were typed in or dismissed,
+	// by the time each suggestion was made, so neither happens twice.
+	Prefilled map[string]time.Time `json:"prefilled,omitempty"`
+	Dismissed map[string]time.Time `json:"dismissed,omitempty"`
 }
 
 func DefaultPath() string {
@@ -34,7 +38,8 @@ func DefaultPath() string {
 }
 
 func Open(path string) (*Store, error) {
-	s := &Store{path: path, Pinned: map[string]bool{}, Archived: map[string]bool{}, Open: map[string]bool{}, Names: map[string]string{}, Closed: map[string]time.Time{}, Running: map[string]bool{}}
+	s := &Store{path: path, Pinned: map[string]bool{}, Archived: map[string]bool{}, Open: map[string]bool{}, Names: map[string]string{}, Closed: map[string]time.Time{}, Running: map[string]bool{},
+		Prefilled: map[string]time.Time{}, Dismissed: map[string]time.Time{}}
 	data, err := os.ReadFile(path)
 	if errors.Is(err, fs.ErrNotExist) {
 		return s, nil
@@ -61,6 +66,12 @@ func Open(path string) (*Store, error) {
 	}
 	if s.Running == nil {
 		s.Running = map[string]bool{}
+	}
+	if s.Prefilled == nil {
+		s.Prefilled = map[string]time.Time{}
+	}
+	if s.Dismissed == nil {
+		s.Dismissed = map[string]time.Time{}
 	}
 	return s, nil
 }
@@ -127,6 +138,16 @@ func (s *Store) SetRunning(running map[string]bool) error {
 		return nil
 	}
 	s.Running = maps.Clone(running)
+	return s.save()
+}
+
+func (s *Store) MarkPrefilled(id string, at time.Time) error {
+	s.Prefilled[id] = at
+	return s.save()
+}
+
+func (s *Store) Dismiss(id string, at time.Time) error {
+	s.Dismissed[id] = at
 	return s.save()
 }
 

@@ -1,6 +1,7 @@
 package tmux
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"os"
@@ -12,10 +13,11 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-const (
-	Socket  = "deckk"
-	Session = "deckk"
-)
+const Session = "deckk"
+
+// Socket is the private tmux server's name. DECKK_SOCKET runs a second
+// deckk beside the real one, which development and tests rely on.
+var Socket = cmp.Or(os.Getenv("DECKK_SOCKET"), "deckk")
 
 var ErrMissing = errors.New("deckk needs tmux: brew install tmux")
 
@@ -29,6 +31,7 @@ type Window struct {
 	ClientTTY string
 	Active    bool
 	InMode    bool
+	Width     int
 }
 
 func (w Window) PoppedOut() bool { return w.Session != Session }
@@ -74,6 +77,9 @@ func Start(config, dashboard string) error {
 	if _, err := run("-f", config, "new-session", "-d", "-s", Session, dashboard); err != nil {
 		return err
 	}
+	if err := markPane("="+Session+":0.0", dashboardPane); err != nil {
+		return err
+	}
 	return markDashboard("=" + Session + ":0")
 }
 
@@ -82,21 +88,21 @@ func Reload(config string) error {
 	return err
 }
 
-// Restarting on every launch is what makes upgrades take effect.
+// Restarting on every launch is what makes upgrades take effect. Only the
+// dashboard pane restarts, so the deckk session beside it keeps running.
 func RestartDashboard(dashboard string) error {
-	windows, err := Windows()
-	if err != nil {
-		return err
-	}
-	for _, w := range windows {
-		if w.Dashboard {
-			_, err := run("respawn-window", "-k", "-t", w.ID, dashboard)
-			_ = leaveModes(w.ID)
+	if pane, found, err := findPane(dashboardPane); err == nil && found {
+		if _, err := run("respawn-pane", "-k", "-t", pane.ID, dashboard); err != nil {
 			return err
 		}
+		_ = leaveModes(pane.ID)
+		return markPane(pane.ID, dashboardPane)
 	}
 	id, err := run("new-window", "-d", "-b", "-P", "-F", "#{window_id}", "-t", "="+Session+":{start}", dashboard)
 	if err != nil {
+		return err
+	}
+	if err := markPane(id, dashboardPane); err != nil {
 		return err
 	}
 	return markDashboard(id)
@@ -108,7 +114,7 @@ func markDashboard(target string) error {
 }
 
 func Windows() ([]Window, error) {
-	out, err := run("list-windows", "-a", "-F", "#{window_id}\t#{pane_tty}\t#{@deckk_dashboard}\t#{session_name}\t#{&&:#{window_active},#{session_attached}}\t#{pane_in_mode}")
+	out, err := run("list-windows", "-a", "-F", "#{window_id}\t#{pane_tty}\t#{@deckk_dashboard}\t#{session_name}\t#{&&:#{window_active},#{session_attached}}\t#{pane_in_mode}\t#{window_width}")
 	if err != nil {
 		return nil, err
 	}
@@ -123,13 +129,13 @@ func Windows() ([]Window, error) {
 	var windows []Window
 	for line := range strings.Lines(out) {
 		fields := strings.Split(strings.TrimRight(line, "\n"), "\t")
-		if len(fields) != 6 {
+		if len(fields) != 7 {
 			continue
 		}
 		windows = append(windows, Window{
 			ID: fields[0], TTY: fields[1], Dashboard: fields[2] == "1",
 			Session: fields[3], ClientTTY: clients[fields[3]], Active: fields[4] == "1",
-			InMode: fields[5] != "0",
+			InMode: fields[5] != "0", Width: atoi(fields[6]),
 		})
 	}
 	return windows, nil
@@ -254,16 +260,14 @@ type Server struct{}
 func (Server) Windows() ([]Window, error) {
 	windows, err := Windows()
 	_ = PlaceTabs()
-	for _, w := range windows {
-		if w.Dashboard && w.InMode {
-			_ = leaveModes(w.ID)
-		}
+	if pane, found, _ := findPane(dashboardPane); found && pane.InMode {
+		_ = leaveModes(pane.ID)
 	}
 	return windows, err
 }
 
-func leaveModes(windowID string) error {
-	_, err := run("copy-mode", "-q", "-t", windowID)
+func leaveModes(target string) error {
+	_, err := run("copy-mode", "-q", "-t", target)
 	return err
 }
 func (Server) Open(dir, name, command string, focus bool) error {
