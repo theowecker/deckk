@@ -32,6 +32,7 @@ type Live struct {
 
 func (l Live) applyTo(s *Session) {
 	s.PID = l.PID
+	s.Peer = l.Name
 	s.TTY = l.TTY
 	s.Status = l.Status
 	if l.Entrypoint != "" {

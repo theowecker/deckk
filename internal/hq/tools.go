@@ -301,6 +301,9 @@ func describe(s claude.Session, where map[string]string, now time.Time) string {
 	}
 	if s.Running() {
 		parts = append(parts, cmp.Or(where[s.TTY], "in another terminal tab"))
+		if s.Peer != "" {
+			parts = append(parts, "message it as "+s.Peer)
+		}
 	}
 	if s.PR != "" {
 		parts = append(parts, "PR "+s.PR)

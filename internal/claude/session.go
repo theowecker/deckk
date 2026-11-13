@@ -30,7 +30,9 @@ type Session struct {
 	UpdatedAt  time.Time
 	Background bool
 
-	PID       int
+	PID int
+	// Peer is the name other Claude sessions use to message this one.
+	Peer      string
 	TTY       string
 	Status    string
 	StatusAt  time.Time

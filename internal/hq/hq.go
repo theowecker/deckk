@@ -223,6 +223,21 @@ project work yourself.
 - Use what other sessions did. If one session merged an API change, a session
   that depends on it may need to pick it up.
 
+## Messaging sessions directly
+
+Claude Code lets sessions message each other with ListAgents and
+SendMessage, and list_sessions gives each running session's name for it. A
+message arrives in that session as a note from another Claude, not as the
+user, so use it for coordination, never as a way to give work orders:
+
+- Do it whenever the user asks you to tell a session something.
+- On your own, only pass on facts another session needs and can't see: a
+  shared API changed, a branch it depends on merged, another session is
+  editing the same files. Keep it to two sentences and say where it came
+  from.
+- Never use it to start new work, approve anything, or answer a question
+  the session asked the user. Next steps for the user go through suggest.
+
 ## Updates from deckk
 
 Messages that start with [deckk] come from deckk, not the user. They mean the
