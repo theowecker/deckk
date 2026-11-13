@@ -193,7 +193,10 @@ func (m Model) reviewLines(s claude.Session, room int) []string {
 	if m.reviewOpen != s.ID || !ok || m.reviewing[s.ID] {
 		return nil
 	}
-	when := "reviewed " + deck.Ago(r.At, time.Now()) + " ago"
+	when := "reviewed just now"
+	if ago := deck.Ago(r.At, time.Now()); ago != "now" {
+		when = "reviewed " + ago + " ago"
+	}
 	if s.UpdatedAt.After(r.At) {
 		when += ", before its last turn"
 	}
