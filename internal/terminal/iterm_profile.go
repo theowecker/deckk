@@ -54,6 +54,12 @@ func profileJSON(parent string, keys map[string]any, tabKeys string) ([]byte, er
 	// whether the event carried a key code.
 	keyMap["0x63-0x100000"] = copyKey
 	keyMap["0x63-0x100000-0x8"] = copyKey
+	findKey := map[string]any{"Action": 10, "Text": FindSequence[1:]}
+	keyMap["0x66-0x100000"] = findKey
+	keyMap["0x66-0x100000-0x3"] = findKey
+	nextKey := map[string]any{"Action": 10, "Text": FindNextSequence[1:]}
+	keyMap["0x67-0x100000"] = nextKey
+	keyMap["0x67-0x100000-0x5"] = nextKey
 	maps.Copy(keyMap, tabKeyMap(tabKeys))
 	profile := map[string]any{
 		"Name":                        profileName,

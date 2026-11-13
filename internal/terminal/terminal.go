@@ -19,6 +19,13 @@ const scriptTimeout = 15 * time.Second
 // tmux's parser and the tail leaks into the pane; nothing uses 1337.
 const CopySequence = "\x1b[1337~"
 
+// FindSequence and FindNextSequence are what Cmd+F and Cmd+G send, for tmux
+// to search the whole history; iTerm2's own find only sees the screen.
+const (
+	FindSequence     = "\x1b[1338~"
+	FindNextSequence = "\x1b[1339~"
+)
+
 var (
 	ErrNotFound    = errors.New("no terminal tab has that tty")
 	ErrUnsupported = errors.New("deckk can't open tabs in this terminal")

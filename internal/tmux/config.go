@@ -80,6 +80,10 @@ unbind C-b
 set -g copy-command "pbcopy"
 set -s user-keys[0] "` + strings.ReplaceAll(terminal.CopySequence, "\x1b", `\e`) + `"
 bind -n User0 { if -F "#{pane_in_mode}" ` + copyIfSelected + ` }
+set -s user-keys[1] "` + strings.ReplaceAll(terminal.FindSequence, "\x1b", `\e`) + `"
+set -s user-keys[2] "` + strings.ReplaceAll(terminal.FindNextSequence, "\x1b", `\e`) + `"
+bind -n User1 { if -F "#{==:#{@deckk_pane},dashboard}" { send-keys / } { copy-mode ; ` + findPrompt + ` } }
+bind -n User2 { if -F "#{pane_in_mode}" { send -X search-again } }
 bind -n MouseDown1Pane { ` + noteClick + ` ; select-pane -t = ; send -M }
 bind -n DoubleClick1Pane ` + sameClick(toApp(`select-pane -t = ; copy-mode -H ; send -X select-word`)) + `
 bind -n TripleClick1Pane ` + sameClick(toApp(`select-pane -t = ; copy-mode -H ; send -X select-line`)) + `
@@ -222,6 +226,9 @@ func copyModeBindings(table string) string {
 	bind("S-MouseDown1Pane", `{ select-pane ; if -F "#{selection_present}" { send -X clear-selection ; `+
 		outside("jump-to-mark", "begin-selection", "jump-to-mark", "stop-selection")+` } }`)
 	bind("C-c", `{ if -F "#{selection_present}" `+copied+` { send -X cancel ; send-keys C-c } }`)
+	bind("User0", copyIfSelected)
+	bind("User1", `{ `+findPrompt+` }`)
+	bind("User2", `{ send -X search-again }`)
 	bind("Escape", `{ send -X cancel }`)
 	// A paste arrives as a key no binding can name, so it reaches Any, as do
 	// mouse events nothing else claims; those have a position and are ignored.
@@ -297,3 +304,5 @@ const noteClick = `set -gF @deckk_click "#{pane_id}"`
 func sameClick(command string) string {
 	return `{ if -F "#{==:#{pane_id},#{@deckk_click}}" ` + command + ` }`
 }
+
+const findPrompt = `command-prompt -p "find" { send -X search-backward-text "%%" }`
