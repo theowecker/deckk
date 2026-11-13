@@ -350,13 +350,19 @@ func TestFinishingWhileAwayMarksASessionNew(t *testing.T) {
 
 func TestBulkMovesInBothDirections(t *testing.T) {
 	m, host := newTestModel(t)
-	_, cmd := press(m, "O")
+	once, cmd := press(m, "O")
+	run(cmd)
+	if len(host.popped) != 0 || !strings.Contains(once.flash, "Press O again") {
+		t.Fatalf("O should ask first, popped %v, flash %q", host.popped, once.flash)
+	}
+	_, cmd = press(once, "O")
 	run(cmd)
 	if !slices.Equal(host.popped, []string{"@1"}) {
-		t.Fatalf("O should pop out every strip session, popped %v", host.popped)
+		t.Fatalf("O twice should pop out every strip session, popped %v", host.popped)
 	}
 
-	_, cmd = press(m, "M")
+	once, _ = press(m, "M")
+	_, cmd = press(once, "M")
 	run(cmd)
 	if !slices.Equal(host.brought, []string{"@2"}) || !slices.Equal(host.released, []string{"/dev/ttys200"}) {
 		t.Fatalf("M should bring back popped and outside sessions, brought %v released %v", host.brought, host.released)
@@ -367,11 +373,17 @@ func TestSectionHeadersOfferBulkMoves(t *testing.T) {
 	m, host := newTestModel(t)
 	_, owners := m.body()
 	y := slices.Index(owners, moveInOwner) + headerLines - m.offset
-	tm, cmd := m.Update(tea.MouseMsg{X: 4, Y: y, Action: tea.MouseActionPress, Button: tea.MouseButtonLeft})
+	click := tea.MouseMsg{X: 4, Y: y, Action: tea.MouseActionPress, Button: tea.MouseButtonLeft}
+	tm, cmd := m.Update(click)
+	run(cmd)
+	if len(host.brought) != 0 {
+		t.Fatal("one click should only ask")
+	}
+	tm, cmd = tm.Update(click)
 	_ = tm
 	run(cmd)
 	if len(host.brought) != 1 {
-		t.Fatalf("clicking the header should move everything in, brought %v", host.brought)
+		t.Fatalf("clicking the header twice should move everything in, brought %v", host.brought)
 	}
 }
 
@@ -581,5 +593,21 @@ func TestBandDropsDetailsToFit(t *testing.T) {
 	}
 	if bandWidth(narrow) > 50 {
 		t.Fatalf("narrow band is %d wide", bandWidth(narrow))
+	}
+}
+
+func TestTypingIntoTheListDoesntTriggerShortcuts(t *testing.T) {
+	m, host := newTestModel(t)
+	m.typingGap = typingGap
+	for _, key := range []string{"O", "o", "x"} {
+		m, _ = press(m, key)
+	}
+	if len(host.popped) != 0 || len(host.closed) != 0 || !strings.Contains(m.flash, "Looks like you're typing") {
+		t.Fatalf("popped %v closed %v flash %q", host.popped, host.closed, m.flash)
+	}
+	m.lastLetter = time.Now().Add(-time.Second)
+	m, _ = press(m, "j")
+	if strings.Contains(m.flash, "typing") {
+		t.Fatal("a key on its own is a shortcut again")
 	}
 }

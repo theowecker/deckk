@@ -2,6 +2,7 @@ package ui
 
 import (
 	"strings"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -9,6 +10,10 @@ import (
 func (m Model) updateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	m.flash = ""
 	key := msg.String()
+	if m.typing(msg) {
+		m.setFlash(typingHint(m.deckk.open), nil)
+		return m, nil
+	}
 	confirm := m.confirm
 	m.confirm = ""
 	if s, ok := m.selected(); ok && isProposal(s) && strings.Contains("xompra", key) && len(key) == 1 {
@@ -73,11 +78,13 @@ func (m Model) updateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m.adopt(s, confirm)
 		}
 	case "M":
-		return m, m.adoptAll()
+		cmd := m.confirmAdoptAll(confirm)
+		return m, cmd
 	case "1", "2", "3", "4", "5", "6", "7", "8", "9":
 		return m, m.switchToTab(int(key[0] - '0'))
 	case "O":
-		return m, m.popAll()
+		cmd := m.confirmPopAll(confirm)
+		return m, cmd
 	case "o":
 		if s, ok := m.selected(); ok {
 			return m, m.popOut(s)
@@ -118,4 +125,26 @@ func keyMsg(key string) tea.KeyMsg {
 		return tea.KeyMsg{Type: tea.KeyDown}
 	}
 	return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(key)}
+}
+
+// Shortcuts are single keys pressed one at a time. Letters arriving faster
+// than this are someone typing, most likely meant for the deckk session.
+const typingGap = 150 * time.Millisecond
+
+// typing reports a letter that follows another too closely to be a shortcut.
+func (m *Model) typing(msg tea.KeyMsg) bool {
+	if msg.Type != tea.KeyRunes || msg.Alt || len(msg.Runes) != 1 || m.typingGap == 0 {
+		return false
+	}
+	now := time.Now()
+	burst := now.Sub(m.lastLetter) < m.typingGap
+	m.lastLetter = now
+	return burst
+}
+
+func typingHint(deckkOpen bool) string {
+	if deckkOpen {
+		return "Looks like you're typing. Shortcuts are paused; press c to talk to the deckk session"
+	}
+	return "Looks like you're typing. Shortcuts are single keys, so these were ignored"
 }

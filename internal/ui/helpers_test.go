@@ -131,7 +131,10 @@ func newTestModelWith(t *testing.T, prepare func(*store.Store)) (Model, *fakeHos
 		t.Fatal(err)
 	}
 	cfg.Ask = config.Off
-	var tm tea.Model = New("", time.Time{}, st, cfg, host)
+	m := New("", time.Time{}, st, cfg, host)
+	// Tests press keys far faster than anyone types.
+	m.typingGap = 0
+	var tm tea.Model = m
 	tm, _ = tm.Update(tea.WindowSizeMsg{Width: 100, Height: 24})
 	tm, cmd := tm.Update(loadedMsg{sessions: sessions, windows: host.windows})
 	run(cmd)

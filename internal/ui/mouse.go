@@ -60,9 +60,11 @@ func (m Model) updateMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 		case restoreOwner:
 			return m, m.restoreWorkspace()
 		case popAllOwner:
-			return m, m.popAll()
+			cmd := m.confirmPopAll(m.confirm)
+			return m, cmd
 		case moveInOwner:
-			return m, m.adoptAll()
+			cmd := m.confirmAdoptAll(m.confirm)
+			return m, cmd
 		case moreOwner:
 			return m.updateList(keyMsg("+"))
 		}

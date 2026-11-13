@@ -356,3 +356,52 @@ func tabFit(width, tabs int) (int, bool) {
 	fit := min(per-7, maxTabName)
 	return max(fit, 1), fit < 6
 }
+
+// confirmed runs a move that touches every session only on its second press,
+// since one stray key or click would otherwise rearrange all the tabs. The
+// first press says what will happen.
+func (m *Model) confirmed(key, last string, sessions int, what string, run func() tea.Cmd) tea.Cmd {
+	if sessions == 0 || last == key {
+		m.confirm = ""
+		return run()
+	}
+	m.confirm = key
+	m.setFlash(fmt.Sprintf("Press %s again to %s", key, strings.ReplaceAll(what, "%s", sessionsWord(sessions))), nil)
+	return nil
+}
+
+func sessionsWord(n int) string {
+	if n == 1 {
+		return "the 1 session"
+	}
+	return fmt.Sprintf("all %d sessions", n)
+}
+
+// popAllCount and adoptAllCount are how many sessions O and M would move.
+func (m Model) popAllCount() int {
+	n := 0
+	for _, s := range m.sessions {
+		if _, ok := m.window(s); ok {
+			n++
+		}
+	}
+	return n
+}
+
+func (m Model) adoptAllCount() int {
+	n := 0
+	for _, s := range m.sessions {
+		if _, popped := m.poppedOut(s); popped || m.elsewhere(s) {
+			n++
+		}
+	}
+	return n
+}
+
+func (m *Model) confirmPopAll(last string) tea.Cmd {
+	return m.confirmed("O", last, m.popAllCount(), "give %s their own tab", m.popAll)
+}
+
+func (m *Model) confirmAdoptAll(last string) tea.Cmd {
+	return m.confirmed("M", last, m.adoptAllCount(), "bring %s into deckk", m.adoptAll)
+}

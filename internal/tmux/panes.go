@@ -164,7 +164,7 @@ func titlePanes(window string) error {
 		// default, which reads as a glitch; the title line marks focus.
 		"set-option", "-w", "-t", window, "pane-border-indicators", "off", ";",
 		"set-option", "-w", "-t", window, "pane-border-style", "fg=#3A3A52", ";",
-		"set-option", "-w", "-t", window, "pane-active-border-style", "fg=#E8875B", ";",
+		"set-option", "-w", "-t", window, "pane-active-border-style", "fg=#3A3A52", ";",
 		"set-option", "-w", "-t", window, "pane-border-format", paneTitle, ";",
 		// The side without focus fades to grey. Only default-coloured text
 		// changes, so it works on light and dark terminals alike.

@@ -43,6 +43,10 @@ place.
 | `x` | close a session (it stays resumable) |
 | `o` / `O` | give one session, or all of them, its own iTerm2 tab |
 | `m` / `M` | bring one session, or all of them, back into deckk |
+
+`O` and `M` move every session, so they ask first: press them again to go
+ahead. Letters typed in a quick run never count as shortcuts, so a sentence
+meant for the deckk session can't rearrange your tabs.
 | `R` | reopen everything that should be open |
 | `p` / `r` | pin or rename a session |
 | `/` | find any session, ever |

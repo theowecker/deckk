@@ -81,6 +81,8 @@ type Model struct {
 	clashes     map[string]map[string]bool
 	clashesSeen bool
 	web         Publisher
+	typingGap   time.Duration
+	lastLetter  time.Time
 
 	lastClick  time.Time
 	lastClickY int
@@ -105,7 +107,8 @@ func New(home string, since time.Time, st *store.Store, cfg *config.Config, host
 		home: home, since: since, store: st, cfg: cfg, host: host, filter: ti,
 		labels: map[string]tmux.Label{}, seen: map[string]bool{}, startedAt: time.Now(),
 		wasRunning: map[string]bool{}, closing: map[string]bool{}, lastSeen: map[string]time.Time{},
-		deckk: newDeckkState(), clashes: map[string]map[string]bool{},
+		typingGap: typingGap,
+		deckk:     newDeckkState(), clashes: map[string]map[string]bool{},
 	}
 }
 
