@@ -207,9 +207,11 @@ func WriteConfig() (string, error) {
 }
 
 // The dashboard never enters copy mode. It has no history to scroll, and a
-// click while it restarts would otherwise freeze it on a blank screen.
+// click while it restarts would otherwise freeze it on a blank screen. This
+// is the dashboard pane only: the deckk session beside it scrolls like any
+// session.
 func toApp(otherwise string) string {
-	return `{ if -F "#{||:#{pane_in_mode},#{mouse_any_flag},#{@deckk_dashboard}}" { send -M } { ` + otherwise + ` } }`
+	return `{ if -F "#{||:#{pane_in_mode},#{mouse_any_flag},#{==:#{@deckk_pane},dashboard}}" { send -M } { ` + otherwise + ` } }`
 }
 
 // Typing while text is selected leaves the selection and goes to the app, as

@@ -153,7 +153,8 @@ func OpenHQ(dir, command string, focus bool) error {
 }
 
 // titlePanes names both panes along their top edge, the focused one in clay,
-// since a thin divider alone doesn't show which side has the keyboard. Only
+// and fades the other, since tmux can't frame a pane and a divider alone
+// doesn't show which side has the keyboard. Only
 // the dashboard window gets this; session tabs stay one bare pane.
 func titlePanes(window string) error {
 	_, err := run(
@@ -161,7 +162,11 @@ func titlePanes(window string) error {
 		"set-option", "-w", "-t", window, "pane-border-lines", "heavy", ";",
 		"set-option", "-w", "-t", window, "pane-border-style", "fg=#3A3A52", ";",
 		"set-option", "-w", "-t", window, "pane-active-border-style", "fg=#E8875B", ";",
-		"set-option", "-w", "-t", window, "pane-border-format", paneTitle)
+		"set-option", "-w", "-t", window, "pane-border-format", paneTitle, ";",
+		// The side without focus fades to grey. Only default-coloured text
+		// changes, so it works on light and dark terminals alike.
+		"set-option", "-w", "-t", window, "window-style", "fg=#7A7A8C", ";",
+		"set-option", "-w", "-t", window, "window-active-style", "fg=terminal,bg=terminal")
 	return err
 }
 
@@ -170,7 +175,10 @@ func untitlePanes() error {
 	if err != nil {
 		return err
 	}
-	_, err = run("set-option", "-w", "-t", window, "pane-border-status", "off")
+	_, err = run(
+		"set-option", "-w", "-t", window, "pane-border-status", "off", ";",
+		"set-option", "-wu", "-t", window, "window-style", ";",
+		"set-option", "-wu", "-t", window, "window-active-style")
 	return err
 }
 
