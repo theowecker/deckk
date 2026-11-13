@@ -160,6 +160,9 @@ func titlePanes(window string) error {
 	_, err := run(
 		"set-option", "-w", "-t", window, "pane-border-status", "top", ";",
 		"set-option", "-w", "-t", window, "pane-border-lines", "heavy", ";",
+		// tmux colours only half of a divider shared by two panes by
+		// default, which reads as a glitch; the title line marks focus.
+		"set-option", "-w", "-t", window, "pane-border-indicators", "off", ";",
 		"set-option", "-w", "-t", window, "pane-border-style", "fg=#3A3A52", ";",
 		"set-option", "-w", "-t", window, "pane-active-border-style", "fg=#E8875B", ";",
 		"set-option", "-w", "-t", window, "pane-border-format", paneTitle, ";",

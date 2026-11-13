@@ -33,9 +33,6 @@ var (
 	preview = lipgloss.NewStyle().Foreground(muted).Italic(true)
 	reply   = lipgloss.NewStyle().Foreground(muted)
 	soft    = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "#3A3A3A", Dark: "#C4C4CC"})
-	// faded draws the whole dashboard while the deckk session beside it
-	// has the keyboard.
-	faded   = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "#A8A8B0", Dark: "#5E5E72"})
 	warn    = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "#B54708", Dark: "#E0AF68"})
 	heading = lipgloss.NewStyle().Foreground(muted).Bold(true)
 	rule    = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "#D6D6D6", Dark: "#3A3A52"})
@@ -76,7 +73,7 @@ func (m Model) View() string {
 	b.WriteString("\n\n")
 	b.WriteString(m.footer())
 	if m.faded() {
-		return faded.Render(ansi.Strip(b.String()))
+		return fade(b.String())
 	}
 	return b.String()
 }
