@@ -261,6 +261,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.MouseMsg:
+		if msg.Action == tea.MouseActionPress {
+			m.focused()
+		}
 		return m.updateMouse(msg)
 
 	case tea.BlurMsg:
@@ -268,7 +271,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.FocusMsg:
-		m.blurred = false
+		m.focused()
 		return m, nil
 	}
 	return m, nil

@@ -498,3 +498,17 @@ func clipText(s string, n int) string {
 	}
 	return string(r[:n-1]) + "…"
 }
+
+// faded is when the dashboard draws itself in grey: while the deckk session
+// beside it has the keyboard. Focus events say so at once, but terminals
+// don't always pass them on, so the pane tmux reports active at each
+// refresh counts too.
+func (m Model) faded() bool {
+	return m.deckk.open && (m.blurred || m.deckk.pane.Active)
+}
+
+// focused is the dashboard getting the keyboard back, by a focus event or a
+// click, ahead of the next refresh.
+func (m *Model) focused() {
+	m.blurred, m.deckk.pane.Active = false, false
+}

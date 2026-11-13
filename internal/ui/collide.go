@@ -56,16 +56,25 @@ func (m Model) clash(s claude.Session) (deck.Collision, bool) {
 	return deck.Collision{}, false
 }
 
-// collisionLines describe a session's collisions for its preview.
+// collisionLines describe a session's collisions for its preview: a line
+// per clash, and one line for every session sharing its checkout.
 func (m Model) collisionLines(s claude.Session) []string {
-	var lines []string
+	var lines, sharing []string
+	checkout := ""
 	for _, c := range deck.CollisionsOf(m.collisions, s.ID) {
 		other := displayTitle(c.Other(s.ID))
 		if c.Clash() {
 			lines = append(lines, "⚠ "+other+" also edited "+fileList(c.Files, 3))
 		} else {
-			lines = append(lines, "⇄ shares "+abbreviateHome(c.Checkout)+" with "+other)
+			sharing, checkout = append(sharing, other), c.Checkout
 		}
+	}
+	switch len(sharing) {
+	case 0:
+	case 1:
+		lines = append(lines, "⇄ shares "+abbreviateHome(checkout)+" with "+sharing[0])
+	default:
+		lines = append(lines, "⇄ shares "+abbreviateHome(checkout)+" with "+sessions(len(sharing))+": "+strings.Join(sharing, ", "))
 	}
 	return lines
 }

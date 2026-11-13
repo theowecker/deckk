@@ -75,7 +75,7 @@ func (m Model) View() string {
 
 	b.WriteString("\n\n")
 	b.WriteString(m.footer())
-	if m.blurred && m.deckk.open {
+	if m.faded() {
 		return faded.Render(ansi.Strip(b.String()))
 	}
 	return b.String()

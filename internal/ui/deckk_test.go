@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/theowecker/deckk/internal/claude"
@@ -437,5 +438,19 @@ func TestTheBoardGroupsSessionsByProjectUnderTheGoals(t *testing.T) {
 		if !strings.Contains(view, want) {
 			t.Fatalf("board is missing %q:\n%s", want, view)
 		}
+	}
+}
+
+func TestTheDashboardFadesWhileTheDeckkSessionHasTheKeyboard(t *testing.T) {
+	m, host := withDeckk(t)
+	m.startedAt = time.Time{}
+	host.hqPane.Active = true
+	m = refresh(t, m, host, nil)
+	if !m.faded() {
+		t.Fatal("an active deckk pane should fade the dashboard even without a focus event")
+	}
+	tm, _ := m.Update(tea.MouseMsg{Action: tea.MouseActionPress, Button: tea.MouseButtonLeft, X: 5, Y: 20})
+	if tm.(Model).faded() {
+		t.Fatal("a click on the dashboard brings it back at once")
 	}
 }
