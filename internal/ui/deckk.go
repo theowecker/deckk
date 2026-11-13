@@ -334,6 +334,9 @@ func (m Model) briefing() string {
 	if closed := len(deck.ToRestore(m.sessions, m.marks())); closed > 0 {
 		facts = append(facts, sessions(closed)+" closed since last time")
 	}
+	if n := len(m.left); n > 0 {
+		facts = append(facts, plural(n, "checkout")+" with work left behind: "+m.left[0].line(time.Now()))
+	}
 	switch clashes := len(m.clashBanner()); clashes {
 	case 0:
 	case 1:

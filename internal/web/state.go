@@ -20,6 +20,9 @@ type State struct {
 	Folders    []string  `json:"folders"`
 	// GoalList is each goal in the goals file with how its sessions stand.
 	GoalList []Goal `json:"goalList"`
+	// LeftBehind is work nobody has touched in days: uncommitted changes,
+	// unpushed commits or open PRs.
+	LeftBehind []Left `json:"leftBehind"`
 }
 
 type Deckk struct {
@@ -135,4 +138,12 @@ type Goal struct {
 	Title    string   `json:"title"`
 	Summary  string   `json:"summary"`
 	Sessions []string `json:"sessions,omitempty"`
+}
+
+type Left struct {
+	ID    string    `json:"id"`
+	Title string    `json:"title"`
+	Where string    `json:"where"`
+	Why   string    `json:"why"`
+	Since time.Time `json:"since"`
 }

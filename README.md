@@ -99,6 +99,10 @@ just type: keys go to Claude whether or not you've scrolled back.
   and shows it under the tab and on the session's row. Failing checks and
   requested changes notify you and reach the deckk session, which suggests
   the fix.
+- **Left behind.** A checkout nobody has worked in for three days that still
+  holds uncommitted changes, unpushed commits or an open PR is listed on the
+  Board and in the browser, with a way to resume its last session, and the
+  deckk session's briefing mentions it.
 - **Clashes.** When two running sessions edit the same files, deckk warns you
   above the list and on both tabs. Sessions that only share a folder get a
   quiet note in the preview.

@@ -83,6 +83,8 @@ type Model struct {
 	reviewQueue []string
 	reviewOpen  string
 	prSeen      map[string]github.PR
+	leftAt      time.Time
+	left        []leftBehind
 	lastSeen    map[string]time.Time
 	deckk       deckkState
 	collisions  []deck.Collision
@@ -231,7 +233,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			events := append(m.trackEvents(), m.trackPRs()...)
 			m.report(append(events, m.trackCollisions()...))
 			m.rearrange()
-			cmd = tea.Batch(m.syncLabels(), m.nudge(), m.prefill(), m.fillStarted(), m.startDeckk(), m.notify(events), m.autoReview(events))
+			cmd = tea.Batch(m.syncLabels(), m.nudge(), m.prefill(), m.fillStarted(), m.startDeckk(), m.notify(events), m.autoReview(events), m.findLeftBehind(time.Now()))
 			m.publish()
 		}
 		if msg.scheduled {
@@ -305,6 +307,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			delete(m.resuming, id)
 		}
 		m.setFlash("", msg.err)
+		return m, nil
+
+	case leftBehindMsg:
+		m.left = msg
+		m.publish()
 		return m, nil
 
 	case reviewDoneMsg:

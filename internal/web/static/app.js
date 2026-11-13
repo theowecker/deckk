@@ -851,6 +851,17 @@ function goalsBody(goals) {
     el("li", {}, el("strong", {}, g.title), el("span", { class: g.sessions ? "goal-sum" : "goal-sum none" }, g.summary))));
 }
 
+function renderLeft() {
+  const list = state.leftBehind || [];
+  $("left").hidden = list.length === 0;
+  const [shown, more] = firstFew("left", list, 4);
+  $("left").replaceChildren(el("h2", {}, "Left behind"),
+    el("ul", { class: "left-list" }, shown.map((l) => el("li", {},
+      el("div", {}, el("strong", {}, l.title), el("span", { class: "left-why" }, `${l.why} · ${l.where} · ${ago(l.since)} ago`)),
+      el("button", { class: "button quiet", "data-focus": `left:${l.id}`, onclick: () => act("open", { id: l.id }, "Resuming in deckk") }, "Resume")))),
+    ...(more ? [el("div", { class: "more-row" }, more)] : []));
+}
+
 function renderHomeGoals() {
   const list = state.goalList || [];
   $("home-goals").hidden = list.length === 0;
@@ -926,6 +937,7 @@ function render(force = false) {
   renderNow(s);
   renderToday(s.today || {});
   renderHomeGoals();
+  renderLeft();
   renderActivity(s.activity || []);
   renderNew(s);
   renderGrouping();

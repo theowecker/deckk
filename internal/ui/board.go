@@ -123,5 +123,18 @@ func (m Model) goalLines() []string {
 		line := "  " + text.Render(title) + strings.Repeat(" ", width-lipgloss.Width(title)) + "   " + dim.Render(m.summary(g))
 		lines = append(lines, pad()+ansi.Truncate(line, m.width-gutter*2, "…"))
 	}
-	return append(lines, "")
+	lines = append(lines, "")
+	if len(m.left) > 0 {
+		lines = append(lines, pad()+heading.Render("LEFT BEHIND")+" "+rule.Render(strings.Repeat("─", max(m.width-gutter*2-13, 2))))
+		now := time.Now()
+		for i, l := range m.left {
+			if i == shown {
+				lines = append(lines, pad()+ghost.Render(fmt.Sprintf("+ %d more, in the browser", len(m.left)-shown)))
+				break
+			}
+			lines = append(lines, pad()+"  "+warn.Render("◌ ")+dim.Render(ansi.Truncate(l.line(now), m.width-gutter*2-4, "…")))
+		}
+		lines = append(lines, "")
+	}
+	return lines
 }

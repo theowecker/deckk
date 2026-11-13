@@ -9,9 +9,9 @@ import (
 	"github.com/theowecker/deckk/internal/hq"
 )
 
-// PRs on sessions nobody has touched in a week are left alone, so a long
+// PRs on sessions nobody has touched in two weeks are left alone, so a long
 // history doesn't cost a GitHub call per refresh.
-const prsFor = 7 * 24 * time.Hour
+const prsFor = 14 * 24 * time.Hour
 
 func prURLs(sessions []claude.Session, now time.Time) []string {
 	var urls []string

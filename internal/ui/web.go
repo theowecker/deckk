@@ -335,6 +335,14 @@ func (m Model) webState() web.State {
 	}
 
 	st.Goals = m.deckk.goals
+	st.LeftBehind = []web.Left{}
+	for _, l := range m.left {
+		where := abbreviateHome(l.session.Cwd)
+		if l.git.Branch != "" && l.git.Branch != "HEAD" {
+			where += " ⎇ " + l.git.Branch
+		}
+		st.LeftBehind = append(st.LeftBehind, web.Left{ID: l.session.ID, Title: displayTitle(l.session), Where: where, Why: l.why, Since: l.session.UpdatedAt})
+	}
 	st.GoalList = []web.Goal{}
 	for _, g := range m.goals() {
 		goal := web.Goal{Title: g.title, Summary: m.summary(g)}
