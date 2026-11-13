@@ -67,6 +67,10 @@ func profileJSON(parent string, keys map[string]any, tabKeys string) ([]byte, er
 		"Unlimited Scrollback":           false,
 		"Scrollback Lines":               0,
 		"Scrollback in Alternate Screen": false,
+		// tmux redraws the strip many times a second, and running the
+		// parent profile's triggers on every redraw makes iTerm2 warn that
+		// they are slow.
+		"Enable Triggers in Interactive Apps": false,
 	}
 	return json.MarshalIndent(map[string]any{"Profiles": []any{profile}}, "", "  ")
 }
