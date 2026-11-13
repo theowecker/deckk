@@ -6,6 +6,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -87,7 +88,7 @@ func run(args []string) error {
 	case "mcp":
 		return mcp.Serve(os.Stdin, os.Stdout, "deckk", version, hq.Tools(*role))
 	case "stop":
-		return tmux.Kill()
+		return stop()
 	case "focus":
 		return focus(flags.Arg(0))
 	case "version":
@@ -375,4 +376,16 @@ func focus(id string) error {
 		return nil
 	}
 	return terminal.Focus(tty)
+}
+
+// Stopping closes every session on purpose, so none of them wait to reopen.
+func stop() error {
+	if err := tmux.Kill(); err != nil {
+		return err
+	}
+	st, err := store.Open(store.DefaultPath())
+	if err != nil {
+		return err
+	}
+	return st.SetOpen(nil, slices.Collect(maps.Keys(st.Open)))
 }
