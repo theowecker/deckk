@@ -177,3 +177,21 @@ func TestIsSeesThroughSymlinks(t *testing.T) {
 		t.Fatalf("Is %q", resolved)
 	}
 }
+
+func TestSetupPicksTheBriefStyleAndKeepsOtherSettings(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	settings := filepath.Join(Dir(), ".claude", "settings.json")
+	if err := writeAtomic(settings, []byte(`{"model":"sonnet"}`)); err != nil {
+		t.Fatal(err)
+	}
+	if err := Setup("/bin/deckk"); err != nil {
+		t.Fatal(err)
+	}
+	got := read(t, filepath.Join(".claude", "settings.json"))
+	if !strings.Contains(got, `"outputStyle": "deckk brief"`) || !strings.Contains(got, `"model": "sonnet"`) {
+		t.Fatalf("settings %s", got)
+	}
+	if style := read(t, filepath.Join(".claude", "output-styles", "deckk-brief.md")); !strings.HasPrefix(style, "---\nname: deckk brief\n") {
+		t.Fatalf("style %q", style[:40])
+	}
+}

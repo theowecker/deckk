@@ -5,6 +5,7 @@ package hq
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -52,6 +53,12 @@ func Setup(exe string) error {
 		if err := os.WriteFile(path("CLAUDE.md"), []byte(claudeMD), 0o644); err != nil {
 			return err
 		}
+	}
+	if err := writeAtomic(path(filepath.Join(".claude", "output-styles", "deckk-brief.md")), []byte(briefStyle)); err != nil {
+		return err
+	}
+	if err := useStyle(); err != nil {
+		return err
 	}
 	for role, name := range map[string]string{RoleHQ: hqConfig, RoleChild: childConfig} {
 		mcp, err := json.MarshalIndent(map[string]any{
@@ -107,6 +114,58 @@ func hasConversation() bool {
 	}
 	return false
 }
+
+// useStyle picks the brief output style in the deckk session's project
+// settings, keeping anything else the user set there.
+func useStyle() error {
+	settingsPath := path(filepath.Join(".claude", "settings.json"))
+	settings := map[string]any{}
+	if data, err := os.ReadFile(settingsPath); err == nil {
+		if err := json.Unmarshal(data, &settings); err != nil {
+			return fmt.Errorf("%s: %w", settingsPath, err)
+		}
+	} else if !errors.Is(err, fs.ErrNotExist) {
+		return err
+	}
+	if settings["outputStyle"] == briefStyleName {
+		return nil
+	}
+	settings["outputStyle"] = briefStyleName
+	data, err := json.MarshalIndent(settings, "", "  ")
+	if err != nil {
+		return err
+	}
+	return writeAtomic(settingsPath, data)
+}
+
+const briefStyleName = "deckk brief"
+
+// briefStyle makes every answer read like a brief from someone who has
+// looked at all the sessions, rather than a coding assistant's reply.
+var briefStyle = strings.TrimSpace(`
+---
+name: deckk brief
+description: Answers as a short executive brief about the user's sessions and goals.
+keep-coding-instructions: false
+---
+
+You brief a busy developer on their Claude Code sessions. Write every answer
+as a brief they can take in at a glance.
+
+- Open with one sentence that says what matters most right now.
+- Then, only for the ones that have something in them and in this order,
+  these headings on their own line in bold: **Needs you**, **In flight**,
+  **Blocked**, **Next**.
+- Under each heading, one line per session: its title in bold, then what is
+  happening and why it matters, in fifteen words or fewer.
+- Leave out preamble, sign-offs, tables and code. Offer more instead of
+  including it: end with "Ask about any of these for detail." only when
+  there is detail worth asking for.
+- Answers to [deckk] updates are three lines at most and skip the headings
+  unless something needs the user.
+- When the user asks for detail on one session, answer in plain short
+  paragraphs about that session alone.
+`) + "\n"
 
 const claudeMD = `@role.md
 
