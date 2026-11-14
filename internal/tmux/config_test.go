@@ -44,6 +44,7 @@ func TestConfigLoadsCleanly(t *testing.T) {
 		{"copy-mode", "Any", "send-keys -K"},
 		{"copy-mode", "S-MouseDown1Pane", "jump-to-mark"},
 		{"root", "DoubleClick1Pane", "@deckk_click"},
+		{"root", "C-S-Enter", "@deckk_dash"},
 	} {
 		out, err := tmux("list-keys", "-T", binding.table, binding.key)
 		if err != nil || !strings.Contains(out, binding.does) {

@@ -119,6 +119,7 @@ func waiting(s []claude.Session) {
 
 func TestASuggestionIsTypedIntoAWaitingSessionOnce(t *testing.T) {
 	m, host := newTestModel(t)
+	m.cfg.Suggest = config.SuggestPrefill
 	m.view = homeView
 	m = refresh(t, m, host, waiting)
 	suggestInside(t, hq.Suggestion{Prompt: "run the tests again", Why: "the API merged", At: time.Now(), Safe: true})
@@ -288,6 +289,7 @@ func TestAQuestionReachesTheDeckkSessionRightAway(t *testing.T) {
 
 func TestANewerSuggestionReplacesTheOneTypedIn(t *testing.T) {
 	m, host := newTestModel(t)
+	m.cfg.Suggest = config.SuggestPrefill
 	suggestInside(t, hq.Suggestion{Prompt: "run the tests", At: time.Now()})
 	m = refresh(t, m, host, waiting)
 	suggestInside(t, hq.Suggestion{Prompt: "open the PR", At: time.Now().Add(time.Second)})
@@ -327,6 +329,7 @@ func TestDismissingTakesTheSuggestionOutOfThePrompt(t *testing.T) {
 
 func TestEditedSuggestionsAreLeftAlone(t *testing.T) {
 	m, host := newTestModel(t)
+	m.cfg.Suggest = config.SuggestPrefill
 	suggestInside(t, hq.Suggestion{Prompt: "run the tests", At: time.Now()})
 	m = refresh(t, m, host, waiting)
 	host.prompts["/dev/ttys101"] = "run the tests and the linter"
@@ -339,6 +342,7 @@ func TestEditedSuggestionsAreLeftAlone(t *testing.T) {
 
 func TestAFailedDeliveryIsTriedAgain(t *testing.T) {
 	m, host := newTestModel(t)
+	m.cfg.Suggest = config.SuggestPrefill
 	suggestInside(t, hq.Suggestion{Prompt: "run the tests", At: time.Now()})
 	m.deckk.inflight["dddddddd"] = true
 	tm, _ := m.Update(deliveredMsg{delivery: delivery{key: "dddddddd"}, err: errors.New("pane gone")})
@@ -485,6 +489,7 @@ func TestATrustedSessionGetsSafeSuggestionsSent(t *testing.T) {
 		trusted, safe, send bool
 	}{{false, true, false}, {true, false, false}, {true, true, true}} {
 		m, host := newTestModel(t)
+		m.cfg.Suggest = config.SuggestPrefill
 		if c.trusted {
 			m = selectID(m, "dddddddd")
 			m, _ = press(m, "t")
@@ -494,5 +499,40 @@ func TestATrustedSessionGetsSafeSuggestionsSent(t *testing.T) {
 		if len(host.delivered) != 1 || host.delivered[0].send != c.send {
 			t.Errorf("trusted %v safe %v: delivered %v", c.trusted, c.safe, host.delivered)
 		}
+	}
+}
+
+func TestShownSuggestionsOnlyReachTrustedSessionsOnTheirOwn(t *testing.T) {
+	for _, trusted := range []bool{false, true} {
+		m, host := newTestModel(t)
+		if trusted {
+			m = selectID(m, "dddddddd")
+			m, _ = press(m, "t")
+		}
+		suggestInside(t, hq.Suggestion{Prompt: "commit it", At: time.Now(), Safe: true})
+		refresh(t, m, host, waiting)
+		if sent := len(host.delivered) == 1 && host.delivered[0].send; sent != trusted || !trusted && len(host.delivered) != 0 {
+			t.Errorf("trusted %v: delivered %v", trusted, host.delivered)
+		}
+	}
+}
+
+func TestAcceptingASuggestionTypesItInOnce(t *testing.T) {
+	m, host := newTestModel(t)
+	suggestInside(t, hq.Suggestion{Prompt: "run the tests", At: time.Now()})
+	m = refresh(t, m, host, waiting)
+	if len(host.delivered) != 0 {
+		t.Fatalf("a shown suggestion isn't typed until taken: %v", host.delivered)
+	}
+	s, _ := m.sessionByID("dddddddd")
+	for _, msg := range run(m.acceptSuggestion(s.TTY)) {
+		tm, _ := m.Update(msg)
+		m = tm.(Model)
+	}
+	if len(host.delivered) != 1 || host.delivered[0].text != "run the tests" || host.delivered[0].send {
+		t.Fatalf("delivered %v", host.delivered)
+	}
+	if _, ok := m.suggestion(s); ok {
+		t.Fatal("a taken suggestion is done")
 	}
 }

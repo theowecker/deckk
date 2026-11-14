@@ -282,6 +282,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.load(false)
 
 	case tea.KeyMsg:
+		if msg.Type == tea.KeyF9 {
+			return m, m.activeTab(func(tty string) tea.Msg { return acceptMsg(tty) })
+		}
 		if msg.Type == tea.KeyF10 {
 			return m, m.restoreWorkspace()
 		}
@@ -313,6 +316,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.setFlash("", msg.err)
 		return m, nil
+
+	case acceptMsg:
+		return m, m.acceptSuggestion(string(msg))
 
 	case leftBehindMsg:
 		m.left = msg

@@ -18,6 +18,10 @@ func pinnedName(s claude.Session) string {
 
 // Asks tmux rather than trusting m.tabs, which can be a refresh behind.
 func (m Model) currentTab() tea.Cmd {
+	return m.activeTab(func(tty string) tea.Msg { return pinTabMsg(tty) })
+}
+
+func (m Model) activeTab(msg func(tty string) tea.Msg) tea.Cmd {
 	return func() tea.Msg {
 		windows, err := m.host.Windows()
 		if err != nil {
@@ -25,7 +29,7 @@ func (m Model) currentTab() tea.Cmd {
 		}
 		for _, w := range windows {
 			if w.Session == tmux.Session && w.Active && !w.Dashboard {
-				return pinTabMsg(w.TTY)
+				return msg(w.TTY)
 			}
 		}
 		return nil

@@ -383,3 +383,9 @@ func SetRestore(n int) error {
 	_, err := run("set-option", "-g", "@deckk_restore", strconv.Itoa(n), ";", "set-option", "-g", "@deckk_restore_cap", strings.Repeat("▄", ansi.StringWidth(label)))
 	return err
 }
+
+// MarkDashboard records the dashboard's pane, so keys meant for it find it.
+func MarkDashboard(pane string) error {
+	_, err := run("set-option", "-g", "@deckk_dash", pane)
+	return err
+}

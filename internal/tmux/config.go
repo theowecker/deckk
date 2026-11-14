@@ -36,7 +36,7 @@ const copyIfSelected = `{ if -F "#{selection_present}" ` + copied + ` }`
 
 // F12 rather than n, so the picker opens even while the filter has focus.
 // F11 asks the dashboard to pin or unpin the tab you are on.
-const clickStatus = `{ if -F "#{==:#{mouse_status_range},restore}" { select-window -t :0 ; send-keys -t :0 F10 } { if -F "#{==:#{mouse_status_range},new}" { select-window -t :0 ; send-keys -t :0 F12 } { if -F "#{==:#{mouse_status_range},info}" ` + toggleInfo + ` { if -F "#{==:#{mouse_status_range},pin}" { send-keys -t :0 F11 } { select-window -t = } } } } }`
+var clickStatus = `{ if -F "#{==:#{mouse_status_range},suggest}" { ` + toDashboard("F9") + ` } { if -F "#{==:#{mouse_status_range},restore}" { select-window -t :0 ; ` + toDashboard("F10") + ` } { if -F "#{==:#{mouse_status_range},new}" { select-window -t :0 ; ` + toDashboard("F12") + ` } { if -F "#{==:#{mouse_status_range},info}" ` + toggleInfo + ` { if -F "#{==:#{mouse_status_range},pin}" { ` + toDashboard("F11") + ` } { select-window -t = } } } } } }`
 
 // Dropping a tab on another moves it to that spot. Drag events only report
 // the tab the drag began on, so this waits for the drag end, which reports
@@ -150,6 +150,8 @@ bind -n MouseDragEnd1Pane { if -F "#{@deckk_drag}" { set -gu @deckk_drag } { sen
 bind -n C-Space if -F "#{!=:#{session_name},deckk}" "" { if -F "#{@deckk_dashboard}" "last-window" "select-window -t :0" }
 # Outside the dashboard these reach the app.
 bind -n C-S-Up ` + otherPane("C-S-Up") + `
+# Ctrl+Shift+Enter takes deckk's suggestion for the tab you're on.
+bind -n C-S-Enter { ` + toDashboard("F9") + ` }
 bind -n C-S-Down ` + otherPane("C-S-Down") + `
 
 set-hook -g session-window-changed ` + resetPointer + `
@@ -348,3 +350,10 @@ var rightMenu = `display-menu -O -x M -y M ` +
 // The ↻ button shows while sessions wait to be reopened after deckk stopped,
 // and its caps are measured by SetRestore since its label carries the count.
 const restoreButton = `#{?@deckk_restore,#[range=user|restore]#[bg=#E8875B#,fg=#1E1E2E#,bold]  ↻ reopen #{@deckk_restore}  #[norange]#[default] ,}`
+
+// toDashboard sends a key to the dashboard pane, wherever focus is, by the
+// pane ID the dashboard records when it starts. Sending to window 0 would
+// reach the deckk session instead whenever it has focus there.
+func toDashboard(key string) string {
+	return `run -C "send-keys -t '#{@deckk_dash}' ` + key + `"`
+}

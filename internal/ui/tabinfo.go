@@ -48,7 +48,8 @@ func tabInfo(s claude.Session, now time.Time, b bandInfo) string {
 		left += styled("#8A8A9A", "✓ "+b.review) + "   "
 	}
 	if b.suggestion != "" {
-		left += styled("#E8875B", "✦ deckk suggests: "+clipText(b.suggestion, 70)) + "   "
+		left += "#[range=user|suggest]" + styled("#E8875B", "✦ deckk suggests: "+clipText(b.suggestion, 70)) +
+			styled("#8A8A9A", "  click or ⌃⇧↵") + "#[norange]   "
 	}
 	left += strings.Join(where(s), "   ")
 	button := pinButton(b.pinned)

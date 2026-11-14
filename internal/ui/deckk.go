@@ -174,7 +174,9 @@ type delivery struct {
 	send    bool
 	// at is when the suggestion was made, or for news, the newest event it
 	// covers.
-	at        time.Time
+	at time.Time
+	// accepted is the user taking deckk's suggestion, which is then done.
+	accepted  bool
 	questions []string
 }
 
@@ -241,6 +243,9 @@ func (m *Model) delivered(msg deliveredMsg) {
 			d.told[id] = true
 		}
 	case typed:
+		if msg.accepted {
+			m.mark(m.store.Dismiss(msg.key, msg.at))
+		}
 		if msg.replace != "" {
 			m.mark(m.store.ForgetPrefill(msg.key))
 			m.mark(m.store.Dismiss(msg.key, msg.at))
@@ -386,6 +391,9 @@ func (m Model) typedIn(s claude.Session) (store.Prefill, bool) {
 func (m *Model) prefill() tea.Cmd {
 	if !m.cfg.Prefill() {
 		return nil
+	}
+	if !m.cfg.TypeIn() {
+		return m.sendTrusted()
 	}
 	active := map[string]bool{}
 	for _, w := range m.tabs {
@@ -580,4 +588,41 @@ func firstLine(text string) string {
 		}
 	}
 	return ""
+}
+
+// sendTrusted sends safe suggestions to trusted sessions even when deckk
+// otherwise only shows its suggestions.
+func (m *Model) sendTrusted() tea.Cmd {
+	var cmds []tea.Cmd
+	for _, s := range m.sessions {
+		if _, hosted := m.window(s); hosted && m.store.Trusted[s.ID] {
+			if sg, ok := m.suggestion(s); ok && sg.Safe {
+				cmds = append(cmds, m.syncPrompt(s, true))
+			}
+		}
+	}
+	return tea.Batch(cmds...)
+}
+
+type acceptMsg string
+
+// acceptSuggestion types the suggestion for the tab on tty into its prompt,
+// the way Tab takes Claude's own suggestion.
+func (m *Model) acceptSuggestion(tty string) tea.Cmd {
+	for _, s := range m.sessions {
+		if !s.Running() || s.TTY != tty {
+			continue
+		}
+		sg, ok := m.suggestion(s)
+		if !ok {
+			m.setFlash("deckk has no suggestion for "+displayTitle(s), nil)
+			return nil
+		}
+		d := delivery{kind: typed, key: s.ID, target: s.TTY, text: sg.Prompt, at: sg.At, accepted: true}
+		if prev, ok := m.typedIn(s); ok {
+			d.replace = prev.Text
+		}
+		return m.deliver(d)
+	}
+	return nil
 }

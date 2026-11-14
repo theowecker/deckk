@@ -171,6 +171,9 @@ func dashboard(days int, cfg *config.Config, program string) error {
 	if err != nil {
 		return err
 	}
+	if err := tmux.MarkDashboard(os.Getenv("TMUX_PANE")); err != nil {
+		return err
+	}
 	model := ui.New(claude.Home(), since(days), st, cfg, newHost(tmuxPath, program))
 	// The page's actions reach the dashboard like key presses, once the
 	// program that takes them exists.

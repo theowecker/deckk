@@ -134,10 +134,10 @@ aren't using fades, so it's always clear where your typing goes.
 It also works on its own:
 
 - **Suggestions.** When a session finishes a turn and the next step is clear,
-  it suggests a prompt. deckk types the prompt into that session while you're
-  looking elsewhere, without sending it, so it's ready when you switch over.
-  Edit it, clear it or press Enter. Sessions with a suggestion are listed under
-  Next up and marked ✦.
+  it suggests a prompt. The suggestion shows under the session's tab, like
+  Claude's own grey suggestion: click it or press Ctrl+Shift+Enter and deckk
+  types it into the prompt for you to edit or send. Sessions with a
+  suggestion are listed under Next up and marked ✦.
 - **Proposals.** It can propose a new session in a folder with its first
   prompt, or picking a stopped session back up. Those wait under Next up too,
   and `↵` starts one with the prompt typed in.
@@ -249,7 +249,7 @@ default.
 | `days` | how far back the dashboard lists sessions |
 | `tab_keys` | empty for ⌘⇧← ⌘⇧→, `brackets` for ⌘⇧[ ⌘⇧], `pageup` for ⌃PgUp ⌃PgDn, or `off` |
 | `deckk_session` | `off` closes the deckk session; nothing is suggested, typed or sent for it |
-| `suggestions` | empty types them in for you to send, `send` also sends the ones it marks safe, `list` only lists them under Next up |
+| `suggestions` | empty shows them under the tab for you to take, `type` types them into the prompt, `send` also sends the ones it marks safe, `list` only lists them under Next up |
 | `updates` | `off` stops telling the deckk session about changes, so it only acts when you ask |
 | `sessions_ask` | `off` leaves the `ask_deckk` tools out of sessions deckk starts |
 | `web_view` | `off` stops the hub's server |

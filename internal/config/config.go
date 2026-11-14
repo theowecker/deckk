@@ -54,15 +54,21 @@ const (
 	On  = ""
 	Off = "off"
 
-	SuggestPrefill = ""
+	SuggestOffer   = ""
+	SuggestPrefill = "type"
 	SuggestSend    = "send"
 	SuggestList    = "list"
 )
 
 func (c *Config) HQOn() bool { return c.HQ != Off }
 
+// Prefill is whether a suggestion may be typed in when the user opens its
+// session; TypeIn whether deckk types suggestions in on its own.
 func (c *Config) Prefill() bool { return c.HQOn() && c.Suggest != SuggestList }
-func (c *Config) Send() bool    { return c.HQOn() && c.Suggest == SuggestSend }
+func (c *Config) TypeIn() bool {
+	return c.HQOn() && (c.Suggest == SuggestPrefill || c.Suggest == SuggestSend)
+}
+func (c *Config) Send() bool { return c.HQOn() && c.Suggest == SuggestSend }
 
 func (c *Config) Nudge() bool { return c.HQOn() && c.Updates != Off }
 
@@ -103,8 +109,9 @@ var Options = []Option{
 		Names: map[string]string{On: "on, beside the dashboard", Off: "off"},
 		field: func(c *Config) *string { return &c.HQ }},
 	{Key: "suggestions", Label: "Suggestions", Deckk: true,
-		Choices: []string{SuggestPrefill, SuggestSend, SuggestList},
+		Choices: []string{SuggestOffer, SuggestPrefill, SuggestSend, SuggestList},
 		Names: map[string]string{
+			SuggestOffer:   "shown under the tab; click or ⌃⇧↵ types it in",
 			SuggestPrefill: "typed into the prompt for you to send",
 			SuggestSend:    "sent on their own when deckk marks them safe",
 			SuggestList:    "only listed under Next up",

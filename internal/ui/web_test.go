@@ -23,6 +23,7 @@ func (p *fakePage) Close() error      { p.closed = true; return nil }
 
 func TestThePageShowsNextUpAndCanDismissIt(t *testing.T) {
 	m, host := newTestModel(t)
+	m.cfg.Suggest = config.SuggestPrefill
 	page := &fakePage{}
 	m = m.WithWeb(func() (Publisher, error) { return page, nil })
 	suggestInside(t, hq.Suggestion{Prompt: "run the tests", At: time.Now()})
@@ -168,6 +169,7 @@ func TestThePageStartsASessionWithItsFirstPrompt(t *testing.T) {
 
 func TestWritingFromThePageReplacesDeckksTypedSuggestion(t *testing.T) {
 	m, host := newTestModel(t)
+	m.cfg.Suggest = config.SuggestPrefill
 	suggestInside(t, hq.Suggestion{Prompt: "run the tests", At: time.Now()})
 	m = refresh(t, m, host, waiting)
 	m = refresh(t, m, host, waiting)
