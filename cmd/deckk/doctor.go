@@ -53,8 +53,10 @@ func doctor(out io.Writer, cfg *config.Config, cfgErr error) bool {
 	add(check{ok: ghAuthed, optional: true, good: "gh is signed in, so deckk can follow PRs", bad: "deckk can't read PR checks or reviews",
 		fixIt: "brew install gh, then gh auth login"})
 	_, notifierErr := exec.LookPath("terminal-notifier")
-	add(check{ok: notifierErr == nil, optional: true, good: "Clicking a notification opens its session",
-		bad: "Clicking a notification opens Script Editor", fixIt: "brew install terminal-notifier"})
+	if cfgErr == nil && cfg.NotifyOn() {
+		add(check{ok: notifierErr == nil, optional: true, good: "Notifications can open their session",
+			bad: "Notifications are on but terminal-notifier isn't installed, so none are sent", fixIt: "brew install terminal-notifier"})
+	}
 
 	if !tmux.Inside() {
 		app, ok := terminal.Current()

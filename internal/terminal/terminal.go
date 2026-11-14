@@ -140,23 +140,20 @@ type Notification struct {
 	OnClick string
 }
 
-// terminal-notifier can run a command on click; a notification from osascript
-// opens Script Editor instead, so it is only the fallback.
+// Only terminal-notifier can open the session when a notification is clicked;
+// one posted through osascript opens Script Editor, so without it there is no
+// notification at all.
 func (a App) Notify(n Notification) error {
-	if path, err := exec.LookPath("terminal-notifier"); err == nil {
-		args := []string{"-title", n.Title, "-subtitle", n.Subtitle, "-message", n.Body, "-group", n.Group}
-		if n.OnClick != "" {
-			args = append(args, "-execute", n.OnClick)
-		}
-		if a.bundle != "" {
-			args = append(args, "-activate", a.bundle)
-		}
-		return exec.Command(path, args...).Run()
+	path, err := exec.LookPath("terminal-notifier")
+	if err != nil {
+		return nil
 	}
-	// The text goes to AppleScript as arguments rather than inside the script,
-	// so quotes in it can't break out.
-	script := `on run argv
-	display notification (item 3 of argv) with title (item 1 of argv) subtitle (item 2 of argv)
-end run`
-	return exec.Command("osascript", "-e", script, n.Title, n.Subtitle, n.Body).Run()
+	args := []string{"-title", n.Title, "-subtitle", n.Subtitle, "-message", n.Body, "-group", n.Group}
+	if n.OnClick != "" {
+		args = append(args, "-execute", n.OnClick)
+	}
+	if a.bundle != "" {
+		args = append(args, "-activate", a.bundle)
+	}
+	return exec.Command(path, args...).Run()
 }

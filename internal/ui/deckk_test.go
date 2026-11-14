@@ -453,6 +453,7 @@ func TestTheDashboardFadesWhileTheDeckkSessionHasTheKeyboard(t *testing.T) {
 
 func TestAFinishedSessionYouArentWatchingNotifiesOnce(t *testing.T) {
 	m, host := newTestModel(t)
+	m.cfg.Notify = config.NotifyOn
 	finish := func(s []claude.Session) {
 		in := inside(s)
 		in.Status, in.StatusAt, in.LastReply = "idle", time.Now(), "The cart total is fixed."

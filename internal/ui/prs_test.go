@@ -4,12 +4,15 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/theowecker/deckk/internal/config"
+
 	"github.com/theowecker/deckk/internal/github"
 	"github.com/theowecker/deckk/internal/hq"
 )
 
 func TestPRChangesBecomeEventsAfterTheFirstLook(t *testing.T) {
 	m, host := newTestModel(t)
+	m.cfg.Notify = config.NotifyOn
 	i := indexOf(m, "eeeeeeee")
 	s := m.flat[i]
 	j := 0

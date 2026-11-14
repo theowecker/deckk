@@ -275,6 +275,7 @@ func TestEShowsTheWholeReviewThenRunsAFreshOne(t *testing.T) {
 
 func TestAReviewWithConcernsNotifiesUnlessYoureWatching(t *testing.T) {
 	m, host := newTestModel(t)
+	m.cfg.Notify = config.NotifyOn
 	elsewhere, _ := m.sessionByID("eeeeeeee")
 	flagged := hq.Review{At: time.Now(), Text: "- debug print left in"}
 	run(m.notifyReview(reviewDoneMsg{session: elsewhere, review: flagged}))
@@ -298,5 +299,15 @@ func TestManualReviewsNeverStartOnTheirOwn(t *testing.T) {
 	}
 	if cmd := m.autoReview([]hq.Event{{Session: s.ID, Kind: hq.Finished}, {Session: s.ID, Kind: hq.OpenedPR}}); cmd != nil || m.reviewing[s.ID] {
 		t.Fatal("manual means only when asked")
+	}
+}
+
+func TestNotificationsStayOffUnlessTurnedOn(t *testing.T) {
+	m, host := newTestModel(t)
+	elsewhere, _ := m.sessionByID("eeeeeeee")
+	run(m.notify([]hq.Event{{Session: elsewhere.ID, Kind: hq.Finished}}))
+	run(m.notifyReview(reviewDoneMsg{session: elsewhere, review: hq.Review{Text: "- concern"}}))
+	if len(host.notes) != 0 {
+		t.Fatalf("notifications are opt-in: %v", host.notes)
 	}
 }

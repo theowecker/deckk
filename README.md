@@ -87,8 +87,9 @@ just type: keys go to Claude whether or not you've scrolled back.
 
 - **Status.** Each session shows whether Claude is working or waiting on you,
   and for how long. A session that finished while you were elsewhere is marked
-  new until you open it, and macOS tells you, at most once a minute for each
-  session. Click the notification to go straight to that session.
+  new until you open it. With `notifications = "on"` and terminal-notifier
+  installed, macOS tells you too, at most once a minute for each session, and
+  clicking the notification goes straight to that session.
 - **Context.** The selected row shows your last prompt, Claude's latest reply
   and any pull request it opened. Under the tab strip, each tab shows how long
   it has been working or waiting, its folder, branch, uncommitted changes,
@@ -97,8 +98,8 @@ just type: keys go to Claude whether or not you've scrolled back.
 - **Pull requests.** For a session with a PR, deckk asks GitHub through `gh`
   whether its checks pass, changes were requested, it was approved or merged,
   and shows it under the tab and on the session's row. Failing checks and
-  requested changes notify you and reach the deckk session, which suggests
-  the fix.
+  requested changes reach the deckk session, which suggests the fix, and
+  notify you if notifications are on.
 - **Left behind.** A checkout nobody has worked in for three days that still
   holds uncommitted changes, unpushed commits or an open PR is listed on the
   Board and in the browser, with a way to resume its last session, and the
@@ -148,8 +149,8 @@ It also works on its own:
   small model reads what the session says it did and its branch's changes
   since main, and answers OK or lists what looks off. The result shows on the
   Board and the session list, under the session's tab, in the browser and in
-  the deckk session's inbox, and macOS tells you when a review of a session
-  you aren't watching finds something. By default a session is also reviewed
+  the deckk session's inbox, and with notifications on macOS tells you when a
+  review of a session you aren't watching finds something. By default a session is also reviewed
   on its own when it opens a PR or finishes a turn saying its work is done;
   `reviews = "manual"` keeps reviews to when you ask, and `reviews = "auto"`
   reviews after every turn that leaves changes. Unchanged work is never
@@ -250,7 +251,7 @@ default.
 | `updates` | `off` stops telling the deckk session about changes, so it only acts when you ask |
 | `sessions_ask` | `off` leaves the `ask_deckk` tools out of sessions deckk starts |
 | `web_view` | `off` stops the hub's server |
-| `notifications` | `off` stops the macOS notification when a session you aren't looking at starts waiting on you |
+| `notifications` | `on` sends a macOS notification when a session you aren't looking at needs you; it needs terminal-notifier |
 | `reviews` | empty reviews a session when it says its work is done or opens a PR, `manual` only when you ask, `auto` after every turn that leaves changes |
 
 The ⌘ keys for switching tabs take over iTerm2's own use of them, but only in

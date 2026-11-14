@@ -70,7 +70,11 @@ func (c *Config) AskDeckk() bool { return c.HQOn() && c.Ask != Off }
 
 func (c *Config) WebOn() bool { return c.Web != Off }
 
-func (c *Config) NotifyOn() bool { return c.Notify != Off }
+// Notifications are opt-in: they need terminal-notifier to open the session
+// when clicked.
+func (c *Config) NotifyOn() bool { return c.Notify == NotifyOn }
+
+const NotifyOn = "on"
 
 const (
 	ReviewManual = "manual"
@@ -112,8 +116,8 @@ var Options = []Option{
 	{Key: "sessions_ask", Label: "Asking deckk", Deckk: true, Choices: onOff,
 		Names: map[string]string{On: "sessions deckk starts can ask it what's next", Off: "off"},
 		field: func(c *Config) *string { return &c.Ask }},
-	{Key: "notifications", Label: "Notifications", Deckk: true, Choices: onOff,
-		Names: map[string]string{On: "when a session you aren't looking at waits on you", Off: "off"},
+	{Key: "notifications", Label: "Notifications", Deckk: true, Choices: []string{"", NotifyOn},
+		Names: map[string]string{"": "off", NotifyOn: "when a session you aren't looking at needs you (needs terminal-notifier)"},
 		field: func(c *Config) *string { return &c.Notify }},
 	{Key: "reviews", Label: "Reviews", Deckk: true, Choices: []string{"", ReviewManual, ReviewAuto},
 		Names: map[string]string{
