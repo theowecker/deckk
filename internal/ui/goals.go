@@ -77,7 +77,7 @@ func plural(n int, word string) string {
 	return fmt.Sprintf("%d %ss", n, word)
 }
 
-// goalNamed is the goal a session works toward, if it's still in goals.md.
+// goalOf is the goal a session works toward, if it's still in goals.md.
 func (m Model) goalOf(s claude.Session) string {
 	goal := m.deckk.links[s.ID]
 	for _, g := range hq.GoalsIn(m.deckk.goals) {

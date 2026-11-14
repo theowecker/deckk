@@ -272,3 +272,31 @@ func TestEShowsTheWholeReviewThenRunsAFreshOne(t *testing.T) {
 		t.Fatal("the second e should run a fresh review")
 	}
 }
+
+func TestAReviewWithConcernsNotifiesUnlessYoureWatching(t *testing.T) {
+	m, host := newTestModel(t)
+	elsewhere, _ := m.sessionByID("eeeeeeee")
+	flagged := hq.Review{At: time.Now(), Text: "- debug print left in"}
+	run(m.notifyReview(reviewDoneMsg{session: elsewhere, review: flagged}))
+	if len(host.notes) != 1 || !strings.Contains(host.notes[0], "review found concerns") || !strings.Contains(host.notes[0], "1 concern: debug print left in") {
+		t.Fatalf("notes %v", host.notes)
+	}
+	run(m.notifyReview(reviewDoneMsg{session: elsewhere, review: hq.Review{At: time.Now(), OK: true}}))
+	if len(host.notes) != 1 {
+		t.Fatalf("a clean review is no news: %v", host.notes)
+	}
+}
+
+func TestManualReviewsNeverStartOnTheirOwn(t *testing.T) {
+	m, _ := newTestModel(t)
+	m.cfg.Reviews = config.ReviewManual
+	s, _ := m.sessionByID("dddddddd")
+	for i := range m.sessions {
+		if m.sessions[i].ID == s.ID {
+			m.sessions[i].Git.Changed, m.sessions[i].LastReply = 3, "All tests pass. Ready to commit."
+		}
+	}
+	if cmd := m.autoReview([]hq.Event{{Session: s.ID, Kind: hq.Finished}, {Session: s.ID, Kind: hq.OpenedPR}}); cmd != nil || m.reviewing[s.ID] {
+		t.Fatal("manual means only when asked")
+	}
+}

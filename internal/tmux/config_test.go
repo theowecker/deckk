@@ -32,4 +32,22 @@ func TestConfigLoadsCleanly(t *testing.T) {
 	if out, err := tmux("source-file", conf); err != nil || out != "" {
 		t.Fatalf("config errors: %v\n%s", err, out)
 	}
+	for _, binding := range []struct{ table, key, does string }{
+		{"root", "C-S-f", "search-backward-text"},
+		{"root", "C-S-F", "search-backward-text"},
+		{"root", "C-S-g", "search-again"},
+		{"root", "C-S-G", "search-again"},
+		{"copy-mode", "C-S-f", "search-backward-text"},
+		{"copy-mode-vi", "C-S-g", "search-again"},
+		{"copy-mode", "C-S-Right", "send-keys -K"},
+		{"copy-mode", "C-Space", "send-keys -K"},
+		{"copy-mode", "Any", "send-keys -K"},
+		{"copy-mode", "S-MouseDown1Pane", "jump-to-mark"},
+		{"root", "DoubleClick1Pane", "@deckk_click"},
+	} {
+		out, err := tmux("list-keys", "-T", binding.table, binding.key)
+		if err != nil || !strings.Contains(out, binding.does) {
+			t.Errorf("%s %s should %s, got %q (%v)", binding.table, binding.key, binding.does, out, err)
+		}
+	}
 }
