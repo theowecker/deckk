@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -46,7 +47,9 @@ const (
 	gutter      = 2
 	statusWidth = 13
 	headerLines = 4
-	footerLines = 2
+	// deckk's line and the hints each with a blank line before them, then a
+	// blank line so the hints don't sit on the deckk session's pane below.
+	footerLines = 5
 )
 
 func (m Model) View() string {
@@ -70,10 +73,11 @@ func (m Model) View() string {
 	b.WriteString(strings.Join(visible, "\n"))
 	b.WriteString(strings.Repeat("\n", height-len(visible)))
 
-	b.WriteString("\n")
+	b.WriteString("\n\n")
 	b.WriteString(ansi.Truncate(m.deckkLine(), m.width-1, "…"))
-	b.WriteString("\n")
+	b.WriteString("\n\n")
 	b.WriteString(m.footer())
+	b.WriteString("\n")
 	if m.faded() {
 		return fade(b.String())
 	}
@@ -169,6 +173,9 @@ func (m Model) hints() []hint {
 	if m.byProject {
 		view = "by status"
 	}
+	if n := len(deck.ToRestore(m.sessions, m.marks())); n > 0 && m.view == sessionsView {
+		hints = append([]hint{{"R", "reopen " + strconv.Itoa(n)}}, hints...)
+	}
 	// Least important last, since a narrow window cuts the end off.
 	hints = append(hints, hint{"n", "new"})
 	if m.cfg.HQOn() {
@@ -239,7 +246,7 @@ func keyLabel(key string) string {
 }
 
 func (m Model) footerY() int {
-	return headerLines + m.bodyHeight() + 1
+	return headerLines + m.bodyHeight() + 3
 }
 
 func (m Model) bodyHeight() int {
@@ -286,10 +293,11 @@ func (m Model) body() ([]string, []int) {
 		lines = append(lines, line)
 		owners = append(owners, owner)
 	}
+	restore := len(deck.ToRestore(m.sessions, m.marks()))
 	if m.view == sessionsView {
-		if n := len(deck.ToRestore(m.sessions, m.marks())); n > 0 {
-			add(pad()+accent.Render("↻ ")+text.Render(sessions(n)+" to bring back")+
-				"   "+text.Render("R")+" "+ghost.Render("reopen all"), restoreOwner)
+		if restore > 0 {
+			add(pad()+brand.Render("↻ Reopen "+sessions(restore))+dim.Render(" that were open in deckk before it stopped")+
+				"   "+text.Render("R")+" "+ghost.Render("or click"), restoreOwner)
 			add("", noOwner)
 		}
 		if clashes := m.clashBanner(); len(clashes) > 0 {
@@ -302,7 +310,7 @@ func (m Model) body() ([]string, []int) {
 			add("", noOwner)
 		}
 		running := slices.ContainsFunc(m.groups, func(g deck.Group) bool { return g.Section == deck.Running })
-		if !m.byProject && !running {
+		if !m.byProject && !running && restore == 0 {
 			add(pad()+dim.Render("Nothing is open in deckk yet. Press n to start Claude in a folder, or ↵ on any session below to bring it here."), noOwner)
 			add("", noOwner)
 		}

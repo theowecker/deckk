@@ -33,6 +33,7 @@ type Host interface {
 	BringBack(windowID string) error
 	MoveAfter(windowID, afterID string) error
 	SetTabKeys(preset string) error
+	SetRestore(n int) error
 
 	OpenHQ(cfg config.Config, focus bool) error
 	CloseHQ() error
@@ -58,46 +59,47 @@ type Model struct {
 	loaded   bool
 	folders  []string
 
-	cursor      int
-	selectedID  string
-	offset      int
-	view        view
-	showAll     bool
-	everything  []claude.Session
-	mentioned   mentionedMsg
-	byProject   bool
-	filter      textinput.Model
-	picker      *picker
-	settings    bool
-	setting     int
-	renaming    *textinput.Model
-	renameID    string
-	help        bool
-	confirm     string
-	seen        map[string]bool
-	wasRunning  map[string]bool
-	trackedOnce bool
-	closing     map[string]bool
-	resuming    map[string]time.Time
-	reviewing   map[string]bool
-	reviewQueue []string
-	reviewOpen  string
-	prSeen      map[string]github.PR
-	leftAt      time.Time
-	left        []leftBehind
-	lastSeen    map[string]time.Time
-	deckk       deckkState
-	collisions  []deck.Collision
-	clashes     map[string]map[string]bool
-	clashesSeen bool
-	web         Publisher
-	notified    map[string]time.Time
-	flashSeq    int
-	webStart    WebStarter
-	typingGap   time.Duration
-	lastLetter  time.Time
-	lastRune    rune
-	inWord      bool
+	cursor       int
+	selectedID   string
+	offset       int
+	view         view
+	showAll      bool
+	everything   []claude.Session
+	mentioned    mentionedMsg
+	byProject    bool
+	filter       textinput.Model
+	picker       *picker
+	settings     bool
+	setting      int
+	renaming     *textinput.Model
+	renameID     string
+	help         bool
+	confirm      string
+	seen         map[string]bool
+	wasRunning   map[string]bool
+	trackedOnce  bool
+	closing      map[string]bool
+	resuming     map[string]time.Time
+	reviewing    map[string]bool
+	reviewQueue  []string
+	reviewOpen   string
+	prSeen       map[string]github.PR
+	leftAt       time.Time
+	restoreShown int
+	left         []leftBehind
+	lastSeen     map[string]time.Time
+	deckk        deckkState
+	collisions   []deck.Collision
+	clashes      map[string]map[string]bool
+	clashesSeen  bool
+	web          Publisher
+	notified     map[string]time.Time
+	flashSeq     int
+	webStart     WebStarter
+	typingGap    time.Duration
+	lastLetter   time.Time
+	lastRune     rune
+	inWord       bool
 
 	lastClick  time.Time
 	lastClickY int
@@ -123,7 +125,7 @@ func New(home string, since time.Time, st *store.Store, cfg *config.Config, host
 		home: home, since: since, store: st, cfg: cfg, host: host, filter: ti,
 		labels: map[string]tmux.Label{}, seen: map[string]bool{}, startedAt: time.Now(),
 		wasRunning: map[string]bool{}, closing: map[string]bool{}, resuming: map[string]time.Time{}, reviewing: map[string]bool{}, lastSeen: map[string]time.Time{},
-		typingGap: typingGap, notified: map[string]time.Time{},
+		typingGap: typingGap, notified: map[string]time.Time{}, restoreShown: -1,
 		deckk: newDeckkState(), clashes: map[string]map[string]bool{},
 	}
 }
@@ -233,7 +235,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			events := append(m.trackEvents(), m.trackPRs()...)
 			m.report(append(events, m.trackCollisions()...))
 			m.rearrange()
-			cmd = tea.Batch(m.syncLabels(), m.nudge(), m.prefill(), m.fillStarted(), m.startDeckk(), m.notify(events), m.autoReview(events), m.findLeftBehind(time.Now()))
+			cmd = tea.Batch(m.syncRestore(), m.syncLabels(), m.nudge(), m.prefill(), m.fillStarted(), m.startDeckk(), m.notify(events), m.autoReview(events), m.findLeftBehind(time.Now()))
 			m.publish()
 		}
 		if msg.scheduled {
@@ -280,6 +282,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.load(false)
 
 	case tea.KeyMsg:
+		if msg.Type == tea.KeyF10 {
+			return m, m.restoreWorkspace()
+		}
 		if msg.Type == tea.KeyF11 {
 			return m, m.currentTab()
 		}

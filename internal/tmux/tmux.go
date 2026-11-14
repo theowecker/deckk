@@ -372,3 +372,14 @@ func KillServer() error {
 	}
 	return errors.New("deckk's tmux server didn't stop")
 }
+
+// SetRestore shows the strip's reopen button for n sessions, or hides it.
+func SetRestore(n int) error {
+	if n == 0 {
+		_, err := run("set-option", "-gu", "@deckk_restore", ";", "set-option", "-gu", "@deckk_restore_cap")
+		return err
+	}
+	label := "  ↻ reopen " + strconv.Itoa(n) + "  "
+	_, err := run("set-option", "-g", "@deckk_restore", strconv.Itoa(n), ";", "set-option", "-g", "@deckk_restore_cap", strings.Repeat("▄", ansi.StringWidth(label)))
+	return err
+}

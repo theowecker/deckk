@@ -34,6 +34,7 @@ type fakeHost struct {
 	edits   map[string][]string
 	labels  map[string]tmux.Label
 	tabKeys []string
+	restore int
 }
 
 func (h *fakeHost) PopOut(id string) error    { h.popped = append(h.popped, id); return nil }
@@ -70,6 +71,8 @@ func (h *fakeHost) Deliver(target, text, replace string, send bool) (tmux.Delive
 	}
 	return tmux.Delivered, nil
 }
+
+func (h *fakeHost) SetRestore(n int) error { h.restore = n; return nil }
 
 func (h *fakeHost) SetTabKeys(preset string) error {
 	h.tabKeys = append(h.tabKeys, preset)

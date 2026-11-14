@@ -443,3 +443,18 @@ func (m *Model) confirmPopAll(last string) tea.Cmd {
 func (m *Model) confirmAdoptAll(last string) tea.Cmd {
 	return m.confirmed("M", last, m.adoptAllCount(), "bring %s into deckk", m.adoptAll)
 }
+
+// syncRestore keeps the strip's reopen button in step with the dashboard.
+func (m *Model) syncRestore() tea.Cmd {
+	n := len(deck.ToRestore(m.sessions, m.marks()))
+	if n == m.restoreShown {
+		return nil
+	}
+	m.restoreShown = n
+	return func() tea.Msg {
+		if err := m.host.SetRestore(n); err != nil {
+			return flashMsg{err: err}
+		}
+		return nil
+	}
+}

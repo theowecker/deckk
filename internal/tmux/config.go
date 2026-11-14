@@ -36,7 +36,7 @@ const copyIfSelected = `{ if -F "#{selection_present}" ` + copied + ` }`
 
 // F12 rather than n, so the picker opens even while the filter has focus.
 // F11 asks the dashboard to pin or unpin the tab you are on.
-const clickStatus = `{ if -F "#{==:#{mouse_status_range},new}" { select-window -t :0 ; send-keys -t :0 F12 } { if -F "#{==:#{mouse_status_range},info}" ` + toggleInfo + ` { if -F "#{==:#{mouse_status_range},pin}" { send-keys -t :0 F11 } { select-window -t = } } } }`
+const clickStatus = `{ if -F "#{==:#{mouse_status_range},restore}" { select-window -t :0 ; send-keys -t :0 F10 } { if -F "#{==:#{mouse_status_range},new}" { select-window -t :0 ; send-keys -t :0 F12 } { if -F "#{==:#{mouse_status_range},info}" ` + toggleInfo + ` { if -F "#{==:#{mouse_status_range},pin}" { send-keys -t :0 F11 } { select-window -t = } } } } }`
 
 // Dropping a tab on another moves it to that spot. Drag events only report
 // the tab the drag began on, so this waits for the drag end, which reports
@@ -128,7 +128,7 @@ set -g status-justify left
 set -g status-style "bg=default,fg=default"
 set -g status-left " "
 set -g status-left-length 2
-set -g status-right "` + infoButton + `#[range=user|new]#[bg=#30304A,fg=#E8875B,bold]  + new  #[norange]#[default] "
+set -g status-right "` + restoreButton + infoButton + `#[range=user|new]#[bg=#30304A,fg=#E8875B,bold]  + new  #[norange]#[default] "
 set -g status-right-length 60
 set -g window-status-separator " "
 set -g window-status-style "default"
@@ -169,7 +169,12 @@ func strip(tab, current, right string) string {
 }
 
 func buttonCaps(half string) string {
-	return "#[range=user|info]#[fg=#30304A]" + strings.Repeat(half, 5) + "#[norange default] " +
+	restore := "@deckk_restore_cap"
+	if half == "▀" {
+		restore = "s/▄/▀/:@deckk_restore_cap"
+	}
+	return "#{?@deckk_restore,#[range=user|restore]#[fg=#E8875B]#{" + restore + "}#[norange default] ,}" +
+		"#[range=user|info]#[fg=#30304A]" + strings.Repeat(half, 5) + "#[norange default] " +
 		"#[range=user|new]#[fg=#30304A]" + strings.Repeat(half, 9) + "#[norange default] "
 }
 
@@ -339,3 +344,7 @@ var rightMenu = `display-menu -O -x M -y M ` +
 	`Paste v { if -F "#{pane_in_mode}" { send -X cancel } ; run "pbpaste | ` + shellQuote(tmuxBin) + ` -S '#{socket_path}' load-buffer -b deckk-paste -" ; paste-buffer -p -d -b deckk-paste } ` +
 	`"Find…" f { copy-mode ; ` + findPrompt + ` } ` +
 	`"#{?pane_in_mode,,-}Scroll to bottom" b { send -X cancel }`
+
+// The ↻ button shows while sessions wait to be reopened after deckk stopped,
+// and its caps are measured by SetRestore since its label carries the count.
+const restoreButton = `#{?@deckk_restore,#[range=user|restore]#[bg=#E8875B#,fg=#1E1E2E#,bold]  ↻ reopen #{@deckk_restore}  #[norange]#[default] ,}`
