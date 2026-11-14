@@ -55,6 +55,8 @@ func (host) MoveAfter(windowID, afterID string) error { return tmux.MoveAfter(wi
 
 func (host) SetRestore(n int) error { return tmux.SetRestore(n) }
 
+func (host) LayoutHQ(show, expanded bool) error { return tmux.LayoutHQ(show, expanded) }
+
 func (host) SetTabKeys(preset string) error {
 	if err := tmux.BindTabKeys(preset); err != nil {
 		return err

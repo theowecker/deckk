@@ -190,3 +190,50 @@ func CloseHQ() error {
 	_, err = run("kill-pane", "-t", pane.ID)
 	return err
 }
+
+// The deckk session's share of the dashboard window, small while the list
+// has the keyboard and larger while the user works in it.
+const (
+	hqShare    = "33%"
+	hqExpanded = "62%"
+)
+
+// LayoutHQ shows the deckk session beside the dashboard, or zooms the
+// dashboard over it so it runs out of sight, and sizes it for whether it
+// has the keyboard.
+func LayoutHQ(show, expanded bool) error {
+	hq, open, err := HQ()
+	if err != nil || !open {
+		return err
+	}
+	dash, found, err := findPane(dashboardPane)
+	if err != nil || !found {
+		return err
+	}
+	zoomed, err := run("display-message", "-p", "-t", dash.ID, "#{window_zoomed_flag}")
+	if err != nil {
+		return err
+	}
+	if show == (zoomed == "1") {
+		if _, err := run("resize-pane", "-Z", "-t", dash.ID); err != nil {
+			return err
+		}
+	}
+	if !show {
+		return nil
+	}
+	tops, err := run("display-message", "-p", "-t", hq.ID, "#{pane_top}", ";", "display-message", "-p", "-t", dash.ID, "#{pane_top}")
+	if err != nil {
+		return err
+	}
+	axis := "-y"
+	if first, second, _ := strings.Cut(tops, "\n"); first == second {
+		axis = "-x"
+	}
+	size := hqShare
+	if expanded {
+		size = hqExpanded
+	}
+	_, err = run("resize-pane", "-t", hq.ID, axis, size)
+	return err
+}

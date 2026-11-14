@@ -536,3 +536,24 @@ func TestAcceptingASuggestionTypesItInOnce(t *testing.T) {
 		t.Fatal("a taken suggestion is done")
 	}
 }
+
+func TestTheDeckkSessionShowsOnHomeOnlyAndGrowsWhileInUse(t *testing.T) {
+	m, host := withDeckk(t)
+	m = load(t, m, host, append(m.sessions, deckkSession()))
+	m, cmd := m.switchViewModel(homeView)
+	run(cmd)
+	m, cmd = m.switchViewModel(sessionsView)
+	run(cmd)
+	m, cmd = press(m, "c")
+	run(cmd)
+	tm, cmd := m.Update(focusCheckMsg{pane: tmux.Pane{ID: "%9", Role: "hq", Active: true}, open: true})
+	run(cmd)
+	m = tm.(Model)
+	want := [][2]bool{{true, false}, {false, false}, {true, true}}
+	if len(host.layouts) < len(want) || !slices.Equal(host.layouts[len(host.layouts)-len(want):], want) {
+		t.Fatalf("layouts %v, want them to end %v", host.layouts, want)
+	}
+	if m.view != homeView {
+		t.Fatal("asking deckk goes to Home, where its session is")
+	}
+}

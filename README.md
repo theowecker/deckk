@@ -128,8 +128,10 @@ just type: keys go to Claude whether or not you've scrolled back.
 Beside the list runs one more Claude, the deckk session. It sees every
 session, what each one just did and a goals file it keeps with you, so you can
 ask it what needs you, where you left off on a project, or what to do next
-across all of them. Click its side or press `c` to talk to it. The side you
-aren't using fades, so it's always clear where your typing goes.
+across all of them. It sits on Home, taking a third of the window until you
+click it or press `c`, when it grows to two thirds; the other views hide it
+and keep it running. The side you aren't using fades, so it's always clear
+where your typing goes.
 
 It also works on its own:
 

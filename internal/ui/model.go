@@ -34,6 +34,7 @@ type Host interface {
 	MoveAfter(windowID, afterID string) error
 	SetTabKeys(preset string) error
 	SetRestore(n int) error
+	LayoutHQ(show, expanded bool) error
 
 	OpenHQ(cfg config.Config, focus bool) error
 	CloseHQ() error
@@ -86,6 +87,7 @@ type Model struct {
 	prSeen       map[string]github.PR
 	leftAt       time.Time
 	restoreShown int
+	layoutShown  hqLayout
 	left         []leftBehind
 	lastSeen     map[string]time.Time
 	deckk        deckkState
@@ -235,7 +237,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			events := append(m.trackEvents(), m.trackPRs()...)
 			m.report(append(events, m.trackCollisions()...))
 			m.rearrange()
-			cmd = tea.Batch(m.syncRestore(), m.syncLabels(), m.nudge(), m.prefill(), m.fillStarted(), m.startDeckk(), m.notify(events), m.autoReview(events), m.findLeftBehind(time.Now()))
+			cmd = tea.Batch(m.syncLayout(), m.syncRestore(), m.syncLabels(), m.nudge(), m.prefill(), m.fillStarted(), m.startDeckk(), m.notify(events), m.autoReview(events), m.findLeftBehind(time.Now()))
 			m.publish()
 		}
 		if msg.scheduled {
@@ -366,11 +368,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case focusCheckMsg:
 		m.deckk.pane, m.deckk.open = msg.pane, msg.open
-		return m, nil
+		return m, m.syncLayout()
 
 	case tea.FocusMsg:
 		m.focused()
-		return m, nil
+		return m, m.syncLayout()
 	}
 	return m, nil
 }

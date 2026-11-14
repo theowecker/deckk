@@ -482,6 +482,11 @@ func (m *Model) openDeckk() tea.Cmd {
 		m.setFlash("The deckk session is off. Turn it on in settings, s", nil)
 		return nil
 	}
+	if m.view != homeView {
+		m.view, m.cursor, m.offset, m.selectedID = homeView, 0, 0, ""
+		m.filter.Blur()
+		m.rearrange()
+	}
 	return m.do(func() error { return m.host.OpenHQ(*m.cfg, true) }, "")
 }
 
@@ -625,4 +630,25 @@ func (m *Model) acceptSuggestion(tty string) tea.Cmd {
 		return m.deliver(d)
 	}
 	return nil
+}
+
+type hqLayout struct{ show, expanded bool }
+
+// syncLayout shows the deckk session on Home only, where it belongs with the
+// glance at everything, and gives it more room while it has the keyboard.
+func (m *Model) syncLayout() tea.Cmd {
+	if !m.deckk.open {
+		return nil
+	}
+	want := hqLayout{show: m.view == homeView, expanded: m.deckk.pane.Active}
+	if want == m.layoutShown {
+		return nil
+	}
+	m.layoutShown = want
+	return func() tea.Msg {
+		if err := m.host.LayoutHQ(want.show, want.expanded); err != nil {
+			return flashMsg{err: err}
+		}
+		return nil
+	}
 }

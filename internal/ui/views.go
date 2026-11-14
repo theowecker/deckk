@@ -46,7 +46,7 @@ func (m Model) switchView(v view) (tea.Model, tea.Cmd) {
 		m.filter.Blur()
 	}
 	m.rearrange()
-	return m, cmd
+	return m, tea.Batch(cmd, m.syncLayout())
 }
 
 type foundMsg []claude.Session
