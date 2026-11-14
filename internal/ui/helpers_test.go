@@ -140,6 +140,8 @@ func newTestModelWith(t *testing.T, prepare func(*store.Store)) (Model, *fakeHos
 	}
 	cfg.Ask = config.Off
 	m := New("", time.Time{}, st, cfg, host)
+	// Most tests are about the full list, so they start on Sessions.
+	m.view = sessionsView
 	// Tests press keys far faster than anyone types.
 	m.typingGap = 0
 	var tm tea.Model = m
@@ -195,4 +197,9 @@ func selectID(m Model, id string) Model {
 type typing struct {
 	target, text, replace string
 	send                  bool
+}
+
+func (m Model) switchViewModel(v view) (Model, tea.Cmd) {
+	tm, cmd := m.switchView(v)
+	return tm.(Model), cmd
 }

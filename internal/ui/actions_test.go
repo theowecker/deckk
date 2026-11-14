@@ -480,31 +480,29 @@ func TestLongListsCollapseUntilAskedOrFiltered(t *testing.T) {
 	}
 }
 
-func TestBackgroundSessionsGetTheirOwnView(t *testing.T) {
+func TestBackgroundRunsSitAtTheBottomOfSessionsAndOffHome(t *testing.T) {
 	m, _ := newTestModel(t)
 	m.sessions = append(m.sessions,
 		claude.Session{ID: "bg1", Title: "Analyze the PR data from stdin", Cwd: "/x", Background: true, UpdatedAt: time.Now()},
 		claude.Session{ID: "bg2", Title: "Summarize the diff", Cwd: "/x", Background: true, UpdatedAt: time.Now(), PID: 9, Status: "busy"},
 	)
 	m.rearrange()
+	last := m.groups[len(m.groups)-1]
+	if last.Section != deck.Background || len(last.Sessions) != 2 {
+		t.Fatalf("background runs belong last in Sessions: %+v", last)
+	}
+
+	m, _ = m.switchViewModel(homeView)
 	for _, s := range m.flat {
 		if s.Background {
-			t.Fatalf("%s should not be on the Sessions view", s.ID)
+			t.Fatalf("%s should not be on Home", s.ID)
 		}
 	}
-
-	m, _ = press(m, "tab")
-	if m.view != boardView {
-		t.Fatalf("tab should reach Board first, got %v", m.view)
-	}
-	m, _ = press(m, "tab")
-	if m.view != backgroundView || len(m.flat) != 2 {
-		t.Fatalf("view %v shows %d", m.view, len(m.flat))
-	}
-
-	m, _ = press(m, "tab")
-	if m.view != findView {
-		t.Fatalf("tab should reach Find, got %v", m.view)
+	for _, want := range []view{sessionsView, boardView, findView} {
+		m, _ = press(m, "tab")
+		if m.view != want {
+			t.Fatalf("tab should reach %v, got %v", want, m.view)
+		}
 	}
 	for _, r := range "pr data" {
 		m, _ = press(m, string(r))
@@ -514,8 +512,8 @@ func TestBackgroundSessionsGetTheirOwnView(t *testing.T) {
 	}
 	m, _ = press(m, "esc")
 	m, _ = press(m, "esc")
-	if m.view != sessionsView {
-		t.Fatalf("esc twice should clear then leave Find, got %v", m.view)
+	if m.view != homeView {
+		t.Fatalf("esc twice should clear then go back Home, got %v", m.view)
 	}
 }
 

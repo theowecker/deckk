@@ -529,12 +529,16 @@ func (m *Model) rearrange() {
 		if m.byProject {
 			arrange = deck.ArrangeByProject
 		}
-		m.groups = arrange(m.inView(m.sessions), m.marks(), "", false)
-		if m.view == boardView {
+		switch m.view {
+		case homeView:
+			m.groups = m.homeGroups()
+		case boardView:
 			m.groups = m.board()
-		}
-		if next, ok := m.nextUp(); ok {
-			m.groups = append([]deck.Group{next}, m.groups...)
+		default:
+			m.groups = arrange(yours(m.sessions), m.marks(), "", false)
+			if bg := m.background(); len(bg.Sessions) > 0 {
+				m.groups = append(m.groups, bg)
+			}
 		}
 	}
 	if !m.showAll && m.view != findView {
@@ -563,6 +567,10 @@ func (m Model) collapseLimit(g deck.Group) (int, bool) {
 		return 3, true
 	case m.byProject:
 		return 5, true
+	case g.Section == deck.Background:
+		return backgroundShown, true
+	case m.view == homeView:
+		return 0, false
 	case g.Section == deck.Recent || g.Section == deck.Closed || g.Section == deck.Archived:
 		return 10, true
 	}

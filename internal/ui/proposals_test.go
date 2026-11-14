@@ -18,6 +18,7 @@ import (
 
 func TestAProposedSessionStartsWithItsPromptTypedIn(t *testing.T) {
 	m, host := newTestModel(t)
+	m.view = homeView
 	folder := t.TempDir()
 	if err := hq.Propose(hq.Proposal{ID: "p1", Folder: folder, Prompt: "fix the upload crash", Why: "it blocks the release", At: time.Now()}); err != nil {
 		t.Fatal(err)
@@ -59,6 +60,7 @@ func TestAProposedSessionStartsWithItsPromptTypedIn(t *testing.T) {
 
 func TestAStoppedSessionCanBeOfferedForResuming(t *testing.T) {
 	m, host := newTestModel(t)
+	m.view = homeView
 	suggestFor(t, "aaaaaaaa", hq.Suggestion{Prompt: "finish the migration", At: time.Now().Add(time.Second)})
 	m = refresh(t, m, host, nil)
 	if m.groups[0].Section != deck.NextUp || m.groups[0].Sessions[0].ID != "aaaaaaaa" {

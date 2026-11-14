@@ -42,12 +42,15 @@ const (
 	Pinned
 	Recent
 	Archived
-	// The dashboard builds NextUp, so Arrange never fills it.
+	// The dashboard builds the rest, so Arrange never fills them.
 	NextUp
+	NeedsYou
+	Busy
+	Background
 )
 
 func (s Section) String() string {
-	return [...]string{"RUNNING", "IN OTHER TABS", "RECENTLY CLOSED", "PINNED", "RECENT", "ARCHIVED", "NEXT UP"}[s]
+	return [...]string{"RUNNING", "IN OTHER TABS", "RECENTLY CLOSED", "PINNED", "RECENT", "ARCHIVED", "NEXT UP", "NEEDS YOU", "WORKING", "BACKGROUND"}[s]
 }
 
 const ClosedFor = 24 * time.Hour

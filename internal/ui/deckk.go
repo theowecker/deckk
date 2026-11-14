@@ -448,7 +448,7 @@ func (m *Model) dismiss(s claude.Session) tea.Cmd {
 
 func (m Model) nextUp() (deck.Group, bool) {
 	list := m.nextUpSessions()
-	if m.view != sessionsView || m.byProject || len(list) == 0 {
+	if m.view != homeView || len(list) == 0 {
 		return deck.Group{}, false
 	}
 	return deck.Group{Section: deck.NextUp, Title: deck.NextUp.String(), Sessions: list}, true

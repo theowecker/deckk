@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"fmt"
 	"slices"
 	"strings"
 	"time"
@@ -17,9 +16,9 @@ import (
 type view int
 
 const (
-	sessionsView view = iota
+	homeView view = iota
+	sessionsView
 	boardView
-	backgroundView
 	findView
 	viewCount
 )
@@ -31,9 +30,8 @@ const backgroundShown = 5
 func (v view) next() view { return (v + 1) % viewCount }
 func (v view) prev() view { return (v + viewCount - 1) % viewCount }
 
-func (m Model) inView(sessions []claude.Session) []claude.Session {
-	background := m.view == backgroundView
-	return slices.DeleteFunc(slices.Clone(sessions), func(s claude.Session) bool { return s.Background != background })
+func yours(sessions []claude.Session) []claude.Session {
+	return slices.DeleteFunc(slices.Clone(sessions), func(s claude.Session) bool { return s.Background })
 }
 
 func (m Model) switchView(v view) (tea.Model, tea.Cmd) {
@@ -136,7 +134,7 @@ func (m Model) updateFind(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.rearrange()
 			return m, nil
 		}
-		return m.switchView(sessionsView)
+		return m.switchView(homeView)
 	case "tab":
 		return m.switchView(m.view.next())
 	case "shift+tab":
@@ -215,17 +213,7 @@ type viewTab struct {
 }
 
 func (m Model) viewTabs() []viewTab {
-	background := 0
-	for _, s := range m.sessions {
-		if s.Background {
-			background++
-		}
-	}
-	label := "Background"
-	if background > 0 {
-		label = fmt.Sprintf("Background %d", background)
-	}
-	return []viewTab{{sessionsView, "Sessions"}, {boardView, "Board"}, {backgroundView, label}, {findView, "Find"}}
+	return []viewTab{{homeView, "Home"}, {sessionsView, "Sessions"}, {boardView, "Board"}, {findView, "Find"}}
 }
 
 const viewTabGap = "    "

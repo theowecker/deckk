@@ -173,7 +173,7 @@ func (m Model) hints() []hint {
 	if m.byProject {
 		view = "by status"
 	}
-	if n := len(deck.ToRestore(m.sessions, m.marks())); n > 0 && m.view == sessionsView {
+	if n := len(deck.ToRestore(m.sessions, m.marks())); n > 0 && (m.view == homeView || m.view == sessionsView) {
 		hints = append([]hint{{"R", "reopen " + strconv.Itoa(n)}}, hints...)
 	}
 	// Least important last, since a narrow window cuts the end off.
@@ -276,11 +276,12 @@ func (m Model) body() ([]string, []int) {
 	if !m.loaded {
 		return []string{pad() + dim.Render("Reading sessions…")}, []int{-1}
 	}
-	if len(m.flat) == 0 {
+	restore := len(deck.ToRestore(m.sessions, m.marks()))
+	if len(m.flat) == 0 && restore == 0 {
 		msg := "No Claude sessions yet. Press n to start one in a folder."
 		switch m.view {
-		case backgroundView:
-			msg = "No background sessions. Headless runs from claude -p, plugins and scripts show up here."
+		case homeView:
+			msg = "Nothing needs you right now. Sessions lists everything, and n starts a new one."
 		case findView:
 			msg = "No session matches that."
 		}
@@ -293,8 +294,7 @@ func (m Model) body() ([]string, []int) {
 		lines = append(lines, line)
 		owners = append(owners, owner)
 	}
-	restore := len(deck.ToRestore(m.sessions, m.marks()))
-	if m.view == sessionsView {
+	if m.view == homeView || m.view == sessionsView {
 		if restore > 0 {
 			add(pad()+brand.Render("↻ Reopen "+sessions(restore))+dim.Render(" that were open in deckk before it stopped")+
 				"   "+text.Render("R")+" "+ghost.Render("or click"), restoreOwner)
@@ -309,7 +309,7 @@ func (m Model) body() ([]string, []int) {
 			}
 			add("", noOwner)
 		}
-		running := slices.ContainsFunc(m.groups, func(g deck.Group) bool { return g.Section == deck.Running })
+		running := slices.ContainsFunc(m.sessions, m.inDeckk)
 		if !m.byProject && !running && restore == 0 {
 			add(pad()+dim.Render("Nothing is open in deckk yet. Press n to start Claude in a folder, or ↵ on any session below to bring it here."), noOwner)
 			add("", noOwner)
@@ -371,8 +371,15 @@ func (m Model) body() ([]string, []int) {
 			}
 			index++
 		}
-		if g.Hidden > 0 {
+		if g.Hidden > 0 && m.view == homeView {
+			add(pad()+"  "+ghost.Render(fmt.Sprintf("%d more in Sessions", g.Hidden)), noOwner)
+		} else if g.Hidden > 0 {
 			add(pad()+"  "+dim.Render(fmt.Sprintf("+ %d more", g.Hidden))+"   "+text.Render("+")+" "+ghost.Render("show all"), moreOwner)
+		}
+	}
+	if m.view == homeView {
+		for _, line := range m.homeGoals() {
+			add(line, noOwner)
 		}
 	}
 	if m.showAll && m.view != findView {

@@ -119,6 +119,7 @@ func waiting(s []claude.Session) {
 
 func TestASuggestionIsTypedIntoAWaitingSessionOnce(t *testing.T) {
 	m, host := newTestModel(t)
+	m.view = homeView
 	m = refresh(t, m, host, waiting)
 	suggestInside(t, hq.Suggestion{Prompt: "run the tests again", Why: "the API merged", At: time.Now(), Safe: true})
 	m = refresh(t, m, host, waiting)
@@ -186,6 +187,7 @@ func TestSuggestionsAreSentOnlyWhenAllowedAndSafe(t *testing.T) {
 
 func TestListOnlyKeepsSuggestionsOutOfPrompts(t *testing.T) {
 	m, host := newTestModel(t)
+	m.view = homeView
 	m.cfg.Suggest = config.SuggestList
 	suggestInside(t, hq.Suggestion{Prompt: "commit it", At: time.Now()})
 	m = refresh(t, m, host, waiting)

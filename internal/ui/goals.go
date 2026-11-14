@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
+
 	"github.com/theowecker/deckk/internal/claude"
 	"github.com/theowecker/deckk/internal/deck"
 	"github.com/theowecker/deckk/internal/hq"
@@ -93,4 +96,29 @@ func pick(n int, one, many string) string {
 		return one
 	}
 	return many
+}
+
+// homeGoals are the goals with sessions behind them, a line each, for Home.
+// The Board has every goal.
+func (m Model) homeGoals() []string {
+	const shown = 3
+	var lines []string
+	width := 0
+	var goals []goalProgress
+	for _, g := range m.goals() {
+		if len(g.sessions) > 0 {
+			goals = append(goals, g)
+			width = max(width, min(lipgloss.Width(g.title), (m.width-gutter*2)/2))
+		}
+	}
+	if len(goals) == 0 || !m.cfg.HQOn() {
+		return nil
+	}
+	lines = append(lines, "", pad()+heading.Render("GOALS")+" "+rule.Render(strings.Repeat("─", max(m.width-gutter*2-7, 2))))
+	for _, g := range goals[:min(len(goals), shown)] {
+		title := ansi.Truncate(g.title, width, "…")
+		line := "  " + text.Render(title) + strings.Repeat(" ", width-lipgloss.Width(title)) + "   " + dim.Render(m.summary(g))
+		lines = append(lines, pad()+ansi.Truncate(line, m.width-gutter*2, "…"))
+	}
+	return lines
 }

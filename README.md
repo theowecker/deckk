@@ -56,7 +56,7 @@ place.
 | `e` | review a session's changes against what it says it did |
 | `w` | open deckk in your browser |
 | `/` | find any session, ever: titles first, then folders and branches, then what was said, then anything in the whole conversation |
-| `tab` | switch between Sessions, Board, Background and Find |
+| `tab` | switch between Home, Sessions, Board and Find |
 | `v` | group by status or by project |
 | `s` | settings |
 | `?` | all keys |
@@ -112,9 +112,11 @@ just type: keys go to Claude whether or not you've scrolled back.
   shrinks to its first word and moves up next to the deckk tab.
 - **Sessions in other tabs.** Claude sessions started outside deckk show up
   too, and `m` moves them in.
-- **Background runs.** Sessions nobody is typing into, such as `claude -p`
-  runs, SDK runs, plugins and scripts, get their own Background view so they
-  don't crowd your own. Find still searches everything.
+- **Home and Sessions.** Home is the glance: what deckk suggests, what needs
+  you, what's working, the last few sessions and your goals. Sessions lists
+  everything, with reopening, pins and grouping by project, and background
+  runs nobody types into, such as `claude -p` and SDK runs, at the bottom so
+  they don't crowd your own. Find searches everything.
 - **Restarts.** Sessions in deckk keep running if you quit your terminal.
   After a reboot, or when tmux itself restarts, the dashboard lists what was
   open and `R` reopens exactly that, each session once. Sessions you closed
