@@ -12,6 +12,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/theowecker/deckk/internal/claude"
 	"github.com/theowecker/deckk/internal/deck"
@@ -276,13 +277,13 @@ func (m Model) syncLabels() tea.Cmd {
 			byTTY[s.TTY] = s
 		}
 	}
-	strip, room := 0, m.stripWidth()
+	strip, room := 0, m.stripWidth()-tmux.RestoreWidth(max(m.restoreShown, 0))
 	for _, w := range windows {
 		if w.Dashboard || w.PoppedOut() {
 			continue
 		}
 		if s, ok := byTTY[w.TTY]; ok && m.store.Pinned[s.ID] {
-			room -= len([]rune(pinnedName(s))) + 8
+			room -= nameWidth(pinnedName(s)) + 8
 		} else {
 			strip++
 		}
@@ -378,17 +379,17 @@ const maxTabName = 24
 
 func tabName(title string) string { return fitName(title, maxTabName) }
 
+// Cut by cells: once the strip overflows, tmux sends clicks to the wrong tab.
 // tmux reads # as a format or style, and a trailing ; ends a command.
 func fitName(title string, max int) string {
-	r := []rune(strings.TrimRight(title, "; "))
-	if len(r) > max {
-		r = append(r[:max-1], '…')
-	}
-	return strings.ReplaceAll(string(r), "#", "##")
+	return strings.ReplaceAll(ansi.Truncate(strings.TrimRight(title, "; "), max, "…"), "#", "##")
 }
 
+func nameWidth(name string) int { return ansi.StringWidth(strings.ReplaceAll(name, "##", "#")) }
+
 // The numbers mirror the tab formats in tmux/config.go: each tab costs its name
-// plus 7 cells, the dashboard tab 12, and the buttons on the right 16.
+// plus 7 cells, the dashboard tab 12, and the buttons on the right 16, plus the
+// reopen button when it shows.
 func tabFit(width, tabs int) (int, bool) {
 	if tabs == 0 {
 		return maxTabName, false

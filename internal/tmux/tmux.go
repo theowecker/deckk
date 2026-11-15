@@ -379,9 +379,16 @@ func SetRestore(n int) error {
 		_, err := run("set-option", "-gu", "@deckk_restore", ";", "set-option", "-gu", "@deckk_restore_cap")
 		return err
 	}
-	label := "  ↻ reopen " + strconv.Itoa(n) + "  "
-	_, err := run("set-option", "-g", "@deckk_restore", strconv.Itoa(n), ";", "set-option", "-g", "@deckk_restore_cap", strings.Repeat("▄", ansi.StringWidth(label)))
+	_, err := run("set-option", "-g", "@deckk_restore", strconv.Itoa(n), ";", "set-option", "-g", "@deckk_restore_cap", strings.Repeat("▄", RestoreWidth(n)-1))
 	return err
+}
+
+// RestoreWidth is how much of the strip the reopen button takes, gap included.
+func RestoreWidth(n int) int {
+	if n == 0 {
+		return 0
+	}
+	return ansi.StringWidth("  ↻ reopen "+strconv.Itoa(n)+"  ") + 1
 }
 
 // MarkDashboard records the dashboard's pane, so keys meant for it find it.

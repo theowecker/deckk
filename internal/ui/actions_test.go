@@ -733,3 +733,24 @@ func TestResumingTwiceInARowStartsOneCopy(t *testing.T) {
 		t.Fatalf("pressing R twice opened %d sessions, want %d: %v", len(host.opened), want, host.opened)
 	}
 }
+
+func TestTabsFitBesideTheReopenButtonEvenWithWideTitles(t *testing.T) {
+	m, host := newTestModel(t)
+	const width = 100
+	m.tabs = []tmux.Window{{ID: "@0", Dashboard: true, Session: tmux.Session, Width: width}}
+	m.sessions = nil
+	for i, title := range []string{"修正するログイン画面のバグ", "🚀 ship the release notes", "fix the flaky checkout test", "東京オフィスの設定を移す"} {
+		tty := fmt.Sprintf("/dev/ttys%d", 400+i)
+		m.tabs = append(m.tabs, tmux.Window{ID: fmt.Sprintf("@%d", i+1), TTY: tty, Session: tmux.Session})
+		m.sessions = append(m.sessions, claude.Session{ID: fmt.Sprintf("s%d", i), Title: title, PID: 100 + i, TTY: tty, Status: "idle"})
+	}
+	m.restoreShown = 3
+	run(m.syncLabels())
+	used := 1 + 16 + tmux.RestoreWidth(3)
+	for _, w := range m.tabs {
+		used += nameWidth(host.labels[w.ID].Name) + 7
+	}
+	if used > width {
+		t.Fatalf("the strip needs %d cells of %d, so tmux would trim it and misroute clicks: %v", used, width, host.labels)
+	}
+}
